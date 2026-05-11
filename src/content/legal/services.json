@@ -1,0 +1,6 @@
+[
+  {"slug": "software-applications", "name": "Software & Applications", "description": "Product teams plan, build, and maintain custom software from discovery to live support."},
+  {"slug": "website-design-development", "name": "Website Design & Development", "description": "Design-first web partners launch fast, accessible sites with clean code and ongoing care."},
+  {"slug": "seo-sao", "name": "SEO & SAO", "description": "Search and answer optimization keeps content, structure, and signals ready for discovery."},
+  {"slug": "advertising", "name": "Advertising", "description": "Paid media crews run Google, Meta, and TikTok programs that drive measured conversions."}
+]

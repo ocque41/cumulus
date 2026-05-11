@@ -1,0 +1,10 @@
+Cumulus
+Copyright 2026 Cumulus.
+
+This product includes software developed by Cumulus and third-party open-source projects listed in package lock files and dependency manifests.
+
+Apache-2.0 covers the source code in this repository except for the Cumulus Database provider in apps/cumulus-db.
+
+apps/cumulus-db is licensed under AGPL-3.0-only. See apps/cumulus-db/LICENSE and apps/cumulus-db/NOTICE.
+
+The licenses do not grant rights to use Cumulus trademarks except as described in TRADEMARKS.md.

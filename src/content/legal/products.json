@@ -1,0 +1,7 @@
+[
+  {"slug": "blocks", "name": "Blocks", "description": "Visual project terminal that keeps field teams, analytics, and security steps aligned."},
+  {"slug": "dquote", "name": "DQuote", "description": "Interactive quotation builder that helps revenue teams send, track, and update offers."},
+  {"slug": "microagents", "name": "Microagents", "description": "AI agent builder that automates small workflows with safe guardrails."},
+  {"slug": "resuming", "name": "Resuming", "description": "AI CV optimizer that edits, formats, and personalizes documents instantly."},
+  {"slug": "agentops", "name": "AgentOps", "description": "AI agents for operations and pipelines that watch tasks and report progress."}
+]

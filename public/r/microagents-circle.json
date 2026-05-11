@@ -1,0 +1,15 @@
+{
+  "name": "microagents-circle",
+  "title": "Microagents Circle",
+  "description": "Status badge for agent availability.",
+  "type": "registry:ui",
+  "registryDependencies": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "registry/new-york/microagents-circle/microagents-circle.tsx",
+      "type": "registry:ui",
+      "content": "\"use client\";\n\nimport { cn } from \"@/lib/utils\";\n\ntype MicroagentsCircleProps = {\n  label?: string;\n  status?: \"active\" | \"idle\" | \"error\";\n  helperText?: string;\n  className?: string;\n};\n\nconst circlePalette: Record<NonNullable<MicroagentsCircleProps[\"status\"]>, string> = {\n  active: \"from-[#71f5d5] via-[#7c8bfd] to-[#1f1f2a]\",\n  idle: \"from-[#2a2a2f] via-[#1b1b1f] to-[#0d0d12]\",\n  error: \"from-[#f97316] via-[#f472b6] to-[#1b0f1c]\",\n};\n\nexport function MicroagentsCircle({\n  label = \"Microagent\",\n  status = \"active\",\n  helperText = \"Online and accepting prompts\",\n  className,\n}: MicroagentsCircleProps) {\n  const gradient = circlePalette[status];\n\n  return (\n    <div\n      className={cn(\n        \"flex items-center gap-4 rounded-[5.5px] border border-[color:var(--muted)]/30 bg-[rgba(255,255,255,0.02)] px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.25)]\",\n        className\n      )}\n    >\n      <div\n        className={cn(\n          \"flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br\",\n          gradient,\n          status === \"active\" && \"shadow-[0_0_0_6px_rgba(113,245,213,0.08)]\"\n        )}\n        aria-hidden\n      >\n        <span className=\"h-[10px] w-[10px] rounded-full bg-black/70 shadow-[0_0_0_6px_rgba(0,0,0,0.45)]\" />\n      </div>\n      <div className=\"space-y-1\">\n        <p className=\"text-sm font-semibold text-[color:var(--fg)]\">{label}</p>\n        <p className=\"text-xs text-[color:var(--muted)]\">{helperText}</p>\n      </div>\n    </div>\n  );\n}\n"
+    }
+  ]
+}

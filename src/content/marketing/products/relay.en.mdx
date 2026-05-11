@@ -1,0 +1,133 @@
+---
+title: Relay
+description: Agent-safe onboarding for SaaS products. One signed webhook, scoped connection handles, verification inbox, audit logs, and revocation — without replacing your existing auth.
+surfacesEyebrow: Cumulus Relay — Trust-first onboarding
+surfacesTitle: Agent-safe signup for SaaS products.
+surfacesIntro: Relay is the agent onboarding layer that sits alongside Clerk, Auth0, Supabase, or your own stack. Providers add one signed webhook. Agents receive scoped, revocable connection handles — not raw API keys in a chat window.
+surfaceTabs:
+  - id: webhooks
+    label: Webhooks
+    eyebrow: Signed HTTPS onboarding
+    status: One webhook, full control
+    matrixPreset: signal
+  - id: inbox
+    label: Verification inbox
+    eyebrow: Auditable, user-owned alias
+    status: Retention + revocation built in
+    matrixPreset: radar
+  - id: mcp
+    label: MCP tools
+    eyebrow: Agent-native, scoped
+    status: Connection handles, not keys
+    matrixPreset: forcefield
+  - id: dashboards
+    label: Dashboards
+    eyebrow: End-user + integrator
+    status: Audit, revoke, meter
+    matrixPreset: dna
+sections:
+  - id: flow
+    label: End-to-end onboarding flow
+  - id: trust
+    label: Trust model
+  - id: sdk
+    label: 20-line SDK snippet
+---
+
+<!-- content:webhooks -->
+### One signed webhook. Keep your auth.
+
+- Register a webhook URL and a shared secret. Relay does not replace Clerk, Auth0, Supabase, or your own auth.
+- Every event is HMAC-signed so your server decides to approve, reject, or defer each agent-driven signup.
+- Durable workflows handle retries, email verification, and 2FA — no queue plumbing on your side.
+
+The integration is three fields in a dashboard: product name, webhook URL, shared secret. You stay the source of truth for user identity.
+
+<!-- content:inbox -->
+### A verification inbox the user actually owns.
+
+- Relay provisions `<alias>@inbox.cumulush.com` per user — revocable anytime, with a visible audit log.
+- Agents read confirmation codes and magic links through scoped MCP tools, not by reading raw mailboxes.
+- Inbound mail is retained 90 days with redacted logs. Users and providers can revoke alias access in one click.
+
+That is the difference between "paste this code" and "your agent finished onboarding" — without giving the agent a blank check on the mailbox.
+
+<!-- content:mcp -->
+### Connection handles, not raw API keys.
+
+- Providers return credentials to Relay. Relay exchanges them for a scoped `connection_id` that the agent actually holds.
+- Agents call provider tools through Relay — keys are never echoed into chat, logs, or model context.
+- OAuth, API keys, service accounts, and magic links are all first-class. Agents never see the raw credential.
+
+The agent gets the capability. The user and provider keep the key. Revoke an agent without rotating production secrets.
+
+<!-- content:dashboards -->
+### Audit, revoke, and meter every agent.
+
+- `/me` — end-user view: connected agents, active aliases, scopes, one-click revoke.
+- `/dev` — integrator view: products, signup funnel, per-agent rate limits, audit log, billing.
+- Every signup, read, and revoke is logged; exports are available for compliance and incident review.
+
+One codebase, two personas, one audit trail. Providers see what their agents are doing. Users see exactly what their agents can touch.
+
+<!-- content:flow -->
+## End-to-end onboarding flow
+
+Relay runs the full cycle on Vercel Workflow DevKit — crash-safe, resumable, and idempotent.
+
+1. Agent calls `POST /v1/signup` with the user alias and product ID.
+2. Relay sends an HMAC-signed webhook to the provider. The provider approves, rejects, or asks for more.
+3. Verification lands in the user's agent alias inbox (`<alias>@inbox.cumulush.com`).
+4. The agent completes verification through a scoped MCP tool. It never reads the raw mailbox.
+5. Provider returns credentials to Relay. Relay exchanges them for a `connection_id` and emits `signup.completed`.
+6. Agent uses the `connection_id` to call tools. User or provider can revoke anytime.
+
+```text
+agent -> relay -> provider webhook (HMAC-signed)
+               \-> scoped alias inbox
+               \-> verification loop (no raw mail access)
+               -> provider returns credential
+               -> relay vaults / exchanges -> connection_id
+               -> signup.completed
+```
+
+Retries, cancellations, and resumable steps are handled by Workflow DevKit — no bespoke queue plumbing on either side.
+
+<!-- content:trust -->
+## Trust model, in plain terms
+
+Security is the product. Here is exactly what each party sees.
+
+- **Agent sees:** a scoped `connection_id`, the tool surface the provider exposes, and its own audit log. Never the raw API key, OAuth refresh token, or inbox contents.
+- **Relay stores:** encrypted credentials (AES-256-GCM, app-layer) only when the provider opts into the vault. Otherwise credentials pass through once and are not persisted.
+- **Provider controls:** approval on every signup, per-agent rate limits, revocation, and the credential type (OAuth, API key, service account, magic link).
+- **User controls:** alias lifecycle, which agents hold a connection, and one-click revocation across every product.
+- **Abuse protection:** signed webhooks, per-agent fraud scoring, CAPTCHA-on-risk, failed-signup refunds, and tenant-isolated storage with RLS plus server-side tenant validation.
+
+If an agent is compromised, the blast radius is the `connection_id` — not your production keys.
+
+<!-- content:sdk -->
+## 20-line SDK snippet
+
+Drop the server SDK in. Relay handles signatures, retries, and the workflow state machine.
+
+- `@relay-cumulush/server-sdk` — MIT, minimal surface.
+- Verify HMAC webhook signatures, emit decisions, return the credential type you want Relay to vault or pass through.
+- Compatible with any Node.js framework: Express, Fastify, Hono, Next.js route handlers.
+
+```ts
+import { relay } from '@relay-cumulush/server-sdk';
+
+export const POST = relay.webhook({
+  secret: process.env.RELAY_SECRET,
+  onSignupRequested: async ({ alias, product, agent }) => {
+    const user = await db.users.create({ alias, product });
+    return {
+      decision: 'approve',
+      credential: { kind: 'api_key', value: await issueScopedKey(user.id) },
+    };
+  },
+});
+```
+
+Relay exchanges that key for a `connection_id` and hands it to the agent. You keep the key.

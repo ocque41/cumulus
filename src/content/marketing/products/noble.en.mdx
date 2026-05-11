@@ -1,0 +1,81 @@
+---
+title: Noble
+description: A low-poly 3D open-world exploration game built in Godot 4.4. Authored through autonomous AI-driven sprints.
+surfacesEyebrow: Noble — Early surfaces
+surfacesTitle: Three things we're building first.
+surfacesIntro: Noble is in active development — M4 of seven milestones. Here's what the world looks like so far, and where the next sprints are aimed.
+surfaceTabs:
+  - id: world
+    label: World
+    eyebrow: Low-poly exploration
+    status: Procedural terrain
+    matrixPreset: forcefield
+  - id: quests
+    label: Quests
+    eyebrow: Interaction and dialogue
+    status: Talk / collect / travel
+    matrixPreset: radar
+  - id: sprints
+    label: Sprints
+    eyebrow: AI-authored development
+    status: Tado Eternal
+    matrixPreset: dna
+sections:
+  - id: roadmap
+    label: Seven-milestone roadmap
+  - id: assets
+    label: Assets and credits
+---
+
+<!-- content:world -->
+### Procedural, low-poly, open.
+
+- Terrain generated with FastNoiseLite; Y-snapping keeps NPCs and props planted on the ground.
+- Dynamic day-night cycle on a 180-second loop; sun, shadows, and ambient light all shift.
+- Springarm camera, 3D navigation, forward-plus renderer — all stock Godot 4.4.
+
+The vibe is Kenney and Quaternius low-poly, not photoreal. Small polycounts, strong silhouettes, readable at a glance.
+
+<!-- content:quests -->
+### Interact, talk, advance.
+
+- Hover a prop → press E → dialogue tree opens.
+- Three objective kinds: `TALK_TO_NPC`, `COLLECT`, `GO_TO_LOCATION`.
+- Quest states flow INACTIVE → ACTIVE → COMPLETED → TURNED_IN; dialogue reacts to state.
+
+Classic RPG loop, minimalist UI. No quest markers on a mini-map — you read NPC dialogue and pay attention.
+
+<!-- content:sprints -->
+### AI sprints ship the game.
+
+- The Tado Eternal loop spawns sprints; each sprint parses headlessly, boots the scene, self-scores.
+- Every merged commit is gated on a `godot --headless --quit-after 3` build.
+- Metrics live in `.tado/eternal/metrics.jsonl` — build_clean + scene_boots + milestone_progress + polish_delta.
+
+Noble is the experiment: can an AI agent author and ship a real 3D game? So far: slowly, yes.
+
+<!-- content:roadmap -->
+## Seven-milestone roadmap
+
+Noble currently sits at **M4 (quest system)** of seven milestones. The plan:
+
+1. **M1 — Foundation.** Scene, player controller, terrain, camera. Done.
+2. **M2 — Interactable world.** NPCs, landmarks, hover-prompt system. Done.
+3. **M3 — Dialogue.** Dialogue tree UI, state machine, NPC lines keyed to quest state. Done.
+4. **M4 — Quests.** Objective kinds, quest log, quest bootstrap. In progress.
+5. **M5 — Inventory + collection.** Pickupable items, inventory UI, gear slots.
+6. **M6 — Day-night systems.** Sleep, world events, time-gated quests.
+7. **M7 — Polish + ship.** Audio, tuning, packaging, itch.io release.
+
+The roadmap is in `CLAUDE.md` and drives every sprint's brief.
+
+<!-- content:assets -->
+## Assets and credits
+
+Noble uses CC0-only assets — nothing that restricts redistribution.
+
+- Kenney low-poly packs (nature, village, characters).
+- Quaternius stylized props and creatures.
+- Custom shaders and scripts authored inside the sprint loop.
+
+Attribution lives in [`SOURCES.md`](https://github.com/cumulus/noble/blob/main/SOURCES.md). When Noble ships, the full game is downloadable with every asset's license intact.

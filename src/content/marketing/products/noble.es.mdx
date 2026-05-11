@@ -1,0 +1,81 @@
+---
+title: Noble
+description: Un juego de exploracion 3D low-poly construido en Godot 4.4, desarrollado por sprints autonomos de IA.
+surfacesEyebrow: Noble — Primeras superficies
+surfacesTitle: Tres cosas que estamos construyendo primero.
+surfacesIntro: Noble esta en desarrollo activo — M4 de siete hitos. Aqui esta el mundo hasta ahora y hacia donde apuntan los siguientes sprints.
+surfaceTabs:
+  - id: world
+    label: Mundo
+    eyebrow: Exploracion low-poly
+    status: Terreno procedural
+    matrixPreset: forcefield
+  - id: quests
+    label: Misiones
+    eyebrow: Interaccion y dialogo
+    status: Hablar / recoger / viajar
+    matrixPreset: radar
+  - id: sprints
+    label: Sprints
+    eyebrow: Desarrollo con IA
+    status: Tado Eternal
+    matrixPreset: dna
+sections:
+  - id: roadmap
+    label: Hoja de ruta de siete hitos
+  - id: assets
+    label: Assets y creditos
+---
+
+<!-- content:world -->
+### Procedural, low-poly, abierto.
+
+- Terreno generado con FastNoiseLite; el Y-snapping mantiene NPCs y props pegados al suelo.
+- Ciclo dia-noche dinamico en bucles de 180 segundos; el sol, las sombras y la luz ambiente cambian.
+- Camara con springarm, navegacion 3D, renderizador forward-plus — todo stock de Godot 4.4.
+
+El aire es low-poly al estilo Kenney y Quaternius, no fotorrealista. Poligonos bajos, siluetas fuertes, lectura clara.
+
+<!-- content:quests -->
+### Interactua, habla, avanza.
+
+- Pasa sobre un prop → presiona E → se abre el arbol de dialogo.
+- Tres tipos de objetivo: `TALK_TO_NPC`, `COLLECT`, `GO_TO_LOCATION`.
+- Estados de mision INACTIVE → ACTIVE → COMPLETED → TURNED_IN; el dialogo reacciona al estado.
+
+Bucle RPG clasico con UI minimalista. Sin marcadores en el mini-mapa — lees el dialogo de los NPCs y prestas atencion.
+
+<!-- content:sprints -->
+### Los sprints de IA envian el juego.
+
+- El bucle Tado Eternal crea sprints; cada uno parsea sin GUI, arranca la escena y se auto-evalua.
+- Cada commit mergeado pasa por un build `godot --headless --quit-after 3`.
+- Las metricas viven en `.tado/eternal/metrics.jsonl` — build_clean + scene_boots + milestone_progress + polish_delta.
+
+Noble es el experimento: puede un agente IA escribir y enviar un juego 3D real? Hasta ahora: lentamente, si.
+
+<!-- content:roadmap -->
+## Hoja de ruta de siete hitos
+
+Noble esta en **M4 (sistema de misiones)** de siete hitos. El plan:
+
+1. **M1 — Fundacion.** Escena, controlador del jugador, terreno, camara. Hecho.
+2. **M2 — Mundo interactivo.** NPCs, puntos de interes, sistema de prompts. Hecho.
+3. **M3 — Dialogo.** UI del arbol de dialogo, maquina de estados, lineas ligadas a estado de mision. Hecho.
+4. **M4 — Misiones.** Tipos de objetivo, registro de misiones, bootstrap. En progreso.
+5. **M5 — Inventario y recoleccion.** Objetos recogibles, UI de inventario, slots de equipo.
+6. **M6 — Sistemas dia-noche.** Dormir, eventos de mundo, misiones limitadas por hora.
+7. **M7 — Pulido y lanzamiento.** Audio, ajuste, empaquetado, release en itch.io.
+
+La hoja de ruta vive en `CLAUDE.md` y guia el brief de cada sprint.
+
+<!-- content:assets -->
+## Assets y creditos
+
+Noble usa solo assets CC0 — nada que restrinja la redistribucion.
+
+- Packs low-poly de Kenney (naturaleza, pueblo, personajes).
+- Props y criaturas estilizadas de Quaternius.
+- Shaders y scripts propios escritos dentro del bucle de sprints.
+
+La atribucion vive en [`SOURCES.md`](https://github.com/cumulus/noble/blob/main/SOURCES.md). Cuando Noble se lance, el juego completo se descargara con cada licencia de asset intacta.

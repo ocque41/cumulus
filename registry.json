@@ -1,0 +1,113 @@
+{
+  "style": "new-york",
+  "components": [
+    {
+      "name": "microagents-arrow",
+      "title": "Microagents Arrow",
+      "description": "Directional affordance for hopping between microagents.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-arrow/microagents-arrow.tsx",
+      "destination": "registry/new-york/microagents-arrow/microagents-arrow.tsx",
+      "dependencies": ["lucide-react"]
+    },
+    {
+      "name": "microagents-circle",
+      "title": "Microagents Circle",
+      "description": "Status badge for agent availability.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-circle/microagents-circle.tsx",
+      "destination": "registry/new-york/microagents-circle/microagents-circle.tsx"
+    },
+    {
+      "name": "microagents-link",
+      "title": "Microagents Link",
+      "description": "Action link for routing to a linked microagent.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-link/microagents-link.tsx",
+      "destination": "registry/new-york/microagents-link/microagents-link.tsx",
+      "dependencies": ["lucide-react"],
+      "registryDependencies": ["button"]
+    },
+    {
+      "name": "microagents-send",
+      "title": "Microagents Send",
+      "description": "Prompt input for dispatching work to agents.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-send/microagents-send.tsx",
+      "destination": "registry/new-york/microagents-send/microagents-send.tsx",
+      "dependencies": ["lucide-react"],
+      "registryDependencies": ["button", "input"]
+    },
+    {
+      "name": "microagents-orchestration-left",
+      "title": "Microagents Orchestration Left",
+      "description": "Chevron control for stepping back in orchestration flows.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-orchestration-left/microagents-orchestration-left.tsx",
+      "destination": "registry/new-york/microagents-orchestration-left/microagents-orchestration-left.tsx",
+      "dependencies": ["lucide-react"],
+      "registryDependencies": ["button"]
+    },
+    {
+      "name": "microagents-orchestration-right",
+      "title": "Microagents Orchestration Right",
+      "description": "Chevron control for stepping forward in orchestration flows.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-orchestration-right/microagents-orchestration-right.tsx",
+      "destination": "registry/new-york/microagents-orchestration-right/microagents-orchestration-right.tsx",
+      "dependencies": ["lucide-react"],
+      "registryDependencies": ["button"]
+    },
+    {
+      "name": "microagents-agent-curve",
+      "title": "Microagents Agent Curve",
+      "description": "Decorative curve for representing agent-to-agent runs.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-agent-curve/microagents-agent-curve.tsx",
+      "destination": "registry/new-york/microagents-agent-curve/microagents-agent-curve.tsx"
+    },
+    {
+      "name": "microagents-user-curve",
+      "title": "Microagents User Curve",
+      "description": "Decorative curve for representing user to agent hand-offs.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-user-curve/microagents-user-curve.tsx",
+      "destination": "registry/new-york/microagents-user-curve/microagents-user-curve.tsx"
+    },
+    {
+      "name": "microagents-button",
+      "title": "Microagents Button",
+      "description": "Primary microagents call-to-action with gradient treatment.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-button/microagents-button.tsx",
+      "destination": "registry/new-york/microagents-button/microagents-button.tsx",
+      "dependencies": ["lucide-react"],
+      "registryDependencies": ["button"]
+    },
+    {
+      "name": "microagents-button-alt",
+      "title": "Microagents Button Alt",
+      "description": "Secondary microagents action for softer confirmation steps.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-button-alt/microagents-button-alt.tsx",
+      "destination": "registry/new-york/microagents-button-alt/microagents-button-alt.tsx",
+      "dependencies": ["lucide-react"],
+      "registryDependencies": ["button"]
+    },
+    {
+      "name": "microagents-panel",
+      "title": "Microagents Panel",
+      "description": "Composite panel bundling orchestration controls, link cards, and prompt send.",
+      "type": "registry:ui",
+      "source": "src/registry/new-york/microagents-panel/microagents-panel.tsx",
+      "destination": "registry/new-york/microagents-panel/microagents-panel.tsx",
+      "registryDependencies": [
+        "card",
+        "microagents-link",
+        "microagents-send",
+        "microagents-orchestration-left",
+        "microagents-orchestration-right"
+      ]
+    }
+  ]
+}

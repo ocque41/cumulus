@@ -1,0 +1,23 @@
+{
+  "name": "@cumulus/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "module": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./client": "./client.ts",
+    "./server": "./server.ts",
+    "./middleware": "./middleware.ts",
+    "./redirects": "./redirects.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.91.0"
+  },
+  "peerDependencies": {
+    "next": ">=14.0.0"
+  }
+}

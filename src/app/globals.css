@@ -1,0 +1,551 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Cumulus master brand foundation
+   Source of truth: /Users/miguel/Documents/cumulus/CUMULUS-BRAND.md
+   v1.0 — 2026-04-29
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* Foundation */
+  --color-ink:        #1A1A1A;
+  --color-paper:      #F5F5F5;
+  --color-terracotta: #A44718;
+
+  /* Ink scale — text/dividers on a paper ground */
+  --color-ink-2:        rgba(26, 26, 26, 0.64);
+  --color-ink-3:        rgba(26, 26, 26, 0.42);
+  --color-ink-4:        rgba(26, 26, 26, 0.32);
+  --color-ink-5:        rgba(26, 26, 26, 0.10);
+  --color-ink-hair:      rgba(26, 26, 26, 0.14);
+  --color-ink-hair-soft: rgba(26, 26, 26, 0.08);
+  --color-ink-wash:      rgba(26, 26, 26, 0.04);
+
+  /* Paper scale — text/dividers on an ink ground */
+  --color-paper-2:        rgba(245, 245, 245, 0.64);
+  --color-paper-3:        rgba(245, 245, 245, 0.42);
+  --color-paper-4:        rgba(245, 245, 245, 0.32);
+  --color-paper-5:        rgba(245, 245, 245, 0.10);
+  --color-paper-hair:      rgba(245, 245, 245, 0.14);
+  --color-paper-hair-soft: rgba(245, 245, 245, 0.08);
+  --color-paper-wash:      rgba(245, 245, 245, 0.04);
+
+  /* The one shadow */
+  --shadow-modal: 0 18px 40px rgba(26, 26, 26, 0.18);
+
+  /* Motion */
+  --ease-std:   cubic-bezier(0.42, 0, 0.58, 1);
+  --dur-fast:   150ms;
+  --dur-normal: 200ms;
+  --dur-slow:   280ms;
+
+  /* Radius — one number for the whole system */
+  --radius-card: 5.5px;
+
+  /* ----------------------------------------------------------
+     Legacy aliases — keep so existing components compile
+     without regression. Retire as we touch them.
+     Default theme is ink-first (dark).
+     ---------------------------------------------------------- */
+  --bg:        var(--color-ink);
+  --fg:        var(--color-paper);
+  --title:     var(--color-paper);
+  --text:      var(--color-paper);
+  --subtitle:  var(--color-paper-2);
+  --muted:     var(--color-paper-3);
+  --hairline:  var(--color-paper-hair);
+  --accent:        var(--color-terracotta);
+  --accent-dim:    var(--color-terracotta);
+  --accent-soft:   var(--color-paper-hair-soft);
+
+  --canvas-soft:    var(--color-ink);
+  --surface:        var(--color-paper-hair-soft);
+  --surface-strong: var(--color-ink);
+  --border:         var(--color-paper-hair);
+  --highlight:      var(--color-paper-2);
+
+  --neon-green:     var(--color-terracotta);
+  --hot-pink:       var(--color-terracotta);
+  --electric-blue:  var(--color-terracotta);
+  --warning-yellow: var(--color-terracotta);
+  --pure-black:     var(--color-ink);
+  --pure-white:     var(--color-paper);
+
+  --font-family-sans:  var(--font-display), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+  --font-family-ui:    var(--font-display), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+  --font-family-brand: var(--font-display), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+  --font-family-mono:  var(--font-mono), "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-weight-thin: 100;
+  --font-weight-extralight: 200;
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 800;
+
+  --type-body-family: var(--font-family-sans);
+  --type-body-weight: var(--font-weight-regular);
+  --type-body-strong-weight: var(--font-weight-medium);
+  --type-label-family: var(--font-family-mono);
+  --type-label-weight: var(--font-weight-regular);
+  --type-eyebrow-family: var(--font-family-mono);
+  --type-eyebrow-weight: var(--font-weight-semibold);
+  --type-title-family: var(--font-family-sans);
+  --type-title-weight: var(--font-weight-light);
+  --type-heading-family: var(--font-family-sans);
+  --type-heading-weight: var(--font-weight-light);
+  --type-brand-family: var(--font-family-mono);
+  --type-brand-weight: var(--font-weight-semibold);
+  --type-micro-family: var(--font-family-mono);
+  --type-micro-weight: var(--font-weight-regular);
+
+  /* ----------------------------------------------------------
+     Glass aliases — collapsed to flat foundation.
+     The .glass-* utilities below now resolve to the
+     EditorialCard treatment. These vars stay as alias slots
+     so consumer components reading them keep compiling.
+     ---------------------------------------------------------- */
+  --glass-bg-subtle:   var(--color-ink);
+  --glass-bg-standard: var(--color-ink);
+  --glass-bg-strong:   var(--color-ink);
+  --glass-bg-solid:    var(--color-ink);
+
+  --glass-blur-subtle:   0px;
+  --glass-blur-standard: 0px;
+  --glass-blur-strong:   0px;
+  --glass-blur-solid:    0px;
+
+  --glass-border-specular: var(--color-paper-hair);
+  --glass-border-base:     var(--color-paper-hair);
+  --glass-border-shadow:   var(--color-paper-hair);
+
+  --glass-shadow-e1: none;
+  --glass-shadow-e2: none;
+  --glass-shadow-e3: none;
+  --glass-shadow-e4: none;
+
+  --glass-text-title:    var(--color-paper);
+  --glass-text-subtitle: var(--color-paper-2);
+  --glass-text-body:     var(--color-paper);
+  --glass-text-muted:    var(--color-paper-3);
+
+  --glass-noise-opacity: 0;
+  --glass-saturation:    100%;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg:        var(--color-paper);
+  --fg:        var(--color-ink);
+  --title:     var(--color-ink);
+  --text:      var(--color-ink);
+  --subtitle:  var(--color-ink-2);
+  --muted:     var(--color-ink-3);
+  --hairline:  var(--color-ink-hair);
+
+  --surface:        var(--color-ink-hair-soft);
+  --surface-strong: var(--color-paper);
+  --border:         var(--color-ink-hair);
+  --highlight:      var(--color-ink-2);
+
+  /* Glass aliases on paper ground */
+  --glass-bg-subtle:   var(--color-paper);
+  --glass-bg-standard: var(--color-paper);
+  --glass-bg-strong:   var(--color-paper);
+  --glass-bg-solid:    var(--color-paper);
+
+  --glass-border-specular: var(--color-ink-hair);
+  --glass-border-base:     var(--color-ink-hair);
+  --glass-border-shadow:   var(--color-ink-hair);
+
+  --glass-text-title:    var(--color-ink);
+  --glass-text-subtitle: var(--color-ink-2);
+  --glass-text-body:     var(--color-ink);
+  --glass-text-muted:    var(--color-ink-3);
+}
+
+html,
+body {
+  background: transparent;
+  color: var(--text);
+  font-family: var(--type-body-family);
+  font-weight: var(--type-body-weight);
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-rendering: optimizeLegibility;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
+}
+
+h1 {
+  font-family: var(--type-title-family);
+  font-weight: var(--type-title-weight);
+  letter-spacing: -0.035em;
+}
+
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--type-heading-family);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: -0.01em;
+}
+
+.font-sans,
+.font-mono {
+  font-family: var(--font-family-ui);
+}
+
+:where(.text-5xl, .text-6xl, .text-7xl, .text-8xl, .text-9xl) {
+  font-family: var(--type-title-family);
+  font-weight: var(--font-weight-light);
+  letter-spacing: -0.035em;
+}
+
+:where(.text-3xl, .text-4xl) {
+  font-family: var(--type-heading-family);
+  font-weight: var(--font-weight-light);
+  letter-spacing: -0.01em;
+}
+
+:where(.text-xl, .text-2xl, .text-lg, .text-base) {
+  font-family: var(--type-body-family);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: 0;
+}
+
+:where(.text-xs, .text-sm) {
+  font-family: var(--type-label-family);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.04em;
+}
+
+:where(
+  [class*="text-[10px]"],
+  [class*="text-[11px]"],
+  [class*="text-[12px]"],
+  [class*="text-[0.625rem]"],
+  [class*="text-[0.75rem]"],
+  [class*="text-[0.8125rem]"],
+  [class*="text-[0.875rem]"]
+) {
+  font-family: var(--type-micro-family);
+  font-weight: var(--type-micro-weight);
+  letter-spacing: 0.04em;
+}
+
+::selection {
+  background: var(--title);
+  color: var(--bg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:focus-visible {
+  outline: 1px solid var(--color-terracotta);
+  outline-offset: 2px;
+}
+
+.card-link {
+  text-decoration: none;
+}
+
+.card-link:hover,
+.card-link:focus-visible {
+  text-decoration: none;
+}
+
+button a {
+  color: inherit !important;
+}
+
+.display {
+  font-family: var(--type-title-family);
+  font-size: 60px;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  font-weight: var(--font-weight-light);
+  color: var(--title);
+}
+
+@media (min-width: 768px) {
+  .display {
+    font-size: 72px;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+  }
+}
+
+.lead {
+  font-family: var(--type-body-family);
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  font-weight: var(--font-weight-medium);
+  color: var(--subtitle);
+}
+
+.small {
+  font-size: 12px;
+  font-family: var(--type-label-family);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.04em;
+}
+
+.body {
+  font-family: var(--type-body-family);
+  font-size: 14px;
+  letter-spacing: 0;
+  font-weight: var(--type-body-weight);
+  color: var(--text);
+}
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@keyframes ambientGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  25% {
+    background-position: 50% 100%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  75% {
+    background-position: 50% 0%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes ambientGradientReverse {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  25% {
+    background-position: 50% 0%;
+  }
+
+  50% {
+    background-position: 0% 50%;
+  }
+
+  75% {
+    background-position: 50% 100%;
+  }
+
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes ambientGradientTilt {
+  0% {
+    background-position: 30% 0%;
+  }
+
+  20% {
+    background-position: 70% 40%;
+  }
+
+  50% {
+    background-position: 100% 80%;
+  }
+
+  80% {
+    background-position: 40% 100%;
+  }
+
+  100% {
+    background-position: 0% 60%;
+  }
+}
+
+@keyframes ambientGradientWave {
+  0% {
+    background-position: 50% 100%;
+  }
+
+  30% {
+    background-position: 70% 30%;
+  }
+
+  60% {
+    background-position: 30% 0%;
+  }
+
+  85% {
+    background-position: 0% 70%;
+  }
+
+  100% {
+    background-position: 50% 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Reveal-on-intersect preamble: hide targets before the hook animates them in.
+   Wrapped in `no-preference` so reduced-motion users see the content immediately
+   without the initial hide step. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-dome-reveal-group]:not([data-dome-revealed]) [data-dome-reveal] {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+
+/* ============================================================
+   Glass utilities — RETIRED.
+   Per the master brand spec (no glass morphism, no backdrop blur,
+   no specular border, one shadow only) every former glass class
+   collapses to the EditorialCard treatment: 5.5px radius, 1px
+   hairline border, no shadow. Consumer components keep compiling
+   without rewrite; replace `glass-*` classes inline as we touch
+   the components.
+   ============================================================ */
+
+.glass-surface,
+.glass-subtle,
+.glass-standard,
+.glass-strong,
+.glass-solid {
+  position: relative;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-surface::before,
+.glass-surface::after {
+  content: none;
+}
+
+.glass-surface[data-state="hover"],
+.glass-surface:hover,
+.glass-surface[data-state="press"],
+.glass-surface:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.glass-e1,
+.glass-e2,
+.glass-e3,
+.glass-e4 {
+  box-shadow: none;
+}
+
+.glass-noise::before {
+  content: none;
+  background-image: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-surface {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+[data-reduce-transparency="true"] .glass-surface {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Backward-compatible aliases — also collapsed to the EditorialCard. */
+.glass-card,
+.glass-card-highlight {
+  position: relative;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-badge {
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-button,
+.glass-button-primary {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--hairline);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: background-color var(--dur-fast) var(--ease-std), border-color var(--dur-fast) var(--ease-std), transform var(--dur-fast) var(--ease-std);
+}
+
+.glass-button {
+  background: transparent;
+}
+
+.glass-button-primary {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.glass-button:hover,
+.glass-button-primary:hover {
+  border-color: var(--text);
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

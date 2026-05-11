@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cumulus · Brand Document v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #0a0a0a; font-family: 'Manrope', system-ui, sans-serif; color: #f5f5f5; }
+  *, *::before, *::after { box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #1a1a1a; }
+  ::-webkit-scrollbar-thumb { background: #3a3a3a; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="cumulus-tokens.jsx"></script>
+<script type="text/babel" src="cumulus-mark.jsx"></script>
+<script type="text/babel" src="cloud-rails.jsx"></script>
+<script type="text/babel" src="brand-pages-1.jsx"></script>
+<script type="text/babel" src="brand-pages-2.jsx"></script>
+<script type="text/babel" src="brand-pages-3.jsx"></script>
+<script type="text/babel" src="brand-pages-4.jsx"></script>
+<script type="text/babel" src="brand-video.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+function App() {
+  const [page, setPage] = React.useState(0);
+  const pages = [
+    { name: 'Cover',         el: <PageCover /> },
+    { name: 'Contents',      el: <PageContents /> },
+    { name: 'Overview',      el: <PageOverview /> },
+    { name: 'Logo',          el: <PageLogo /> },
+    { name: 'Color',         el: <PageColor /> },
+    { name: 'Typography',    el: <PageType /> },
+    { name: 'Pattern',       el: <PagePattern /> },
+    { name: 'Iconography',   el: <PageIcons /> },
+    { name: 'Rules',         el: <PageRules /> },
+    { name: 'Applications',  el: <PageApplications /> },
+    { name: 'Sign-off',      el: <PageSignoff /> },
+    { name: 'Brand Film',    el: <PageProductVideo /> },
+  ];
+
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { setPage(p => Math.min(p + 1, pages.length - 1)); e.preventDefault(); }
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp')   setPage(p => Math.max(p - 1, 0));
+      if (e.key === 'Home') setPage(0);
+      if (e.key === 'End')  setPage(pages.length - 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Scale current page to fit viewport
+  const [scale, setScale] = React.useState(1);
+  React.useEffect(() => {
+    const fit = () => {
+      const sx = window.innerWidth / 1440;
+      const sy = (window.innerHeight - 80) / 900;
+      setScale(Math.min(sx, sy, 1));
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, []);
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Page stage */}
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '32px 0',
+      }}>
+        <div data-screen-label={`${String(page + 1).padStart(2, '0')} ${pages[page].name}`}
+             style={{
+          width: 1440 * scale, height: 900 * scale, position: 'relative',
+        }}>
+          <div style={{
+            width: 1440, height: 900, transform: `scale(${scale})`, transformOrigin: 'top left',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(245,245,245,0.06)',
+          }}>
+            {pages[page].el}
+          </div>
+        </div>
+      </div>
+
+      {/* Nav strip */}
+      <div style={{
+        height: 64, padding: '0 24px',
+        background: '#0d0d0d', borderTop: '1px solid #1f1f1f',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        fontFamily: '"JetBrains Mono", monospace', fontSize: 11, color: 'rgba(245,245,245,0.5)',
+        letterSpacing: 0.6,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <CumulusMark size={20} color="#f5f5f5" />
+          <span>CUMULUS · BRAND v1.0</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+          {pages.map((p, i) => (
+            <button key={p.name} onClick={() => setPage(i)} style={{
+              padding: '6px 10px', background: page === i ? '#a44718' : 'transparent',
+              color: page === i ? '#fff' : 'rgba(245,245,245,0.5)',
+              border: '1px solid ' + (page === i ? '#a44718' : '#2a2a2a'),
+              fontFamily: 'inherit', fontSize: 10, cursor: 'pointer',
+              letterSpacing: 0.6, textTransform: 'uppercase',
+            }}>{String(i + 1).padStart(2, '0')}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => setPage(p => Math.max(p - 1, 0))} style={{
+            background: 'transparent', border: '1px solid #2a2a2a', color: '#f5f5f5',
+            padding: '6px 12px', fontFamily: 'inherit', fontSize: 11, cursor: 'pointer',
+          }}>← PREV</button>
+          <span style={{ color: '#f5f5f5' }}>{pages[page].name.toUpperCase()}</span>
+          <button onClick={() => setPage(p => Math.min(p + 1, pages.length - 1))} style={{
+            background: 'transparent', border: '1px solid #2a2a2a', color: '#f5f5f5',
+            padding: '6px 12px', fontFamily: 'inherit', fontSize: 11, cursor: 'pointer',
+          }}>NEXT →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

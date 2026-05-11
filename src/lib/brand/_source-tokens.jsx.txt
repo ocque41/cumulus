@@ -1,0 +1,74 @@
+// Cumulus brand tokens — derived from the v1.0 guidelines PDF
+// Grayscale-first; terracotta is a system cue (≤10% of any composition).
+// All spacing on the 8pt baseline grid we built earlier.
+
+const CUMULUS = {
+  color: {
+    // Dark mode — primary
+    bg:       '#1a1a1a',
+    surface:  '#1f1f1f',
+    surface2: '#262626',
+    border:   '#2e2e2e',
+    border2:  '#3a3a3a',
+
+    title:    '#f5f5f5',
+    body:     'rgba(245,245,245,0.88)',
+    sub:      'rgba(245,245,245,0.65)',
+    muted:    'rgba(245,245,245,0.35)',
+    hairline: 'rgba(245,245,245,0.10)',
+
+    // Light mode (warm paper)
+    paperBg:    '#f5f2eb',
+    paperTitle: '#050505',
+    paperBody:  '#0d0d0d',
+    paperSub:   '#3d3d3d',
+    paperMuted: 'rgba(5,5,5,0.35)',
+    paperBorder:'rgba(5,5,5,0.12)',
+
+    // Accent — burnt terracotta (sparingly!)
+    accent:    '#a44718',
+    accentDim: '#8a3a13',
+  },
+
+  font: {
+    // Geometric sans — Manrope is a strong free pairing for the brand brief
+    sans: '"Manrope", -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif',
+    // Mono for routes/states/labels only
+    mono: '"JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace',
+  },
+
+  base: 8,
+
+  type: {
+    micro:    { size: 10, line: 16, weight: 500, tracking: 1.2,  upper: true,  family: 'sans' },
+    label:    { size: 11, line: 16, weight: 600, tracking: 1.6,  upper: true,  family: 'sans' },
+    mono:     { size: 11, line: 16, weight: 400, tracking: 0.4,                family: 'mono' },
+    monoLg:   { size: 13, line: 20, weight: 400, tracking: 0,                  family: 'mono' },
+    caption:  { size: 12, line: 18, weight: 400, tracking: 0,                  family: 'sans' },
+    body:     { size: 14, line: 22, weight: 400, tracking: 0,                  family: 'sans' },
+    bodyLg:   { size: 16, line: 26, weight: 400, tracking: 0,                  family: 'sans' },
+    h4:       { size: 16, line: 22, weight: 600, tracking: -0.1, family: 'sans' },
+    h3:       { size: 22, line: 28, weight: 600, tracking: -0.3, family: 'sans' },
+    h2:       { size: 32, line: 38, weight: 600, tracking: -0.5, family: 'sans' },
+    h1:       { size: 48, line: 54, weight: 700, tracking: -1.0, family: 'sans' },
+    display:  { size: 88, line: 92, weight: 700, tracking: -2.4, family: 'sans' },
+    displayXl:{ size: 144, line: 144, weight: 700, tracking: -4.0, family: 'sans' },
+  },
+};
+
+function ct(name, over = {}) {
+  const t = CUMULUS.type[name] || CUMULUS.type.body;
+  return {
+    fontFamily: CUMULUS.font[t.family],
+    fontSize: t.size,
+    lineHeight: t.line + 'px',
+    fontWeight: t.weight,
+    letterSpacing: t.tracking + 'px',
+    textTransform: t.upper ? 'uppercase' : 'none',
+    margin: 0,
+    ...over,
+  };
+}
+
+window.CUMULUS = CUMULUS;
+window.ct = ct;

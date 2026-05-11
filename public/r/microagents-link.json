@@ -1,0 +1,19 @@
+{
+  "name": "microagents-link",
+  "title": "Microagents Link",
+  "description": "Action link for routing to a linked microagent.",
+  "type": "registry:ui",
+  "registryDependencies": [
+    "button"
+  ],
+  "dependencies": [
+    "lucide-react"
+  ],
+  "files": [
+    {
+      "path": "registry/new-york/microagents-link/microagents-link.tsx",
+      "type": "registry:ui",
+      "content": "\"use client\";\n\nimport { ArrowRightLeft } from \"lucide-react\";\n\nimport { Button } from \"@/components/ui/button\";\nimport { cn } from \"@/lib/utils\";\n\ntype MicroagentsLinkProps = {\n  label?: string;\n  description?: string;\n  className?: string;\n  onClick?: () => void;\n};\n\nexport function MicroagentsLink({\n  label = \"Agent link\",\n  description = \"Trigger the linked microagent flow\",\n  className,\n  onClick,\n}: MicroagentsLinkProps) {\n  return (\n    <div\n      className={cn(\n        \"flex items-center justify-between gap-4 rounded-[5.5px] border border-[color:var(--muted)]/30 bg-[rgba(255,255,255,0.02)] px-4 py-3\",\n        className\n      )}\n    >\n      <div className=\"space-y-1\">\n        <p className=\"text-sm font-medium text-[color:var(--fg)]\">{label}</p>\n        <p className=\"text-xs text-[color:var(--muted)]\">{description}</p>\n      </div>\n      <Button\n        type=\"button\"\n        size=\"icon\"\n        variant=\"secondary\"\n        className=\"h-10 w-10 rounded-[5.5px]\"\n        onClick={onClick}\n        aria-label={`Open ${label}`}\n      >\n        <ArrowRightLeft className=\"h-4 w-4\" />\n      </Button>\n    </div>\n  );\n}\n"
+    }
+  ]
+}

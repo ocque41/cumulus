@@ -1,0 +1,8 @@
+{
+  "$comment": "Template Relay discovery document for self-hosted deployments. Replace every placeholder before serving this from production.",
+  "tenantSlug": "your-tenant",
+  "tenantId": "replace-with-your-relay-tenant-id",
+  "relayEndpoint": "https://relay.example.com/v1",
+  "jwksUri": "https://relay.example.com/.well-known/jwks.json",
+  "loginUrl": "https://app.example.com/api/relay-login"
+}

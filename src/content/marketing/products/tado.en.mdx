@@ -1,0 +1,118 @@
+---
+title: Tado
+description: A macOS terminal multiplexer for AI coding agents. Run Claude Code and Codex in parallel on an infinite canvas.
+surfacesEyebrow: Tado — Core surfaces
+surfacesTitle: One app, four operational surfaces.
+surfacesIntro: Each surface has one clear job. Tado keeps your agents organized without forcing you to manage plumbing.
+surfaceTabs:
+  - id: canvas
+    label: Canvas
+    eyebrow: Infinite workspace
+    status: Pannable & zoomable
+    matrixPreset: forcefield
+  - id: ipc
+    label: IPC
+    eyebrow: Agent communication
+    status: Real-time messaging
+    matrixPreset: signal
+  - id: teams
+    label: Teams
+    eyebrow: Agent coordination
+    status: Mandatory response rules
+    matrixPreset: radar
+  - id: projects
+    label: Projects
+    eyebrow: Scoped workspaces
+    status: Auto-discovery
+    matrixPreset: dna
+sections:
+  - id: workflow
+    label: Todo-driven workflow
+  - id: ipc-detail
+    label: Peer-to-peer IPC
+  - id: teams-detail
+    label: Team coordination
+---
+
+<!-- content:canvas -->
+### The canvas is your workspace.
+
+- Terminal tiles live on an infinite pannable, zoomable 2D surface.
+- Each project gets its own zone so agents from different repos stay separate.
+- Drag edges to resize tiles. Drag the title bar to move them.
+
+This is the core metaphor. Every agent session is a tile on a canvas, not a tab in a sidebar. You see everything at once.
+
+<!-- content:ipc -->
+### Agents talk to each other in real time.
+
+- `tado-list` discovers all active sessions.
+- `tado-read` reads another agent's terminal output.
+- `tado-send` sends typed input to any session.
+- `tado-broadcast` publishes to a topic. `tado-recv` subscribes.
+
+That is the difference between running agents in parallel and having them actually coordinate. IPC turns independent sessions into a team.
+
+<!-- content:teams -->
+### Teams and projects keep work organized.
+
+1. Define agent roles in `.claude/agents/` or `.codex/agents/`.
+2. Assign agents to teams with coordination rules.
+3. Mandatory response patterns ensure agents reply when asked.
+
+Teams are not cosmetic grouping. They are the coordination layer that makes multi-agent work reliable instead of chaotic.
+
+<!-- content:projects -->
+### Projects scope agents to a codebase.
+
+- Agent definitions are auto-discovered from the project directory.
+- One-click bootstrap injects A2A docs into the target project.
+- Sessions track which project they belong to.
+
+This keeps 10+ agents from stepping on each other. Each project is a namespace with its own agents, teams, and IPC context.
+
+<!-- content:workflow -->
+## Todo-driven workflow
+
+Tado starts from a todo list on purpose.
+
+- Type a task. Press Enter. A terminal tile spawns.
+- The agent runs Claude Code or Codex in that tile.
+- Queue follow-up prompts that auto-send when the agent goes idle.
+- Mark tasks done or trash them when finished.
+
+```text
+tado/
+  Todo List
+    [ ] "Build the auth module"     -> spawns terminal tile
+    [ ] "Write API tests"           -> spawns terminal tile
+    [ ] "Review PR #42"             -> spawns terminal tile
+  Canvas
+    [tile 1,1] claude-code running...
+    [tile 1,2] codex running...
+    [tile 2,1] claude-code idle
+```
+
+That structure is the interface. You see what was planned, what is running, and what finished.
+
+<!-- content:ipc-detail -->
+## Agents coordinate without a central orchestrator
+
+Tado does not have a master agent directing traffic. Each agent discovers peers on its own.
+
+- `tado-list` returns all active sessions with ID, engine, grid position, and status.
+- `tado-read <target>` reads terminal output. Supports `--tail`, `--follow`, and `--raw`.
+- `tado-send <target> <message>` sends input to any session by UUID, grid coordinates, or name.
+- `tado-broadcast <topic> <message>` publishes to a pub/sub topic.
+
+This matters because centralized orchestration creates a single point of failure. Peer-to-peer IPC lets agents self-organize based on what they actually need.
+
+<!-- content:teams-detail -->
+## Teams turn loose agents into coordinated units
+
+1. Define agent roles with specializations and capabilities.
+2. Assign agents to named teams with explicit coordination rules.
+3. Mandatory response: when a teammate asks for something, the agent must deliver the result back.
+4. Spawn teammates on demand with `tado-spawn`.
+
+That gives you something most multi-agent setups lack: reliable inter-agent handoffs with accountability.

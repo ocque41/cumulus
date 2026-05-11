@@ -1,0 +1,47 @@
+// Cumulus logo SVG — engineered cloud silhouette with internal handoff rail.
+// Reproduced from the brand reference. Two-bump cumulus with a horizontal rail
+// crossing the bottom-left interior, exiting on the right.
+
+function CumulusMark({ size = 120, color, withWord, vertical, gap }) {
+  const stroke = color || CUMULUS.color.title;
+  const w = size;
+  const cloudH = w * 0.62;
+  return (
+    <div style={{
+      display: 'inline-flex',
+      flexDirection: vertical ? 'column' : 'row',
+      alignItems: 'center',
+      gap: gap != null ? gap : (vertical ? 16 : 14),
+    }}>
+      {/* Cloud — engineered silhouette with internal handoff rail */}
+      <svg width={w} height={cloudH} viewBox="0 0 200 130" fill="none" stroke={stroke}
+           strokeWidth="9" strokeLinecap="round" strokeLinejoin="round">
+        {/* Outer cloud — two clear bumps, flatter base, line art only */}
+        <path fill="none" stroke={stroke} d="
+          M 30 108
+          C 12 108, 8 84, 26 80
+          C 22 50, 58 36, 76 54
+          C 84 28, 130 24, 146 50
+          C 170 44, 192 64, 182 84
+          C 196 90, 190 108, 172 108
+          L 30 108 Z
+        " />
+        {/* Internal handoff rail */}
+        <path fill="none" stroke={stroke} d="M 56 100 L 108 100 C 116 100, 116 88, 124 88 L 172 88" />
+      </svg>
+      {/* Wordmark */}
+      {withWord && (
+        <div style={{
+          fontFamily: CUMULUS.font.sans,
+          fontWeight: 600,
+          fontSize: w * (vertical ? 0.36 : 0.32),
+          letterSpacing: -0.6,
+          color: stroke,
+          lineHeight: 1,
+        }}>Cumulus</div>
+      )}
+    </div>
+  );
+}
+
+window.CumulusMark = CumulusMark;

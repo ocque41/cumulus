@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Payment provider",
+    "category": "Payments",
+    "role": "Processor",
+    "dataTypes": ["payment method details", "payer metadata", "fraud signals"],
+    "purpose": "Process payments and prevent fraud when billing is enabled",
+    "docsUrl": "https://cumulush.com/privacy-policy",
+    "privacyUrl": "https://cumulush.com/privacy-policy"
+  },
+  {
+    "name": "Auth provider",
+    "category": "Authentication",
+    "role": "Processor",
+    "dataTypes": ["account identifiers", "session metadata", "login events"],
+    "purpose": "Provide sign-in, session, and account security features",
+    "docsUrl": "https://cumulush.com/privacy-policy",
+    "privacyUrl": "https://cumulush.com/privacy-policy"
+  },
+  {
+    "name": "Database provider",
+    "category": "Database",
+    "role": "Processor",
+    "dataTypes": ["application data", "user records", "workspace records"],
+    "purpose": "Store application data for cloud or self-hosted deployments",
+    "docsUrl": "https://cumulush.com/privacy-policy",
+    "privacyUrl": "https://cumulush.com/privacy-policy"
+  },
+  {
+    "name": "Object storage provider",
+    "category": "Object Storage",
+    "role": "Processor",
+    "dataTypes": ["uploads", "assets", "metadata"],
+    "purpose": "Store files and static assets when file features are enabled",
+    "docsUrl": "https://cumulush.com/privacy-policy",
+    "privacyUrl": "https://cumulush.com/privacy-policy"
+  }
+]

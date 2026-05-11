@@ -1,0 +1,18 @@
+{
+  "company": {
+    "displayName": "Cumulus",
+    "legalName": "Cumulus S.L.",
+    "country": "ES",
+    "address": "Calle Ejemplo 123, Madrid, 28000, España",
+    "contactEmail": "legal@cumulush.com",
+    "dpoEmail": "dpo@cumulush.com",
+    "website": "https://cumulush.com"
+  },
+  "legal": {
+    "governingLaw": "ES",
+    "jurisdiction": "Madrid, España",
+    "lastUpdated": "2025-10-11",
+    "defaultLanguage": "es",
+    "noindexUntilApproved": true
+  }
+}

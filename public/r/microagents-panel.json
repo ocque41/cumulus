@@ -1,0 +1,21 @@
+{
+  "name": "microagents-panel",
+  "title": "Microagents Panel",
+  "description": "Composite panel bundling orchestration controls, link cards, and prompt send.",
+  "type": "registry:ui",
+  "registryDependencies": [
+    "card",
+    "microagents-link",
+    "microagents-send",
+    "microagents-orchestration-left",
+    "microagents-orchestration-right"
+  ],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "registry/new-york/microagents-panel/microagents-panel.tsx",
+      "type": "registry:ui",
+      "content": "\"use client\";\n\nimport {\n  Card,\n  CardContent,\n  CardDescription,\n  CardHeader,\n  CardTitle,\n} from \"@/components/ui/card\";\nimport { MicroagentsLink } from \"@/registry/new-york/microagents-link/microagents-link\";\nimport { MicroagentsOrchestrationLeft } from \"@/registry/new-york/microagents-orchestration-left/microagents-orchestration-left\";\nimport { MicroagentsOrchestrationRight } from \"@/registry/new-york/microagents-orchestration-right/microagents-orchestration-right\";\nimport { MicroagentsSend } from \"@/registry/new-york/microagents-send/microagents-send\";\n\nexport function MicroagentsPanel() {\n  return (\n    <Card className=\"w-full max-w-3xl border-[color:var(--muted)]/30 bg-[color:var(--bg)]\">\n      <CardHeader className=\"flex flex-row items-start justify-between gap-4\">\n        <div className=\"space-y-2\">\n          <CardTitle className=\"text-2xl\">Microagents</CardTitle>\n          <CardDescription>\n            Wire together microagents, launch orchestration runs, and send prompts from a\n            unified surface.\n          </CardDescription>\n        </div>\n        <div className=\"flex items-center gap-2\">\n          <MicroagentsOrchestrationLeft />\n          <MicroagentsOrchestrationRight />\n        </div>\n      </CardHeader>\n      <CardContent className=\"space-y-4\">\n        <MicroagentsLink label=\"Investigate anomalies\" description=\"Route to the triage microagent\" />\n        <MicroagentsSend />\n      </CardContent>\n    </Card>\n  );\n}\n"
+    }
+  ]
+}

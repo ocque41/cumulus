@@ -1,0 +1,878 @@
+/**
+ * Rune Card Styles - Futuristic Card System
+ * 
+ * Comprehensive styles for the enhanced Rune section:
+ * - 3D cube grid background
+ * - Futuristic cards with animated borders
+ * - Node chips, logs panel, builder card
+ * - All with proper mobile adaptation
+ */
+
+/* ============================================================================
+   MAIN SECTION LAYOUT
+   ============================================================================ */
+
+.rune-product-section {
+    position: relative;
+    width: 100%;
+    min-height: auto;
+    background: transparent;
+    overflow: hidden;
+}
+
+/* Background layer */
+.rune-bg-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+/* Content layer */
+.rune-content-layer {
+    position: relative;
+    z-index: 10;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 6rem 2rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6rem;
+}
+
+/* ============================================================================
+   CUBE GRID BACKGROUND
+   ============================================================================ */
+
+.rune-cube-grid-wrapper {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: 100vh;
+}
+
+.rune-cube-grid {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(25, 1fr);
+    grid-template-rows: repeat(20, 1fr);
+    gap: 3px;
+    padding: 1.5rem;
+}
+
+.rune-cube {
+    position: relative;
+    border-radius: 3px;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.rune-cube-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle at 30% 30%,
+            rgba(255, 255, 255, 0.1) 0%,
+            transparent 70%);
+}
+
+/* Gradient overlay for legibility */
+.rune-cube-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    pointer-events: none;
+}
+
+/* ============================================================================
+   SECTION HEADER
+   ============================================================================ */
+
+.rune-header {
+    text-align: center;
+    padding-top: 2rem;
+}
+
+.rune-badge {
+    display: inline-block;
+    padding: 0.5rem 1.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--subtitle, #999);
+    margin-bottom: 1.5rem;
+}
+
+.rune-main-title {
+    font-family: "Anonymous Pro", monospace;
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 400;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    color: var(--title, #FFFFFF);
+    margin-bottom: 1.25rem;
+}
+
+.rune-lead {
+    font-family: "Anonymous Pro", monospace;
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    letter-spacing: -0.02em;
+    color: var(--subtitle, #999);
+    max-width: 550px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+/* ============================================================================
+   FUTURISTIC CARD BASE
+   ============================================================================ */
+
+.rune-card {
+    position: relative;
+    width: 100%;
+}
+
+.rune-card-inner {
+    position: relative;
+    padding: 2.5rem;
+    border-radius: 1.5rem;
+    background: transparent;
+    box-shadow: none;
+    overflow: hidden;
+}
+
+/* Animated glow border */
+.rune-card-border {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.15) 25%,
+            rgba(255, 255, 255, 0.3) 50%,
+            rgba(255, 255, 255, 0.15) 75%,
+            transparent 100%);
+    background-size: 200% 100%;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+}
+
+/* Circuit trace corner accents */
+.rune-card-accent {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    pointer-events: none;
+}
+
+.rune-card-accent--tl {
+    top: 12px;
+    left: 12px;
+    border-right: none;
+    border-bottom: none;
+    border-radius: 6px 0 0 0;
+}
+
+.rune-card-accent--tr {
+    top: 12px;
+    right: 12px;
+    border-left: none;
+    border-bottom: none;
+    border-radius: 0 6px 0 0;
+}
+
+.rune-card-accent--bl {
+    bottom: 12px;
+    left: 12px;
+    border-right: none;
+    border-top: none;
+    border-radius: 0 0 0 6px;
+}
+
+.rune-card-accent--br {
+    bottom: 12px;
+    right: 12px;
+    border-left: none;
+    border-top: none;
+    border-radius: 0 0 6px 0;
+}
+
+/* Card header */
+.rune-card-header {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.rune-card-icon {
+    flex-shrink: 0;
+    width: 3.5rem;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 1.5rem;
+}
+
+.rune-card-titles {
+    flex: 1;
+}
+
+.rune-card-status {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.rune-card-status--live {
+    background: rgba(100, 200, 100, 0.15);
+    color: #7dd87d;
+    border: 1px solid rgba(100, 200, 100, 0.3);
+}
+
+.rune-card-status--active {
+    background: rgba(100, 150, 255, 0.15);
+    color: #8ab4ff;
+    border: 1px solid rgba(100, 150, 255, 0.3);
+}
+
+.rune-card-status--vip {
+    background: rgba(255, 200, 100, 0.15);
+    color: #ffc864;
+    border: 1px solid rgba(255, 200, 100, 0.3);
+}
+
+.rune-card-status--automated {
+    background: rgba(200, 100, 255, 0.15);
+    color: #c87dff;
+    border: 1px solid rgba(200, 100, 255, 0.3);
+}
+
+.rune-card-title {
+    font-family: "Anonymous Pro", monospace;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--title, #FFFFFF);
+    margin-bottom: 0.5rem;
+}
+
+.rune-card-subtitle {
+    font-family: "Anonymous Pro", monospace;
+    font-size: 1rem;
+    letter-spacing: -0.02em;
+    color: var(--subtitle, #999);
+    line-height: 1.5;
+}
+
+/* Card content */
+.rune-card-content {
+    margin-top: 1.5rem;
+}
+
+/* ============================================================================
+   HERO HUB VISUALS
+   ============================================================================ */
+
+.rune-hub-visual {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 2rem 0;
+}
+
+.rune-hub-orb {
+    width: 5rem;
+    height: 5rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg,
+            rgba(255, 200, 100, 0.3) 0%,
+            rgba(255, 150, 50, 0.2) 50%,
+            rgba(255, 100, 50, 0.1) 100%);
+    border: 2px solid rgba(255, 200, 100, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+        0 0 40px rgba(255, 200, 100, 0.3),
+        inset 0 0 20px rgba(255, 200, 100, 0.2);
+    animation: rune-orb-pulse 2.5s ease-in-out infinite;
+}
+
+.rune-hub-orb-inner {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: rgba(255, 200, 100, 0.6);
+}
+
+@keyframes rune-orb-pulse {
+
+    0%,
+    100% {
+        box-shadow:
+            0 0 40px rgba(255, 200, 100, 0.3),
+            inset 0 0 20px rgba(255, 200, 100, 0.2);
+    }
+
+    50% {
+        box-shadow:
+            0 0 60px rgba(255, 200, 100, 0.5),
+            inset 0 0 30px rgba(255, 200, 100, 0.3);
+    }
+}
+
+.rune-hub-caption {
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.875rem;
+    color: var(--subtitle, #999);
+    letter-spacing: 0.02em;
+}
+
+/* ============================================================================
+   ROUTING VISUALS
+   ============================================================================ */
+
+.rune-routing-visual {
+    padding: 2rem 0;
+}
+
+.rune-routing-paths {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.rune-routing-path {
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg,
+            rgba(100, 150, 255, 0.6) 0%,
+            rgba(100, 150, 255, 0.2) 60%,
+            transparent 100%);
+    animation: rune-path-flow 2s ease-in-out infinite;
+}
+
+.rune-routing-path--1 {
+    width: 80%;
+    animation-delay: 0s;
+}
+
+.rune-routing-path--2 {
+    width: 65%;
+    animation-delay: 0.3s;
+}
+
+.rune-routing-path--3 {
+    width: 50%;
+    animation-delay: 0.6s;
+}
+
+@keyframes rune-path-flow {
+
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* ============================================================================
+   PARALLEL SECTION
+   ============================================================================ */
+
+.rune-parallel-wrapper {
+    text-align: center;
+}
+
+.rune-parallel-header {
+    margin-bottom: 2rem;
+}
+
+.rune-parallel-badge {
+    display: inline-block;
+    padding: 0.375rem 1rem;
+    border-radius: 9999px;
+    background: rgba(100, 200, 100, 0.1);
+    border: 1px solid rgba(100, 200, 100, 0.2);
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #7dd87d;
+    margin-bottom: 1rem;
+}
+
+.rune-parallel-title {
+    font-family: "Anonymous Pro", monospace;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 400;
+    letter-spacing: -0.04em;
+    color: var(--title, #FFFFFF);
+    margin-bottom: 0.75rem;
+}
+
+.rune-parallel-desc {
+    font-family: "Anonymous Pro", monospace;
+    font-size: 1rem;
+    color: var(--subtitle, #999);
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+
+.rune-parallel-nodes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+/* Node chips */
+.rune-node-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 9999px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.875rem;
+    color: var(--fg, #f0eee9);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rune-node-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.rune-node-chip--active {
+    border-color: rgba(100, 200, 100, 0.3);
+}
+
+.rune-node-chip-icon {
+    font-size: 1rem;
+}
+
+.rune-node-chip-label {
+    letter-spacing: -0.01em;
+}
+
+.rune-node-chip-pulse {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #7dd87d;
+    animation: rune-node-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes rune-node-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+/* ============================================================================
+   LOGS PANEL
+   ============================================================================ */
+
+.rune-logs-wrapper {
+    width: 100%;
+}
+
+.rune-logs-panel {
+    border-radius: 1rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    box-shadow: none;
+}
+
+.rune-logs-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rune-logs-dots {
+    display: flex;
+    gap: 0.375rem;
+}
+
+.rune-logs-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.rune-logs-dot--red {
+    background: rgba(255, 100, 100, 0.7);
+}
+
+.rune-logs-dot--yellow {
+    background: rgba(255, 200, 100, 0.7);
+}
+
+.rune-logs-dot--green {
+    background: rgba(100, 200, 100, 0.7);
+}
+
+.rune-logs-title {
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--subtitle, #999);
+}
+
+.rune-logs-body {
+    padding: 1.25rem;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.rune-log-line {
+    display: flex;
+    gap: 1rem;
+    padding: 0.375rem 0;
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.rune-log-time {
+    flex-shrink: 0;
+    color: var(--subtitle, #999);
+}
+
+.rune-log-msg {
+    color: var(--fg, #f0eee9);
+}
+
+.rune-log-line--success .rune-log-msg {
+    color: #7dd87d;
+}
+
+.rune-log-line--warning .rune-log-msg {
+    color: #ffc864;
+}
+
+.rune-logs-kpis {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.rune-kpi-card {
+    flex: 1;
+    text-align: center;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rune-kpi-value {
+    display: block;
+    font-family: "Anonymous Pro", monospace;
+    font-size: 1.75rem;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    color: var(--title, #FFFFFF);
+}
+
+.rune-kpi-label {
+    display: block;
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--subtitle, #999);
+    margin-top: 0.375rem;
+}
+
+/* ============================================================================
+   BUILDER CARD
+   ============================================================================ */
+
+.rune-builder-wrapper {
+    width: 100%;
+}
+
+.rune-builder-card {
+    position: relative;
+    padding: 3rem;
+    border-radius: 1.5rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+    text-align: center;
+}
+
+.rune-builder-border {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg,
+            rgba(200, 100, 255, 0.2) 0%,
+            rgba(100, 150, 255, 0.2) 50%,
+            rgba(100, 200, 200, 0.2) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+}
+
+.rune-builder-header {
+    margin-bottom: 2.5rem;
+}
+
+.rune-builder-badge {
+    display: inline-block;
+    padding: 0.375rem 1rem;
+    border-radius: 9999px;
+    background: rgba(200, 100, 255, 0.1);
+    border: 1px solid rgba(200, 100, 255, 0.2);
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #c87dff;
+    margin-bottom: 1rem;
+}
+
+.rune-builder-title {
+    font-family: "Anonymous Pro", monospace;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 400;
+    letter-spacing: -0.04em;
+    color: var(--title, #FFFFFF);
+    margin-bottom: 0.75rem;
+}
+
+.rune-builder-subtitle {
+    font-family: "Anonymous Pro", monospace;
+    font-size: 1rem;
+    color: var(--subtitle, #999);
+    line-height: 1.5;
+}
+
+.rune-builder-flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.rune-builder-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.rune-builder-connection {
+    width: 2px;
+    height: 1.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    transform-origin: top center;
+}
+
+.rune-builder-node {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.5rem;
+    border-radius: 0.75rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.875rem;
+    color: var(--fg, #f0eee9);
+}
+
+.rune-builder-node-icon {
+    font-size: 1.125rem;
+}
+
+.rune-builder-node-label {
+    letter-spacing: -0.01em;
+}
+
+.rune-builder-cta {
+    margin-top: 1rem;
+}
+
+.rune-cta-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.125rem 2.5rem;
+    border-radius: 9999px;
+    border: none;
+    background: var(--fg, #f0eee9);
+    color: var(--bg, #141414);
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rune-cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(255, 255, 255, 0.15);
+}
+
+.rune-cta-text {
+    position: relative;
+    z-index: 1;
+}
+
+.rune-cta-shimmer {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.4) 50%,
+            transparent 100%);
+    pointer-events: none;
+}
+
+.rune-cta-hint {
+    font-family: "Anonymous Pro", monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+    color: var(--subtitle, #999);
+    margin-top: 1rem;
+}
+
+/* ============================================================================
+   MOBILE RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    .rune-product-section {
+        min-height: 250vh;
+    }
+
+    .rune-cube-grid {
+        grid-template-columns: repeat(12, 1fr);
+        grid-template-rows: repeat(15, 1fr);
+    }
+
+    .rune-content-layer {
+        padding: 4rem 1rem 6rem;
+        gap: 4rem;
+    }
+
+    .rune-card-inner {
+        padding: 1.75rem;
+    }
+
+    .rune-card-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .rune-parallel-nodes {
+        gap: 0.75rem;
+    }
+
+    .rune-node-chip {
+        padding: 0.625rem 1rem;
+        font-size: 0.8125rem;
+    }
+
+    .rune-logs-kpis {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .rune-builder-card {
+        padding: 2rem;
+    }
+
+    .rune-builder-node {
+        padding: 0.75rem 1.25rem;
+        font-size: 0.8125rem;
+    }
+}
+
+/* ============================================================================
+   REDUCED MOTION
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .rune-hub-orb,
+    .rune-routing-path,
+    .rune-node-chip-pulse {
+        animation: none;
+    }
+
+    .rune-cube,
+    .rune-node-chip {
+        transition: none;
+    }
+}
