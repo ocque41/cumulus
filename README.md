@@ -86,6 +86,10 @@ npm run db:test
 npm run build
 ```
 
+## Releases
+
+Public releases are tracked in `CHANGELOG.md` and tagged as `vX.Y.Z`. See `docs/releasing.md`.
+
 ## Project Structure
 
 ```text
