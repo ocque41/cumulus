@@ -4,6 +4,21 @@ All notable changes to Cumulus are documented here.
 
 This project follows semantic versioning. The root app is licensed under Apache-2.0, and the Cumulus Database provider in `apps/cumulus-db` is licensed under AGPL-3.0-only.
 
+## [0.3.0] - 2026-05-13
+
+Cumulus 0.3.0 turns the database dashboard into a fuller operational console. The release closes the remaining browser-visible gaps around provider health, MCP metadata, token handling, backup, compaction, and compact record views while keeping public routes scoped to database tokens.
+
+### Added
+
+- **Database operations dashboard** - Expanded `/dashboard/database` with provider health, MCP metadata, key-value, events, token management, backup, compact, and compact record views.
+- **Cumulus DB API coverage** - Added app-side proxy routes for health, MCP metadata, events, key-value, token list/create/rotate/revoke, backup, and compact operations.
+- **Browser polish** - Added favicon coverage, stable theme hydration, form-wrapped token input, and clearer admin-scope hints for secret reveal and maintenance actions.
+
+### Fixed
+
+- **Local Cumulus DB config** - Made generated and local env parsing tolerate narrow test env objects and empty optional values.
+- **Release hygiene** - Ignored local session archives so saved transcripts do not enter public release scans or commits.
+
 ## [0.2.0] - 2026-05-12
 
 Cumulus 0.2.0 makes the database API observable from the public dashboard. A connected workspace can now prove record-type storage, event writes, key-value writes, secret handling, and search behavior without exposing the master key.
