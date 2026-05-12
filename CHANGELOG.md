@@ -4,6 +4,17 @@ All notable changes to Cumulus are documented here.
 
 This project follows semantic versioning. The root app is licensed under Apache-2.0, and the Cumulus Database provider in `apps/cumulus-db` is licensed under AGPL-3.0-only.
 
+## [cumulush@0.1.0] - 2026-05-13
+
+Initial terminal website package release.
+
+### Added
+
+- Public npm package in `packages/terminal-site` for running the Cumulus website as a TUI.
+- Terminal pages for Cumulus, Documents, Relay, Tado, Rune, and Contact.
+- Contact flow that opens a local email draft to `hi@cumulush.com` without shipping email service secrets.
+- Home page and docs page references for running `npx cumulush`.
+
 ## [0.3.0] - 2026-05-13
 
 Cumulus 0.3.0 turns the database dashboard into a fuller operational console. The release closes the remaining browser-visible gaps around provider health, MCP metadata, token handling, backup, compaction, and compact record views while keeping public routes scoped to database tokens.

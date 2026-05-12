@@ -5,6 +5,7 @@ import { CompanyHero } from './company-hero';
 import { DomeHomeClientOrchestrator } from './dome-home-client-orchestrator';
 import { FinalCta } from './final-cta';
 import { ProductSurfaces } from './product-surfaces';
+import { TerminalSiteCallout } from './terminal-site-callout';
 
 type DomeHomeShellProps = {
   document: MarketingHomeDocument;
@@ -21,6 +22,8 @@ export function DomeHomeShell({ document, locale, currency }: DomeHomeShellProps
 
       <article className='mx-auto w-full max-w-[1480px]'>
         <CompanyHero hero={hero} products={products} locale={locale} />
+
+        <TerminalSiteCallout />
 
         {products.map((product) => (
           <ProductSurfaces key={product.id} product={product} locale={locale} />

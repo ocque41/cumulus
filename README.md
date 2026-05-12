@@ -55,6 +55,30 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## Terminal Site
+
+Cumulus also ships a terminal website package in `packages/terminal-site`.
+It is separate from the private Next app package so it can be published as a
+small public command.
+
+Run it locally:
+
+```bash
+npm run terminal
+```
+
+From npm, users can run:
+
+```bash
+npx cumulush
+npx cumulush /relay
+npx cumulush /contact
+```
+
+The terminal site includes pages for Cumulus, Documents, Relay, Tado, Rune,
+and Contact. The contact page opens a local email draft to `hi@cumulush.com`;
+it does not ship email service secrets in the public package.
+
 ## Cumulus DB
 
 Cumulus DB is the standalone workspace database included in `apps/cumulus-db`.
@@ -86,6 +110,7 @@ npm run dev
 npm run lint
 npm run license:check
 npm run test
+npm run terminal:pack
 npm run db:test
 npm run build
 ```
@@ -101,6 +126,7 @@ src/app             Next.js routes
 src/components      UI components
 src/lib             app logic and server helpers
 packages/auth       local @cumulus/auth package
+packages/terminal-site publishable terminal website package
 apps/cumulus-db     standalone Cumulus DB service
 supabase            public-safe database migrations
 docs                public documentation

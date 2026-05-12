@@ -45,6 +45,7 @@ const blockedContent = [
   [/_authToken/i, 'package registry token config'],
   [/SUPABASE_MCP_BEARER_TOKEN/i, 'local MCP bearer token config'],
   [/BRAVE_API_KEY/i, 'local search API key config'],
+  [/npm_[A-Za-z0-9]{30,}/, 'npm access token'],
   [/BEGIN [A-Z ]+PRIVATE KEY/, 'private key block'],
 ];
 

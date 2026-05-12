@@ -68,6 +68,7 @@ build/
 # ------------------------------------------------------------
 .cache/
 .turbo/
+.playwright-mcp/
 .eslintcache
 .stylelintcache
 .parcel-cache/
