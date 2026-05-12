@@ -104,8 +104,8 @@ apps/cumulus-db/dist/
 # ------------------------------------------------------------
 # Optional: ignore local-only MCP tooling
 # ------------------------------------------------------------
-mcp/
-mcp.json
+/mcp/
+/mcp.json
 
 # ------------------------------------------------------------
 # Local/private agent tooling. Keep public guidance in AGENTS.md and CLAUDE.md.

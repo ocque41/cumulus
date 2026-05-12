@@ -3,12 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Activity,
   AlertTriangle,
+  Archive,
+  Database,
+  FileCode2,
   KeyRound,
+  ListTree,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   ShieldCheck,
+  Table2,
+  Trash2,
 } from "lucide-react";
 
 import { useAuth } from "@/components/providers/auth-provider";
@@ -34,6 +42,32 @@ const RECORD_TYPES = [
 ] as const;
 
 type RecordType = (typeof RECORD_TYPES)[number];
+
+const TOKEN_SCOPES = [
+  "records:read",
+  "records:write",
+  "search:read",
+  "events:write",
+  "kv:read",
+  "kv:write",
+  "secrets:write",
+  "secrets:reveal",
+  "tokens:manage",
+  "backups:manage",
+  "database:admin",
+] as const;
+
+type TokenScope = (typeof TOKEN_SCOPES)[number];
+
+const DEFAULT_TOKEN_SCOPES: TokenScope[] = [
+  "records:read",
+  "records:write",
+  "search:read",
+  "events:write",
+  "kv:read",
+  "kv:write",
+  "secrets:write",
+];
 
 const CONNECTION_STORAGE_KEY = "cumulus_db_connection:v1";
 const EVIDENCE_TAG = "cumulus-api-evidence";
@@ -72,6 +106,41 @@ type SearchHit = {
   score: number;
   lexicalScore: number;
   vectorScore: number;
+};
+
+type ProviderHealth = {
+  ok: boolean;
+  service?: string;
+};
+
+type McpManifest = {
+  name: string;
+  tools: string[];
+};
+
+type TokenSummary = {
+  id: string;
+  label: string;
+  scopes: TokenScope[];
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+};
+
+type TokenIssue = {
+  id: string;
+  token: string;
+  scopes: TokenScope[];
+};
+
+type BackupResult = {
+  path: string;
+  records: number;
+};
+
+type CompactResult = {
+  segment: string;
+  records: number;
 };
 
 type EnvParse = {
@@ -128,6 +197,15 @@ function splitCsv(value: string): string[] {
 function parseOptionalJson(value: string): unknown {
   if (!value.trim()) return undefined;
   return JSON.parse(value);
+}
+
+function parseOptionalObject(value: string, label: string): Record<string, unknown> | undefined {
+  const parsed = parseOptionalJson(value);
+  if (parsed === undefined) return undefined;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${label} must be a JSON object.`);
+  }
+  return parsed as Record<string, unknown>;
 }
 
 function parseVector(value: string): number[] | undefined {
@@ -233,6 +311,26 @@ export default function DatabaseDashboardPage() {
   const [envParse, setEnvParse] = useState<EnvParse | null>(null);
   const [evidenceRun, setEvidenceRun] = useState<EvidenceRun | null>(null);
   const [revealed, setRevealed] = useState<{ field: string; value: string } | null>(null);
+  const [health, setHealth] = useState<ProviderHealth | null>(null);
+  const [healthError, setHealthError] = useState<string | null>(null);
+  const [mcpManifest, setMcpManifest] = useState<McpManifest | null>(null);
+  const [mcpError, setMcpError] = useState<string | null>(null);
+  const [recordView, setRecordView] = useState<"detailed" | "compact">("detailed");
+  const [kvKey, setKvKey] = useState("");
+  const [kvValue, setKvValue] = useState('{"status":"ok"}');
+  const [kvMetadata, setKvMetadata] = useState('{"source":"dashboard"}');
+  const [kvResult, setKvResult] = useState<DbRecord | null>(null);
+  const [eventTitle, setEventTitle] = useState("Agent event");
+  const [eventContent, setEventContent] = useState("Dashboard event written through the events endpoint.");
+  const [eventJson, setEventJson] = useState('{"source":"dashboard"}');
+  const [eventTags, setEventTags] = useState("event,dashboard");
+  const [tokens, setTokens] = useState<TokenSummary[]>([]);
+  const [tokenLabel, setTokenLabel] = useState("Dashboard token");
+  const [selectedScopes, setSelectedScopes] = useState<TokenScope[]>(DEFAULT_TOKEN_SCOPES);
+  const [issuedToken, setIssuedToken] = useState<TokenIssue | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [backupResult, setBackupResult] = useState<BackupResult | null>(null);
+  const [compactResult, setCompactResult] = useState<CompactResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -297,6 +395,54 @@ export default function DatabaseDashboardPage() {
     return records.map((record) => ({ record }));
   }, [hasSearched, records, searchHits]);
 
+  const kvRecords = useMemo(
+    () => records.filter((record) => record.type === "kv"),
+    [records],
+  );
+
+  const eventRecords = useMemo(
+    () => records.filter((record) => record.type === "event"),
+    [records],
+  );
+
+  const loadProviderMetadata = useCallback(async () => {
+    try {
+      setHealthError(null);
+      setHealth(await jsonFetch<ProviderHealth>("/api/cumulus-db/health"));
+    } catch (err) {
+      setHealth(null);
+      setHealthError(err instanceof Error ? err.message : String(err));
+    }
+
+    try {
+      setMcpError(null);
+      setMcpManifest(await jsonFetch<McpManifest>("/api/cumulus-db/mcp"));
+    } catch (err) {
+      setMcpManifest(null);
+      setMcpError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProviderMetadata();
+  }, [loadProviderMetadata]);
+
+  const loadTokens = useCallback(async () => {
+    if (!selectedId || !connectionToken.trim()) return;
+    try {
+      setTokenError(null);
+      const body = await jsonFetch<{ tokens: TokenSummary[] }>(
+        `/api/cumulus-db/databases/${selectedId}/tokens`,
+        undefined,
+        connectionToken.trim(),
+      );
+      setTokens(body.tokens);
+    } catch (err) {
+      setTokens([]);
+      setTokenError(err instanceof Error ? err.message : String(err));
+    }
+  }, [connectionToken, selectedId]);
+
   const loadDatabases = useCallback(async () => {
     if (!user || !connectionDatabaseId.trim()) return;
     setBusy(true);
@@ -355,6 +501,10 @@ export default function DatabaseDashboardPage() {
   useEffect(() => {
     void loadRecords();
   }, [loadRecords]);
+
+  useEffect(() => {
+    void loadTokens();
+  }, [loadTokens]);
 
   async function createRecord() {
     if (!selectedId || !connectionToken.trim()) return;
@@ -567,6 +717,181 @@ export default function DatabaseDashboardPage() {
     }
   }
 
+  async function putKv() {
+    if (!selectedId || !connectionToken.trim() || !kvKey.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const value = parseOptionalJson(kvValue);
+      if (value === undefined) throw new Error("KV value is required.");
+      const metadata = parseOptionalObject(kvMetadata, "KV metadata");
+      const body = await jsonFetch<{ record: DbRecord }>(
+        `/api/cumulus-db/databases/${selectedId}/kv/${encodeURIComponent(kvKey.trim())}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ value, metadata }),
+        },
+        connectionToken.trim(),
+      );
+      setKvResult(body.record);
+      setHasSearched(false);
+      await loadRecords();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function getKv() {
+    if (!selectedId || !connectionToken.trim() || !kvKey.trim()) return;
+    setError(null);
+    try {
+      const body = await jsonFetch<{ record: DbRecord }>(
+        `/api/cumulus-db/databases/${selectedId}/kv/${encodeURIComponent(kvKey.trim())}`,
+        undefined,
+        connectionToken.trim(),
+      );
+      setKvResult(body.record);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function appendEvent() {
+    if (!selectedId || !connectionToken.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await jsonFetch(
+        `/api/cumulus-db/databases/${selectedId}/events`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            type: "event",
+            title: eventTitle || undefined,
+            content: eventContent || undefined,
+            json: parseOptionalJson(eventJson),
+            tags: splitCsv(eventTags),
+          }),
+        },
+        connectionToken.trim(),
+      );
+      setHasSearched(false);
+      await loadRecords();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleScope(scope: TokenScope) {
+    setSelectedScopes((current) =>
+      current.includes(scope)
+        ? current.filter((item) => item !== scope)
+        : [...current, scope],
+    );
+  }
+
+  async function createToken() {
+    if (!selectedId || !connectionToken.trim()) return;
+    setBusy(true);
+    setTokenError(null);
+    setIssuedToken(null);
+    try {
+      const body = await jsonFetch<{ token: TokenIssue }>(
+        `/api/cumulus-db/databases/${selectedId}/tokens`,
+        {
+          method: "POST",
+          body: JSON.stringify({ label: tokenLabel || "Dashboard token", scopes: selectedScopes }),
+        },
+        connectionToken.trim(),
+      );
+      setIssuedToken(body.token);
+      await loadTokens();
+    } catch (err) {
+      setTokenError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rotateToken(tokenId: string) {
+    if (!selectedId || !connectionToken.trim()) return;
+    setBusy(true);
+    setTokenError(null);
+    setIssuedToken(null);
+    try {
+      const body = await jsonFetch<{ token: TokenIssue }>(
+        `/api/cumulus-db/databases/${selectedId}/tokens/${encodeURIComponent(tokenId)}/rotate`,
+        { method: "POST" },
+        connectionToken.trim(),
+      );
+      setIssuedToken(body.token);
+      await loadTokens();
+    } catch (err) {
+      setTokenError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeToken(tokenId: string) {
+    if (!selectedId || !connectionToken.trim()) return;
+    setBusy(true);
+    setTokenError(null);
+    try {
+      await jsonFetch(
+        `/api/cumulus-db/databases/${selectedId}/tokens/${encodeURIComponent(tokenId)}`,
+        { method: "DELETE" },
+        connectionToken.trim(),
+      );
+      await loadTokens();
+    } catch (err) {
+      setTokenError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createBackup() {
+    if (!selectedId || !connectionToken.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const body = await jsonFetch<{ backup: BackupResult }>(
+        `/api/cumulus-db/databases/${selectedId}/backups`,
+        { method: "POST" },
+        connectionToken.trim(),
+      );
+      setBackupResult(body.backup);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function compactDatabase() {
+    if (!selectedId || !connectionToken.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const body = await jsonFetch<{ compaction: CompactResult }>(
+        `/api/cumulus-db/databases/${selectedId}/compact`,
+        { method: "POST" },
+        connectionToken.trim(),
+      );
+      setCompactResult(body.compaction);
+      await loadRecords();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (isLoading) {
     return <div className="px-4 py-12 text-sm text-[color:var(--muted)]">Loading database dashboard...</div>;
   }
@@ -667,6 +992,69 @@ export default function DatabaseDashboardPage() {
         </div>
       </section>
 
+      <section className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--title)]">
+                <Activity className="size-4" />
+                Provider health
+              </div>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                Live status for the configured Cumulus DB endpoint.
+              </p>
+            </div>
+            <Button size="sm" variant="secondary" onClick={loadProviderMetadata}>
+              <RefreshCw className="size-4" />
+              Check
+            </Button>
+          </div>
+          <div className="mt-4 rounded-[5.5px] border border-white/10 bg-black/10 p-4">
+            {health ? (
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-[color:var(--muted)]">Service</span>
+                <span className="font-mono text-[color:var(--subtitle)]">
+                  {health.service ?? "cumulus-db"} · {health.ok ? "healthy" : "unhealthy"}
+                </span>
+              </div>
+            ) : (
+              <div className="text-sm text-amber-100">{healthError ?? "No health response yet."}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5">
+          <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--title)]">
+            <FileCode2 className="size-4" />
+            MCP metadata
+          </div>
+          <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+            Advertised tool surface exposed by the provider MCP endpoint.
+          </p>
+          <div className="mt-4 rounded-[5.5px] border border-white/10 bg-black/10 p-4">
+            {mcpManifest ? (
+              <>
+                <div className="mb-3 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                  {mcpManifest.name}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {mcpManifest.tools.map((tool) => (
+                    <span
+                      key={tool}
+                      className="rounded-full border border-white/10 px-2 py-1 font-mono text-[11px] text-[color:var(--subtitle)]"
+                    >
+                      {tool}
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-amber-100">{mcpError ?? "No MCP metadata yet."}</div>
+            )}
+          </div>
+        </div>
+      </section>
+
       {selected ? (
         <>
           <section className="rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5">
@@ -705,6 +1093,260 @@ export default function DatabaseDashboardPage() {
                   <div className="mt-1 text-[color:var(--muted)]">{item.count} stored</div>
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
+            <div className="rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-medium text-[color:var(--title)]">
+                    <Database className="size-4" />
+                    Key-value store
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                    Read and write dedicated KV entries without using the generic record form.
+                  </p>
+                </div>
+                <div className="font-mono text-xs text-[color:var(--muted)]">{kvRecords.length} keys</div>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <Input
+                  value={kvKey}
+                  onChange={(event) => setKvKey(event.target.value)}
+                  placeholder="KV key, e.g. agent.state"
+                  className="font-mono text-xs"
+                />
+                <Button variant="secondary" onClick={getKv} disabled={!kvKey.trim() || busy}>
+                  Read
+                </Button>
+                <Button onClick={putKv} disabled={!kvKey.trim() || busy}>
+                  Write
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                <Textarea
+                  value={kvValue}
+                  onChange={(event) => setKvValue(event.target.value)}
+                  placeholder='Value JSON, e.g. {"status":"ok"}'
+                  className="min-h-28 font-mono text-xs"
+                />
+                <Textarea
+                  value={kvMetadata}
+                  onChange={(event) => setKvMetadata(event.target.value)}
+                  placeholder='Metadata JSON, e.g. {"source":"dashboard"}'
+                  className="min-h-28 font-mono text-xs"
+                />
+              </div>
+              {kvResult ? (
+                <pre className="mt-3 max-h-44 overflow-auto rounded-[5.5px] border border-white/10 bg-black/20 p-3 text-xs leading-5 text-[color:var(--subtitle)]">
+                  {formatJson(kvResult.json)}
+                </pre>
+              ) : null}
+              {kvRecords.length ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {kvRecords.slice(0, 12).map((record) => (
+                    <button
+                      key={record.id}
+                      type="button"
+                      onClick={() => setKvKey(record.key ?? "")}
+                      className="rounded-full border border-white/10 px-2 py-1 font-mono text-[11px] text-[color:var(--muted)] hover:text-[color:var(--title)]"
+                    >
+                      {record.key ?? record.id}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-medium text-[color:var(--title)]">
+                    <ListTree className="size-4" />
+                    Events
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+                    Append event records through the event-specific endpoint and inspect the latest stream entries.
+                  </p>
+                </div>
+                <div className="font-mono text-xs text-[color:var(--muted)]">{eventRecords.length} events</div>
+              </div>
+              <div className="space-y-3">
+                <Input value={eventTitle} onChange={(event) => setEventTitle(event.target.value)} placeholder="Event title" />
+                <Textarea
+                  value={eventContent}
+                  onChange={(event) => setEventContent(event.target.value)}
+                  placeholder="Event content"
+                  className="min-h-20"
+                />
+                <Textarea
+                  value={eventJson}
+                  onChange={(event) => setEventJson(event.target.value)}
+                  placeholder='Event JSON, e.g. {"source":"dashboard"}'
+                  className="min-h-20 font-mono text-xs"
+                />
+                <Input value={eventTags} onChange={(event) => setEventTags(event.target.value)} placeholder="Tags, comma-separated" />
+                <Button onClick={appendEvent} disabled={busy}>
+                  <Plus className="mr-2 size-4" />
+                  Append event
+                </Button>
+              </div>
+              {eventRecords.length ? (
+                <div className="mt-4 max-h-64 space-y-2 overflow-auto">
+                  {eventRecords.slice(0, 6).map((record) => (
+                    <div key={record.id} className="rounded-[5.5px] border border-white/10 bg-black/10 p-3">
+                      <div className="truncate text-sm text-[color:var(--title)]">{record.title ?? record.id}</div>
+                      <div className="mt-1 font-mono text-[11px] text-[color:var(--muted)]">
+                        {new Date(record.updatedAt).toLocaleString()}
+                      </div>
+                      {record.content ? (
+                        <p className="mt-2 line-clamp-2 text-sm leading-5 text-[color:var(--subtitle)]">{record.content}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-medium text-[color:var(--title)]">
+                    <KeyRound className="size-4" />
+                    Token management
+                  </h2>
+                  <p className="mt-2 max-w-[72ch] text-sm leading-6 text-[color:var(--muted)]">
+                    Requires a token with token management scope. Newly issued token values are shown once.
+                  </p>
+                </div>
+                <Button size="sm" variant="secondary" onClick={loadTokens} disabled={busy || !connectionToken.trim()}>
+                  <RefreshCw className="size-4" />
+                  Load tokens
+                </Button>
+              </div>
+              {tokenError ? (
+                <div className="mb-4 rounded-[5.5px] border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+                  {tokenError}. Use an admin token for this panel.
+                </div>
+              ) : null}
+              {issuedToken ? (
+                <div className="mb-4 rounded-[5.5px] border border-[color:var(--neon-green)]/30 bg-[color:var(--neon-green)]/10 p-3 text-sm text-[color:var(--subtitle)]">
+                  New token: <code className="break-all text-[color:var(--title)]">{issuedToken.token}</code>
+                </div>
+              ) : null}
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_1fr_auto]">
+                <Input value={tokenLabel} onChange={(event) => setTokenLabel(event.target.value)} placeholder="Token label" />
+                <div className="flex flex-wrap gap-2">
+                  {TOKEN_SCOPES.map((scope) => (
+                    <label
+                      key={scope}
+                      className={`flex cursor-pointer items-center gap-2 rounded-full border px-2 py-1 font-mono text-[11px] ${
+                        selectedScopes.includes(scope)
+                          ? "border-[color:var(--neon-green)]/30 bg-[color:var(--neon-green)]/10 text-[color:var(--title)]"
+                          : "border-white/10 text-[color:var(--muted)]"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedScopes.includes(scope)}
+                        onChange={() => toggleScope(scope)}
+                        className="size-3"
+                      />
+                      {scope}
+                    </label>
+                  ))}
+                </div>
+                <Button onClick={createToken} disabled={busy || !selectedScopes.length}>
+                  Create
+                </Button>
+              </div>
+              <div className="mt-5 overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-xs text-[color:var(--muted)]">
+                  <thead className="border-b border-white/10 uppercase tracking-[0.16em]">
+                    <tr>
+                      <th className="py-2 pr-3 font-normal">Label</th>
+                      <th className="py-2 pr-3 font-normal">Scopes</th>
+                      <th className="py-2 pr-3 font-normal">Last used</th>
+                      <th className="py-2 pr-3 font-normal">Status</th>
+                      <th className="py-2 pr-3 font-normal">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tokens.map((token) => (
+                      <tr key={token.id} className="border-b border-white/5">
+                        <td className="py-3 pr-3 font-mono text-[color:var(--subtitle)]">{token.label}</td>
+                        <td className="py-3 pr-3">
+                          <div className="flex max-w-lg flex-wrap gap-1">
+                            {token.scopes.map((scope) => (
+                              <span key={scope} className="rounded-full border border-white/10 px-2 py-0.5 font-mono text-[10px]">
+                                {scope}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-3 pr-3 font-mono">{token.lastUsedAt ? new Date(token.lastUsedAt).toLocaleString() : "never"}</td>
+                        <td className="py-3 pr-3">{token.revokedAt ? "revoked" : "active"}</td>
+                        <td className="py-3 pr-3">
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="secondary" onClick={() => rotateToken(token.id)} disabled={busy || Boolean(token.revokedAt)}>
+                              <RotateCcw className="size-4" />
+                              Rotate
+                            </Button>
+                            <Button size="sm" variant="secondary" onClick={() => revokeToken(token.id)} disabled={busy || Boolean(token.revokedAt)}>
+                              <Trash2 className="size-4" />
+                              Revoke
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!tokens.length ? (
+                  <div className="py-8 text-center text-sm text-[color:var(--muted)]">No tokens loaded.</div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-[color:var(--title)]">
+                <Archive className="size-4" />
+                Backup and compact
+              </h2>
+              <p className="text-sm leading-6 text-[color:var(--muted)]">
+                Requires backup management scope. Backups snapshot records and tokens; compaction rewrites the active segment and updates the manifest.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Button onClick={createBackup} disabled={busy}>
+                  <Archive className="mr-2 size-4" />
+                  Backup
+                </Button>
+                <Button onClick={compactDatabase} disabled={busy}>
+                  <Table2 className="mr-2 size-4" />
+                  Compact
+                </Button>
+              </div>
+              <dl className="mt-5 space-y-3 text-xs text-[color:var(--muted)]">
+                <div>
+                  <dt className="uppercase tracking-[0.16em]">Last compacted</dt>
+                  <dd className="mt-1 font-mono text-[color:var(--subtitle)]">{selected.lastCompactedAt ?? "Never"}</dd>
+                </div>
+                <div>
+                  <dt className="uppercase tracking-[0.16em]">Backup result</dt>
+                  <dd className="mt-1 break-all font-mono text-[color:var(--subtitle)]">
+                    {backupResult ? `${backupResult.records} records · ${backupResult.path}` : "No backup this session"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="uppercase tracking-[0.16em]">Compact result</dt>
+                  <dd className="mt-1 break-all font-mono text-[color:var(--subtitle)]">
+                    {compactResult ? `${compactResult.records} records · ${compactResult.segment}` : "No compaction this session"}
+                  </dd>
+                </div>
+              </dl>
             </div>
           </section>
 
@@ -754,12 +1396,31 @@ export default function DatabaseDashboardPage() {
                     Search
                   </Button>
                 </div>
-                <div className="mt-4 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                  {hasSearched ? `${searchHits.length} search hits` : `${records.length} stored records`}
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                    {hasSearched ? `${searchHits.length} search hits` : `${records.length} stored records`}
+                  </div>
+                  <div className="flex gap-2">
+                    {(["detailed", "compact"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setRecordView(mode)}
+                        className={`rounded-[5.5px] border px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em] ${
+                          recordView === mode
+                            ? "border-[color:var(--neon-green)]/30 bg-[color:var(--neon-green)]/10 text-[color:var(--title)]"
+                            : "border-white/10 text-[color:var(--muted)]"
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="mt-4">
                   <RecordList
                     items={displayItems}
+                    compact={recordView === "compact"}
                     onReveal={revealSecret}
                   />
                 </div>
@@ -880,9 +1541,11 @@ export default function DatabaseDashboardPage() {
 }
 
 function RecordList({
+  compact,
   items,
   onReveal,
 }: {
+  compact: boolean;
   items: DisplayItem[];
   onReveal: (recordId: string, field: string) => void;
 }) {
@@ -894,6 +1557,29 @@ function RecordList({
     <div className="space-y-3">
       {items.map((item) => {
         const record = item.record;
+        if (compact) {
+          return (
+            <article
+              key={record.id}
+              className="grid gap-2 rounded-[5.5px] border border-white/10 bg-black/10 p-3 text-xs md:grid-cols-[120px_minmax(0,1fr)_160px_auto]"
+            >
+              <div className="font-mono text-[color:var(--muted)]">{record.type}</div>
+              <div className="min-w-0">
+                <div className="truncate text-sm text-[color:var(--title)]">{record.title ?? record.key ?? record.id}</div>
+                <div className="truncate font-mono text-[11px] text-[color:var(--muted)]">{record.id}</div>
+              </div>
+              <div className="font-mono text-[color:var(--muted)]">{new Date(record.updatedAt).toLocaleString()}</div>
+              {record.secret.fields.length ? (
+                <Button size="sm" variant="secondary" onClick={() => onReveal(record.id, record.secret.fields[0]!)}>
+                  Reveal
+                </Button>
+              ) : (
+                <span className="text-[color:var(--muted)]">-</span>
+              )}
+            </article>
+          );
+        }
+
         return (
           <article key={record.id} className="rounded-[5.5px] border border-white/10 bg-black/10 p-4">
             <div className="mb-2 flex items-center justify-between gap-3">

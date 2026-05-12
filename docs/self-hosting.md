@@ -41,7 +41,11 @@ The public dashboard does not use the Cumulus DB master key. Connect with:
 
 The master key is for provisioning and private administration only.
 
-After connecting, use `/dashboard/database` to verify the database API. The **Seed evidence** action writes sample records for every supported type and uses the event and key-value HTTP routes. The search controls prove text search, vector search, type filtering, and limit handling against the connected database.
+After connecting, use `/dashboard/database` to verify the database API. The dashboard shows provider health and MCP metadata, reads and writes key-value entries, appends events, lists records in detailed or compact mode, and searches by text, vector, type, and limit.
+
+The token, backup, and compaction panels require an admin token or a token with the matching scopes. A normal data token can write records, events, and key-value entries, but it cannot reveal secrets, manage tokens, create backups, or compact the database.
+
+The **Seed evidence** action writes sample records for every supported type and uses the event and key-value HTTP routes.
 
 ## Cloud API Path
 
