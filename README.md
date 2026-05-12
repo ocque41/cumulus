@@ -73,6 +73,8 @@ The public dashboard connects with:
 
 It does not expose the Cumulus DB master key through public user routes.
 
+The database dashboard at `/dashboard/database` can prove the API surface against any connected workspace. Click **Seed evidence** to write one sample for every supported record type, including `note`, `run`, `message`, `event`, `tool_call`, `artifact`, `task`, `observation`, `secret`, and `kv`. The same page can search by text, vector, type, and limit.
+
 License note: `apps/cumulus-db` is AGPL-3.0-only. App-side integration code remains Apache-2.0 and talks to it over HTTP/token APIs.
 
 ## Commands

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { animate, stagger } from "animejs";
 import {
+    Database,
     LayoutDashboard,
     Settings,
     type LucideIcon
@@ -11,6 +12,7 @@ import { useCrossDomainTransition } from "@/hooks/useCrossDomainTransition";
 
 const links: { href: string; label: string; icon: LucideIcon; external: boolean; indent?: boolean }[] = [
     { href: "/dashboard", label: "Tado", icon: LayoutDashboard, external: false },
+    { href: "/dashboard/database", label: "Database", icon: Database, external: false },
     { href: "/dashboard/system", label: "System", icon: Settings, external: false },
 ];
 

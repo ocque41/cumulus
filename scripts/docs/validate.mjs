@@ -78,6 +78,18 @@ async function collectFiles(dir) {
   return files.sort();
 }
 
+async function directoryExists(dir) {
+  try {
+    const stats = await fs.stat(dir);
+    return stats.isDirectory();
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
+}
+
 function parseFrontmatter(raw) {
   const match = raw.match(/^---\n([\s\S]*?)\n---\n?/);
   if (!match) {
@@ -145,6 +157,11 @@ function slugAndLocaleFromPath(filePath) {
 }
 
 async function main() {
+  if (!(await directoryExists(docsDir))) {
+    console.log('Docs content directory not present; skipping src/content/docs validation.');
+    return;
+  }
+
   const files = await collectFiles(docsDir);
 
   if (files.length === 0) {

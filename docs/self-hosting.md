@@ -35,6 +35,8 @@ The public dashboard does not use the Cumulus DB master key. Connect with:
 
 The master key is for provisioning and private administration only.
 
+After connecting, use `/dashboard/database` to verify the database API. The **Seed evidence** action writes sample records for every supported type and uses the event and key-value HTTP routes. The search controls prove text search, vector search, type filtering, and limit handling against the connected database.
+
 ## Cloud API Path
 
 Use Cumulus Cloud/API when you want Cumulus to host the database and operational systems for you. Set the cloud API values from `.env.example` in your deployment environment.

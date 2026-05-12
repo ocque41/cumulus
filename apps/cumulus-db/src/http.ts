@@ -389,12 +389,49 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
         }
         if (tool === 'cumulus_db_search') {
           await requireDbToken(engine, fakeReq, dbId, ['search:read']);
-          send(res, 200, { result: await engine.search(dbId, { query: stringValue(args.query), vector: numberArray(args.vector) }) });
+          send(res, 200, {
+            result: await engine.search(dbId, {
+              query: stringValue(args.query),
+              vector: numberArray(args.vector),
+              type: typeof args.type === 'string' ? (args.type as RecordType) : undefined,
+              limit: typeof args.limit === 'number' ? args.limit : undefined,
+            }),
+          });
           return;
         }
         if (tool === 'cumulus_db_append_event') {
           await requireDbToken(engine, fakeReq, dbId, ['events:write']);
           send(res, 200, { result: await engine.appendEvent(dbId, recordInput(args)) });
+          return;
+        }
+        if (tool === 'cumulus_db_put_kv') {
+          await requireDbToken(engine, fakeReq, dbId, ['kv:write']);
+          send(res, 200, {
+            result: await engine.putKeyValue(
+              dbId,
+              stringValue(args.key),
+              args.value,
+              args.metadata as Record<string, unknown> | undefined,
+            ),
+          });
+          return;
+        }
+        if (tool === 'cumulus_db_get_kv') {
+          await requireDbToken(engine, fakeReq, dbId, ['kv:read']);
+          const record = await engine.getKeyValue(dbId, stringValue(args.key));
+          if (!record) send(res, 404, { error: 'key not found' });
+          else send(res, 200, { result: record });
+          return;
+        }
+        if (tool === 'cumulus_db_reveal_secret') {
+          await requireDbToken(engine, fakeReq, dbId, ['secrets:reveal']);
+          send(res, 200, {
+            result: await engine.revealSecret(
+              dbId,
+              stringValue(args.record_id ?? args.recordId),
+              typeof args.field === 'string' ? args.field : undefined,
+            ),
+          });
           return;
         }
         send(res, 404, { error: `unknown tool: ${tool}` });

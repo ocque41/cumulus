@@ -1,0 +1,32 @@
+import { NextResponse } from "next/server";
+import { cumulusDbTokenFetch, requireCumulusUser } from "@/lib/cumulus-db/server";
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string; key: string }> },
+) {
+  const user = await requireCumulusUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id, key } = await params;
+  return cumulusDbTokenFetch(
+    request,
+    `/v1/databases/${encodeURIComponent(id)}/kv/${encodeURIComponent(key)}`,
+  );
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string; key: string }> },
+) {
+  const user = await requireCumulusUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id, key } = await params;
+  return cumulusDbTokenFetch(
+    request,
+    `/v1/databases/${encodeURIComponent(id)}/kv/${encodeURIComponent(key)}`,
+    {
+      method: "PUT",
+      body: await request.text(),
+    },
+  );
+}

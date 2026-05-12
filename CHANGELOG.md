@@ -4,6 +4,22 @@ All notable changes to Cumulus are documented here.
 
 This project follows semantic versioning. The root app is licensed under Apache-2.0, and the Cumulus Database provider in `apps/cumulus-db` is licensed under AGPL-3.0-only.
 
+## [0.2.0] - 2026-05-12
+
+Cumulus 0.2.0 makes the database API observable from the public dashboard. A connected workspace can now prove record-type storage, event writes, key-value writes, secret handling, and search behavior without exposing the master key.
+
+### Added
+
+- **Database evidence console** - Added `/dashboard/database` controls to seed sample records for every supported Cumulus DB record type and show coverage directly in the dashboard.
+- **Search proof controls** - Added dashboard search inputs for text query, vector query, type filtering, and result limits with score breakdowns.
+- **Cumulus DB API proxies** - Added app-side token-protected routes for Cumulus DB event writes and key-value reads/writes.
+- **Cumulus DB proof tests** - Added HTTP tests that store every public record type and verify text, vector, type, and limit search behavior.
+
+### Changed
+
+- **MCP database tools** - Implemented the advertised `cumulus_db_put_kv`, `cumulus_db_get_kv`, and `cumulus_db_reveal_secret` tools and extended MCP search to accept type and limit arguments.
+- **Docs validation** - Made docs lint skip the optional `src/content/docs` tree when that content root is not present.
+
 ## [0.1.0] - 2026-05-12
 
 Initial public release of Cumulus as a cloud-first, self-hostable product codebase.
