@@ -5,7 +5,7 @@ import { PageBackground } from '@/components/site/page-background';
 
 export const metadata: Metadata = {
   title: 'Docs',
-  description: 'Cumulus public documentation for cloud and self-hosted deployments.',
+  description: 'Cumulus public documentation for cloud, self-hosted, and terminal deployments.',
 };
 
 const repositoryUrl = (process.env.NEXT_PUBLIC_REPOSITORY_URL || 'https://github.com/cumulus/cumulus').replace(/\/$/, '');
@@ -26,6 +26,11 @@ const docs = [
     title: 'Private production overlay',
     body: 'Keep production close to public while separating secrets and private admin systems.',
   },
+  {
+    href: `${repositoryUrl}/blob/main/docs/terminal-site.md`,
+    title: 'Terminal site',
+    body: 'Run the Cumulus website from a terminal with npx cumulush.',
+  },
 ];
 
 export default function DocsPage() {
@@ -43,7 +48,7 @@ export default function DocsPage() {
           </p>
         </header>
 
-        <section className='mt-8 grid gap-5 md:grid-cols-3'>
+        <section className='mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4'>
           {docs.map((doc) => (
             <Link key={doc.href} href={doc.href} className='glass-surface glass-subtle glass-e2 rounded-[5.5px] p-5 transition hover:bg-white/[0.06]'>
               <h2 className='text-xl tracking-[-0.04em] text-[color:var(--title)] [font-family:var(--type-heading-family)] [font-weight:var(--type-heading-weight)]'>

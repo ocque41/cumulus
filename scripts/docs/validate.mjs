@@ -145,6 +145,17 @@ function slugAndLocaleFromPath(filePath) {
 }
 
 async function main() {
+  try {
+    await fs.access(docsDir);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      console.log('Docs validation skipped: src/content/docs is not present.');
+      return;
+    }
+
+    throw error;
+  }
+
   const files = await collectFiles(docsDir);
 
   if (files.length === 0) {

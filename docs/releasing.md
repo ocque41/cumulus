@@ -18,6 +18,7 @@ npm run license:check
 npm run security:scan
 npm audit --omit=dev --audit-level=high
 npm run test
+npm run terminal:pack
 npm run db:test
 npm run build
 ```

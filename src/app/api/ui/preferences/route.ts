@@ -64,13 +64,29 @@ function mapUserRowToPreferences(productKey: string, row: Record<string, unknown
   };
 }
 
+function makeFallbackResponse(productKey: string) {
+  const resolved = resolveUiPreferences(productKey, null, null);
+
+  return NextResponse.json({
+    productKey,
+    preferences: resolved,
+    usingFallbackTables: true,
+  });
+}
+
 export async function GET(req: NextRequest) {
   const productKey = req.nextUrl.searchParams.get("productKey")?.trim().toLowerCase() || DEFAULT_PRODUCT_KEY;
-  const supabase = await createClient();
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+
+  try {
+    supabase = await createClient();
+  } catch {
+    return makeFallbackResponse(productKey);
+  }
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
 
   const { data: themeRow, error: themeError } = await supabase
     .from("cumulus_ui_theme_profiles")
@@ -79,7 +95,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (themeError && !isMissingTableError(themeError)) {
-    return NextResponse.json({ error: themeError.message }, { status: 500 });
+    return makeFallbackResponse(productKey);
   }
 
   let userRow: Record<string, unknown> | null = null;
@@ -93,7 +109,7 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     if (error && !isMissingTableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return makeFallbackResponse(productKey);
     }
 
     userQueryError = error;

@@ -1,0 +1,39 @@
+{
+  "name": "cumulush",
+  "version": "0.1.0",
+  "description": "A terminal website for Cumulus.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "cumulush": "bin/cumulus.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node ./bin/cumulus.js",
+    "test": "node --test ./test/*.test.mjs",
+    "pack:dry": "npm pack --dry-run ."
+  },
+  "keywords": [
+    "cumulus",
+    "terminal",
+    "tui",
+    "website"
+  ],
+  "homepage": "https://cumulush.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ocque41/cumulus.git",
+    "directory": "packages/terminal-site"
+  }
+}
