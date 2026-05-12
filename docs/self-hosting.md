@@ -26,6 +26,12 @@ npm run dev
 
 Use placeholders from `.env.example`. Do not commit your local `.env.local`.
 
+For the app database schema, use the SQL baseline in `supabase/migrations`.
+Run it with Supabase local tooling or with `psql` against a normal
+`postgres://` connection string. Do not run local migrations through hosted-only
+HTTP database clients such as Neon serverless; those clients are for hosted
+HTTP endpoints and can break `127.0.0.1` local Postgres URLs.
+
 ## Cumulus DB Access
 
 The public dashboard does not use the Cumulus DB master key. Connect with:

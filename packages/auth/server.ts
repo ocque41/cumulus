@@ -2,9 +2,9 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
-import { resolveCookiePolicy } from './middleware'
+import { resolveCookiePolicy, type AuthEnv } from './middleware'
 
-type ServerEnv = NodeJS.ProcessEnv
+type ServerEnv = AuthEnv
 
 export type CreateServerSupabaseClientOptions = {
   env?: ServerEnv

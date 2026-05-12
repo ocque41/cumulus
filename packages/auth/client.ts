@@ -1,6 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-type ClientEnv = Partial<{
+export type ClientEnv = Partial<{
   AUTH_COOKIE_DOMAIN: string
   AUTH_COOKIE_SECURE_MODE: string
   NEXT_PUBLIC_AUTH_COOKIE_DOMAIN: string
@@ -10,7 +10,7 @@ type ClientEnv = Partial<{
   NEXT_PUBLIC_SUPABASE_URL: string
   NODE_ENV: string
   VERCEL_ENV: string
-}>
+}> & Record<string, string | undefined>
 
 export type CreateBrowserSupabaseClientOptions = {
   env?: ClientEnv

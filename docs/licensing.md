@@ -15,6 +15,8 @@ Cumulus uses a split license model.
 - Keep app integration code outside `apps/cumulus-db` Apache-2.0. It must talk to Cumulus DB over HTTP/token APIs.
 - Do not import `@cumulus/database` or `apps/cumulus-db` source from Apache-side app code.
 - If a future shared protocol package is needed, create it outside `apps/cumulus-db` and license it Apache-2.0.
+- Generated apps or examples that only call Cumulus Cloud over HTTP can use their own permissive license.
+- Generated apps or examples that include files copied from `apps/cumulus-db` must keep those copied provider pieces AGPL-3.0-only.
 - New files under `apps/cumulus-db/src` must start with:
 
 ```ts

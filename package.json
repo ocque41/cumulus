@@ -12,6 +12,7 @@
     "db:start": "npm --prefix apps/cumulus-db run start",
     "db:test": "npm --prefix apps/cumulus-db run test",
     "db:smoke": "npm --prefix apps/cumulus-db run build && npm --prefix apps/cumulus-db run smoke",
+    "typecheck": "tsc --noEmit && npm --prefix apps/cumulus-db run build",
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",

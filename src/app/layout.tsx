@@ -36,6 +36,21 @@ const SITE_DESCRIPTION =
   "A small studio shipping tools and infrastructure for AI-first software. Independent products, one quiet studio.";
 const SITE_TAGLINE =
   "Tools and infrastructure for people building with AI.";
+const UI_PREFERENCES_STORAGE_KEY = "cumulus_ui_preferences:hub";
+const initialThemeScript = `
+(() => {
+  try {
+    const raw = window.localStorage.getItem(${JSON.stringify(UI_PREFERENCES_STORAGE_KEY)});
+    const parsed = raw ? JSON.parse(raw) : null;
+    const mode = parsed && typeof parsed.themeMode === "string" ? parsed.themeMode : "system";
+    const prefersLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+    const theme = mode === "light" || mode === "dark" ? mode : prefersLight ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
+})();
+`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -132,6 +147,9 @@ export default function RootLayout({
       className={`${plusJakartaSans.variable} ${jetbrainsMono.variable} antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: initialThemeScript }} />
+      </head>
       <body className="bg-[color:var(--color-ink)] text-[color:var(--color-paper)] min-h-screen" suppressHydrationWarning>
         <AuthProvider>
           <UiPreferencesProvider productKey="hub">

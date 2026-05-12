@@ -2,7 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { DEFAULT_PRODUCT_KEY, makeFallbackTheme, resolveUiPreferences, sanitizeUiPatch } from "@/lib/ui-preferences";
+import {
+  DEFAULT_PRODUCT_KEY,
+  makeFallbackTheme,
+  resolveDomThemeMode,
+  resolveUiPreferences,
+  sanitizeUiPatch,
+} from "@/lib/ui-preferences";
 import type { UiPreferencePatch, UiPreferences } from "@/types/ui-preferences";
 
 type UiPreferencesContextType = {
@@ -25,6 +31,7 @@ function toStorageKey(productKey: string) {
 function applyDomPreferences(prefs: UiPreferences) {
   const root = document.documentElement;
   const forceSolid = forceSolidFromEnv;
+  const prefersLight = window.matchMedia?.("(prefers-color-scheme: light)").matches ?? false;
 
   root.dataset.liquidGlass = isGlassEnabled ? "on" : "off";
   root.dataset.reduceTransparency = forceSolid || prefs.reduceTransparency ? "true" : "false";
@@ -32,9 +39,7 @@ function applyDomPreferences(prefs: UiPreferences) {
   root.dataset.glassElevation = prefs.elevation;
   root.dataset.uiMotion = prefs.motionMode;
 
-  if (prefs.themeMode === "dark" || prefs.themeMode === "light") {
-    root.setAttribute("data-theme", prefs.themeMode);
-  }
+  root.setAttribute("data-theme", resolveDomThemeMode(prefs.themeMode, prefersLight));
 
   root.style.setProperty("--glass-intensity", String(prefs.glassIntensity));
   root.style.setProperty("--glass-noise-opacity", String(prefs.noiseOpacity));
@@ -96,6 +101,14 @@ export function UiPreferencesProvider({
 
   useEffect(() => {
     applyDomPreferences(preferences);
+
+    if (preferences.themeMode !== "system" || typeof window === "undefined") return;
+    const media = window.matchMedia?.("(prefers-color-scheme: light)");
+    if (!media) return;
+    const syncSystemTheme = () => applyDomPreferences(preferences);
+    media.addEventListener("change", syncSystemTheme);
+
+    return () => media.removeEventListener("change", syncSystemTheme);
   }, [preferences]);
 
   const updatePreferences = useCallback(

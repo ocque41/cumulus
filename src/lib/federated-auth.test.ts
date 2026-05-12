@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { describe, expect, it } from 'vitest'
 
-import { copyResponseCookies, redirectWithSupabaseCookies } from '@cumulus/auth/middleware'
+import { copyResponseCookies, redirectWithSupabaseCookies, resolveCookiePolicy } from '@cumulus/auth/middleware'
 
 describe('redirectWithSupabaseCookies', () => {
   it('preserves Supabase cookies on redirect responses', () => {
@@ -48,5 +48,18 @@ describe('redirectWithSupabaseCookies', () => {
 
     expect(copiedResponse.cookies.get('sb-refresh-token')?.value).toBe('refresh-value')
     await expect(copiedResponse.json()).resolves.toEqual({ ok: true })
+  })
+
+  it('accepts partial env objects when resolving cookie policy', () => {
+    const policy = resolveCookiePolicy({
+      AUTH_COOKIE_DOMAIN: 'auto',
+      AUTH_COOKIE_SECURE_MODE: 'never',
+    }, 'http://127.0.0.1:3000/dashboard')
+
+    expect(policy).toEqual({
+      path: '/',
+      sameSite: 'lax',
+      secure: false,
+    })
   })
 })

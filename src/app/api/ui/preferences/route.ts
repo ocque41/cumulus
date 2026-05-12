@@ -34,6 +34,15 @@ function isMissingTableError(error: SupabaseQueryError) {
   return message.includes("could not find the table") || message.includes("schema cache");
 }
 
+function fallbackPreferences(productKey: string, reason?: string) {
+  return NextResponse.json({
+    productKey,
+    preferences: resolveUiPreferences(productKey, null, null),
+    usingFallbackTables: true,
+    ...(reason ? { warning: reason } : {}),
+  });
+}
+
 function mapThemeRowToProfile(productKey: string, row: Record<string, unknown> | null): UiThemeProfile | null {
   if (!row) return null;
   return {
@@ -66,34 +75,57 @@ function mapUserRowToPreferences(productKey: string, row: Record<string, unknown
 
 export async function GET(req: NextRequest) {
   const productKey = req.nextUrl.searchParams.get("productKey")?.trim().toLowerCase() || DEFAULT_PRODUCT_KEY;
-  const supabase = await createClient();
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  let userId: string | null = null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
+  } catch (error) {
+    return fallbackPreferences(productKey, error instanceof Error ? error.message : String(error));
+  }
 
-  const { data: themeRow, error: themeError } = await supabase
-    .from("cumulus_ui_theme_profiles")
-    .select("*")
-    .eq("product_key", productKey)
-    .maybeSingle();
+  let themeRow: unknown = null;
+  let themeError: SupabaseQueryError = null;
+  try {
+    const result = await supabase
+      .from("cumulus_ui_theme_profiles")
+      .select("*")
+      .eq("product_key", productKey)
+      .maybeSingle();
+    themeRow = result.data;
+    themeError = result.error;
+  } catch (error) {
+    themeError = { message: error instanceof Error ? error.message : String(error) };
+  }
 
   if (themeError && !isMissingTableError(themeError)) {
-    return NextResponse.json({ error: themeError.message }, { status: 500 });
+    return fallbackPreferences(productKey, themeError.message ?? "Unable to load UI theme profile");
   }
 
   let userRow: Record<string, unknown> | null = null;
   let userQueryError: SupabaseQueryError = null;
-  if (user) {
-    const { data, error } = await supabase
-      .from("cumulus_ui_user_preferences")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("product_key", productKey)
-      .maybeSingle();
+  if (userId) {
+    let data: unknown = null;
+    let error: SupabaseQueryError = null;
+    try {
+      const result = await supabase
+        .from("cumulus_ui_user_preferences")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("product_key", productKey)
+        .maybeSingle();
+      data = result.data;
+      error = result.error;
+    } catch (queryError) {
+      error = { message: queryError instanceof Error ? queryError.message : String(queryError) };
+    }
 
     if (error && !isMissingTableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return fallbackPreferences(productKey, error.message ?? "Unable to load UI preferences");
     }
 
     userQueryError = error;

@@ -599,24 +599,44 @@ export default function DatabaseDashboardPage() {
             </div>
           ) : null}
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <form
+            className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void loadDatabases();
+            }}
+          >
+            <label className="sr-only" htmlFor="cumulus-db-database-id">
+              Database id
+            </label>
             <Input
+              id="cumulus-db-database-id"
               value={connectionDatabaseId}
               onChange={(event) => setConnectionDatabaseId(event.target.value)}
               placeholder="Database id"
+              autoComplete="off"
               className="font-mono text-xs"
             />
+            <label className="sr-only" htmlFor="cumulus-db-token">
+              Scoped token
+            </label>
             <Input
+              id="cumulus-db-token"
               value={connectionToken}
               onChange={(event) => setConnectionToken(event.target.value)}
-              placeholder="Scoped bearer token"
+              placeholder="Scoped token"
               type="password"
+              autoComplete="off"
+              aria-describedby="cumulus-db-token-hint"
               className="font-mono text-xs"
             />
-            <Button onClick={loadDatabases} disabled={!connectionDatabaseId.trim() || !connectionToken.trim() || busy}>
+            <Button type="submit" disabled={!connectionDatabaseId.trim() || !connectionToken.trim() || busy}>
               Connect
             </Button>
-          </div>
+          </form>
+          <p id="cumulus-db-token-hint" className="mt-3 text-xs leading-5 text-[color:var(--muted)]">
+            Data tokens can read, write, search, and store secrets. Revealing encrypted secret values requires an admin token.
+          </p>
 
           {selected ? (
             <div className="mt-4 rounded-[5.5px] border border-white/10 bg-white/[0.03] p-4 text-sm text-[color:var(--muted)]">

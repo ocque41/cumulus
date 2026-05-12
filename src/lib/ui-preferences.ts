@@ -14,6 +14,11 @@ export const DEFAULT_UI_THEME_PROFILE: Omit<UiThemeProfile, "productKey"> = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+export function resolveDomThemeMode(themeMode: UiThemeProfile["themeMode"], prefersLight = false): "dark" | "light" {
+  if (themeMode === "light" || themeMode === "dark") return themeMode;
+  return prefersLight ? "light" : "dark";
+}
+
 export function sanitizeUiPatch(input: UiPreferencePatch): UiPreferencePatch {
   const patch: UiPreferencePatch = {};
 

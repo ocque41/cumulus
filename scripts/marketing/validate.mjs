@@ -4,7 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const files = [
   path.join(root, 'src', 'lib', 'marketing', 'content.ts'),
-  path.join(root, 'src', 'lib', 'marketing', 'products.ts'),
+  path.join(root, 'src', 'lib', 'marketing', 'product-briefs.ts'),
 ];
 
 const requiredMarkers = [

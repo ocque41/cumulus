@@ -4,6 +4,20 @@ import type { User } from '@supabase/supabase-js'
 
 type SameSite = 'lax' | 'strict' | 'none'
 
+export type AuthEnv = Partial<{
+  AUTH_COOKIE_DOMAIN: string
+  AUTH_COOKIE_SECURE_MODE: string
+  FEDERATED_ALLOWED_ROOTS: string
+  FEDERATED_LOCAL_HOSTS: string
+  NEXT_PUBLIC_AUTH_COOKIE_DOMAIN: string
+  NEXT_PUBLIC_AUTH_COOKIE_SECURE_MODE: string
+  NEXT_PUBLIC_COOKIE_DOMAIN: string
+  NEXT_PUBLIC_FEDERATED_ALLOWED_ROOTS: string
+  NEXT_PUBLIC_FEDERATED_LOCAL_HOSTS: string
+  NODE_ENV: string
+  VERCEL_ENV: string
+}> & Record<string, string | undefined>
+
 export type CookiePolicy = {
   domain?: string
   path: string
@@ -14,6 +28,7 @@ export type CookiePolicy = {
 export type RedirectPolicyOptions = {
   allowedLocalHosts?: string[]
   allowedRoots?: string[]
+  env?: AuthEnv
   requireHttpsInProd?: boolean
 }
 
@@ -116,7 +131,7 @@ function parseAttempt(value: string | null): number {
   return parsed
 }
 
-function isProdLike(env: NodeJS.ProcessEnv = process.env): boolean {
+function isProdLike(env: AuthEnv = process.env): boolean {
   return env.NODE_ENV === 'production' || env.VERCEL_ENV === 'production'
 }
 
@@ -131,19 +146,22 @@ function getRequestProtocol(requestUrl?: string): 'http:' | 'https:' | null {
   }
 }
 
-export function getAllowedRoots(env: NodeJS.ProcessEnv = process.env): string[] {
-  return parseCsv(env.FEDERATED_ALLOWED_ROOTS, ['cumulush.com']).map(stableHost)
+export function getAllowedRoots(env: AuthEnv = process.env): string[] {
+  return parseCsv(
+    env.FEDERATED_ALLOWED_ROOTS ?? env.NEXT_PUBLIC_FEDERATED_ALLOWED_ROOTS,
+    ['cumulush.com']
+  ).map(stableHost)
 }
 
-export function getAllowedLocalHosts(env: NodeJS.ProcessEnv = process.env): string[] {
+export function getAllowedLocalHosts(env: AuthEnv = process.env): string[] {
   return parseCsv(
-    env.FEDERATED_LOCAL_HOSTS,
+    env.FEDERATED_LOCAL_HOSTS ?? env.NEXT_PUBLIC_FEDERATED_LOCAL_HOSTS,
     ['localhost', '127.0.0.1', 'local.cumulush.com']
   ).map(stableHost)
 }
 
 export function resolveCookiePolicy(
-  env: NodeJS.ProcessEnv = process.env,
+  env: AuthEnv = process.env,
   requestUrl?: string
 ): CookiePolicy {
   const configuredDomain =
@@ -178,12 +196,14 @@ export function isAllowedRedirect(
   url: string,
   options: RedirectPolicyOptions = {}
 ): boolean {
+  const env = options.env ?? process.env
+
   try {
     const parsed = new URL(url)
     const host = parsed.hostname.toLowerCase()
-    const allowedRoots = (options.allowedRoots ?? getAllowedRoots()).map(stableHost)
-    const allowedLocalHosts = (options.allowedLocalHosts ?? getAllowedLocalHosts()).map(stableHost)
-    const requireHttpsInProd = options.requireHttpsInProd ?? isProdLike()
+    const allowedRoots = (options.allowedRoots ?? getAllowedRoots(env)).map(stableHost)
+    const allowedLocalHosts = (options.allowedLocalHosts ?? getAllowedLocalHosts(env)).map(stableHost)
+    const requireHttpsInProd = options.requireHttpsInProd ?? isProdLike(env)
     const isLocal = allowedLocalHosts.includes(host)
     const isRootAllowed = allowedRoots.some((root) => host === root || host.endsWith(`.${root}`))
     const protocolAllowed =
