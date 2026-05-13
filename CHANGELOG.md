@@ -4,6 +4,15 @@ All notable changes to Cumulus are documented here.
 
 This project follows semantic versioning. The root app is licensed under Apache-2.0, and the Cumulus Database provider in `apps/cumulus-db` is licensed under AGPL-3.0-only.
 
+## [cumulush@0.1.1] - 2026-05-13
+
+### Changed
+
+- Added ASCII Cumulus branding to the terminal site header.
+- Added an ASCII Tado mark to the `/tado` terminal page.
+- Replaced the terminal site's side navigation with a horizontal link row for the six pages.
+- Expanded the website footer to cover marketing, workspace, account, package, and legal links.
+
 ## [cumulush@0.1.0] - 2026-05-13
 
 Initial terminal website package release.

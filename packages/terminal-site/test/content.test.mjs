@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { CONTACT_EMAIL, findPage, pageIndex, pages } from "../src/content.js";
-import { renderPlain } from "../src/render.js";
+import { renderFrame, renderPlain, stripAnsi } from "../src/render.js";
 
 test("terminal site exposes the requested pages and aliases", () => {
   assert.deepEqual(
@@ -28,4 +28,16 @@ test("contact page uses the requested email address", () => {
   const contact = findPage("/contact");
   assert.equal(CONTACT_EMAIL, "hi@cumulush.com");
   assert.match(renderPlain(contact), /hi@cumulush\.com/);
+});
+
+test("interactive frame renders ASCII logos and horizontal links", () => {
+  const home = stripAnsi(renderFrame({ selectedIndex: 0, scroll: 0 }, { columns: 120, rows: 32 }));
+  assert.match(home, /cumulus/);
+  assert.match(home, /1 Cumulus\s+2 Documents\s+3 Relay\s+4 Tado\s+5 Rune\s+6 Contact/);
+  assert.match(home, /<\s+1 Cumulus/);
+  assert.match(home, /6 Contact\s+>/);
+
+  const tado = stripAnsi(renderFrame({ selectedIndex: 3, scroll: 0 }, { columns: 120, rows: 40 }));
+  assert.match(tado, /\+------\+/);
+  assert.match(tado, /\+----------\+\s+\+----------\+\s+\+----------\+/);
 });

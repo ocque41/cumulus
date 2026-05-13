@@ -5,6 +5,10 @@ export const useCrossDomainTransition = () => {
     const navigateTo = useCallback((url: string) => {
         // 1. Select the 'Curtain' elements (a grid of 100 divs)
         const targets = document.querySelectorAll('.transition-block');
+        if (targets.length === 0) {
+            window.location.assign(url);
+            return;
+        }
 
         // 2. Play the EXIT animation (Cover the screen)
         animate(targets, {

@@ -1,6 +1,8 @@
 # Cumulus Terminal Site
 
 This package ships the Cumulus website as an interactive terminal UI.
+The TUI uses ASCII Cumulus branding, horizontal page links, and an ASCII Tado
+mark on the Tado page.
 
 Run it from npm:
 

@@ -20,8 +20,9 @@ export function TerminalSiteCallout() {
           </h2>
           <p className='mt-5 max-w-[62ch] text-sm leading-7 text-[color:var(--subtitle)] sm:text-base'>
             The Cumulus website now ships as a public TUI. Run the command, browse the
-            Cumulus, Documents, Relay, Tado, Rune, and Contact pages, then send a local
-            email draft to hi@cumulush.com from the contact screen.
+            Cumulus, Documents, Relay, Tado, Rune, and Contact pages from a horizontal
+            link row, then send a local email draft to hi@cumulush.com from the contact
+            screen.
           </p>
         </div>
 
@@ -30,7 +31,7 @@ export function TerminalSiteCallout() {
             Run
           </p>
           <pre className='mt-3 overflow-x-auto font-mono text-sm leading-7 text-[color:var(--color-paper)]'>
-            <code>{'npx cumulush\nnpx cumulush /relay\nnpx cumulush /contact'}</code>
+            <code>{'npx cumulush\nnpx cumulush /tado\nnpx cumulush /contact'}</code>
           </pre>
           <div className='mt-5 flex flex-wrap gap-3 text-sm'>
             <Link

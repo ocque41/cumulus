@@ -2,6 +2,8 @@
 
 The terminal site is a small public npm package in `packages/terminal-site`.
 It gives Cumulus a website people can open from a terminal.
+The interactive frame uses ASCII Cumulus branding, a horizontal page link row,
+and a Tado mark on the `/tado` page.
 
 ## User Command
 

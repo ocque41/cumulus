@@ -3,7 +3,7 @@ import readline from "node:readline";
 
 import { findPage, pageIndex, pages } from "./content.js";
 import { openMailDraft } from "./mailto.js";
-import { pageLines, renderFrame, renderPlain } from "./render.js";
+import { frameScrollLimit, renderFrame, renderPlain } from "./render.js";
 
 const CLEAR = "\x1b[2J\x1b[H";
 const SHOW_CURSOR = "\x1b[?25h";
@@ -54,11 +54,7 @@ function helpText() {
 }
 
 function clampScroll(index, scroll, rows, columns) {
-  const page = pages[index] ?? pages[0];
-  const navWidth = Math.min(24, Math.max(18, Math.floor(Math.max(60, columns) * 0.24)));
-  const contentWidth = Math.max(60, columns) - 4 - navWidth - 3;
-  const bodyHeight = Math.max(20, rows) - 6;
-  const maxScroll = Math.max(0, pageLines(page, contentWidth).length - bodyHeight);
+  const maxScroll = frameScrollLimit(index, { rows, columns });
   return Math.max(0, Math.min(scroll, maxScroll));
 }
 
@@ -73,7 +69,7 @@ export async function runCli(args, streams = {}) {
   }
 
   if (options.version) {
-    stdout.write("0.1.0\n");
+    stdout.write("0.1.1\n");
     return;
   }
 

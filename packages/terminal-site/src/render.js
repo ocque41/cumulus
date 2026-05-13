@@ -9,6 +9,29 @@ const DIM = "\x1b[2m";
 const BOLD = "\x1b[1m";
 const INVERSE = "\x1b[7m";
 
+const CUMULUS_MARK = [
+  "      . . . .",
+  "   . . . . . . .",
+  " . . . . . . . . .",
+  ". . . . . . . . . .",
+  ". . . . . . o . . .",
+  "  . . . . . . . .",
+  "    . . . . . .",
+];
+
+const TADO_MARK = [
+  "  +------+",
+  "  |.:.:.|",
+  "  |:.:.:|",
+  "  |.:.:.|",
+  "  |:.:.:|",
+  "  |.:.:.|    +----------+   +----------+   +----------+",
+  "  |:.:.:|    |.:.:.:.:.|   |.:.:.:.:.|   |.:.:.:.:.|",
+  "  |.:.:.|    |:.:.:.:.:|   |:.:.:.:.:|   |:.:.:.:.:|",
+  "  |:.:.:|    |.:.:.:.:.|   |.:.:.:.:.|   |.:.:.:.:.|",
+  "  +------+    +----------+   +----------+   +----------+",
+];
+
 export function stripAnsi(value) {
   return String(value).replace(/\x1b\[[0-9;]*m/g, "");
 }
@@ -28,6 +51,13 @@ function truncate(value, width) {
   const plain = stripAnsi(input);
   if (width <= 1) return plain.slice(0, width);
   return `${plain.slice(0, width - 1)}>`;
+}
+
+function center(value, width) {
+  const length = visibleLength(value);
+  if (length >= width) return value;
+  const left = Math.floor((width - length) / 2);
+  return `${" ".repeat(left)}${value}`;
 }
 
 export function wrapText(text, width) {
@@ -51,6 +81,33 @@ export function wrapText(text, width) {
 
   if (line) lines.push(line);
   return lines.length ? lines : [""];
+}
+
+function colorCumulusMark(line) {
+  return `${INK}${line.replace("o", `${TERRACOTTA}o${INK}`)}${RESET}`;
+}
+
+function renderCumulusLogo(width) {
+  const word = `${BOLD}cumulus${RESET}`;
+  if (width < 72) {
+    return [`${colorCumulusMark(". . . . . . o")}  ${word}`];
+  }
+
+  const markWidth = Math.max(...CUMULUS_MARK.map((line) => line.length));
+  const wordLine = Math.floor(CUMULUS_MARK.length / 2);
+  return CUMULUS_MARK.map((line, index) => {
+    const mark = colorCumulusMark(padRight(line, markWidth));
+    return index === wordLine ? `${mark}    ${word}` : mark;
+  });
+}
+
+function renderTadoLogo(width) {
+  const markWidth = Math.max(...TADO_MARK.map((line) => line.length));
+  const lines = [];
+  for (const line of TADO_MARK) {
+    lines.push(`${MUTED}${truncate(center(padRight(line, markWidth), width), width)}${RESET}`);
+  }
+  return lines;
 }
 
 function sectionLines(section, width) {
@@ -96,13 +153,19 @@ function sectionLines(section, width) {
 
 export function pageLines(page, width) {
   const contentWidth = Math.max(24, width);
-  const lines = [
+  const lines = [];
+
+  if (page.id === "tado") {
+    lines.push(...renderTadoLogo(contentWidth), "");
+  }
+
+  lines.push(
     `${TERRACOTTA}${page.kicker.toUpperCase()}${RESET}`,
     `${BOLD}${page.title}${RESET}`,
     "",
     ...wrapText(page.summary, contentWidth),
     "",
-  ];
+  );
 
   for (const section of page.sections) {
     lines.push(...sectionLines(section, contentWidth));
@@ -120,53 +183,72 @@ function frameLine(left, middle, right, width) {
   return `${left}${middle.repeat(Math.max(0, width - 2))}${right}`;
 }
 
-function renderNav(selectedIndex, width) {
-  const lines = [
-    `${TERRACOTTA}o${RESET} ${BOLD}CUMULUS${RESET}`,
-    `${DIM}terminal site${RESET}`,
-    "",
-  ];
+function renderHorizontalNav(selectedIndex, width) {
+  const lines = [];
+  let current = `${MUTED}<${RESET} `;
+  const suffix = ` ${MUTED}>${RESET}`;
 
-  pages.forEach((page, index) => {
-    const number = String(index + 1);
-    const label = `${number}. ${page.title}`;
-    const active = index === selectedIndex;
-    lines.push(active ? `${INVERSE}${padRight(label, width)}${RESET}` : padRight(label, width));
-  });
+  for (const [index, page] of pages.entries()) {
+    const plainLabel = `${index + 1} ${page.title}`;
+    const label = index === selectedIndex ? `${INVERSE}${plainLabel}${RESET}` : plainLabel;
+    const candidate = current.endsWith(" ") ? `${current}${label}` : `${current}  ${label}`;
+    if (visibleLength(`${candidate}${suffix}`) > width && visibleLength(current) > 2) {
+      lines.push(current);
+      current = `  ${label}`;
+      continue;
+    }
+    current = candidate;
+  }
 
-  lines.push("");
-  lines.push(`${DIM}arrows/[ ] nav${RESET}`);
-  lines.push(`${DIM}j/k scroll${RESET}`);
-  lines.push(`${DIM}Ctrl+C quit${RESET}`);
+  lines.push(`${current}${suffix}`);
   return lines;
+}
+
+function renderHeader(selectedIndex, width) {
+  const lines = [
+    ...renderCumulusLogo(width),
+    "",
+    `${DIM}terminal site${RESET}`,
+    ...renderHorizontalNav(selectedIndex, width),
+  ];
+  return lines;
+}
+
+export function frameScrollLimit(selectedIndex, size) {
+  const width = Math.max(60, size.columns ?? 100);
+  const height = Math.max(20, size.rows ?? 30);
+  const innerWidth = width - 4;
+  const page = pages[selectedIndex] ?? pages[0];
+  const header = renderHeader(selectedIndex, innerWidth);
+  const bodyHeight = Math.max(6, height - header.length - 5);
+  return Math.max(0, pageLines(page, innerWidth).length - bodyHeight);
 }
 
 export function renderFrame(state, size) {
   const width = Math.max(60, size.columns ?? 100);
   const height = Math.max(20, size.rows ?? 30);
-  const navWidth = Math.min(24, Math.max(18, Math.floor(width * 0.24)));
   const innerWidth = width - 4;
-  const contentWidth = innerWidth - navWidth - 3;
-  const bodyHeight = height - 6;
-  const page = pages[state.selectedIndex] ?? pages[0];
-  const nav = renderNav(state.selectedIndex, navWidth);
+  const contentWidth = innerWidth;
+  const selectedIndex = state.selectedIndex ?? 0;
+  const page = pages[selectedIndex] ?? pages[0];
+  const header = renderHeader(selectedIndex, innerWidth);
+  const bodyHeight = Math.max(6, height - header.length - 5);
   const allPageLines = pageLines(page, contentWidth);
-  const maxScroll = Math.max(0, allPageLines.length - bodyHeight);
+  const maxScroll = frameScrollLimit(selectedIndex, size);
   const scroll = Math.min(state.scroll ?? 0, maxScroll);
   const visiblePageLines = allPageLines.slice(scroll, scroll + bodyHeight);
   const output = [];
 
   output.push(`${INK}${frameLine("+", "-", "+", width)}${RESET}`);
-  output.push(`${INK}|${RESET} ${BOLD}Cumulus in the terminal${RESET}${" ".repeat(Math.max(0, width - 29))}${INK}|${RESET}`);
-  output.push(`${INK}|${RESET} ${MUTED}${page.route}${RESET}${" ".repeat(Math.max(0, width - page.route.length - 4))}${INK}|${RESET}`);
+  for (const line of header) {
+    output.push(`${INK}|${RESET} ${padRight(truncate(line, innerWidth), innerWidth)} ${INK}|${RESET}`);
+  }
+  output.push(`${INK}|${RESET} ${MUTED}${padRight(truncate(`route ${page.route}`, innerWidth), innerWidth)}${RESET} ${INK}|${RESET}`);
   output.push(`${INK}${frameLine("+", "-", "+", width)}${RESET}`);
 
   for (let i = 0; i < bodyHeight; i += 1) {
-    const left = truncate(nav[i] ?? "", navWidth);
-    const right = truncate(visiblePageLines[i] ?? "", contentWidth);
-    output.push(
-      `${INK}|${RESET} ${padRight(left, navWidth)} ${MUTED}|${RESET} ${padRight(right, contentWidth)} ${INK}|${RESET}`,
-    );
+    const line = truncate(visiblePageLines[i] ?? "", contentWidth);
+    output.push(`${INK}|${RESET} ${padRight(line, contentWidth)} ${INK}|${RESET}`);
   }
 
   output.push(`${INK}${frameLine("+", "-", "+", width)}${RESET}`);
@@ -176,7 +258,7 @@ export function renderFrame(state, size) {
     const suffix = state.status ? ` ${MUTED}${state.status}${RESET}` : "";
     output.push(`${INK}|${RESET} ${truncate(prompt, width - 4)}${suffix}${" ".repeat(Math.max(0, width - visibleLength(prompt) - visibleLength(stripAnsi(suffix)) - 4))}${INK}|${RESET}`);
   } else {
-    const help = "1-6 pages | up/down scroll | Contact: type message, Enter opens draft | Ctrl+C quit";
+    const help = "left/right or [ ] move links | 1-6 jump | up/down scroll | contact Enter opens draft";
     output.push(`${INK}|${RESET} ${MUTED}${padRight(truncate(help, width - 4), width - 4)}${RESET} ${INK}|${RESET}`);
   }
 
