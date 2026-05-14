@@ -47,6 +47,28 @@ Most improvements should land here first, then be pulled into the private produc
 
 ## Quick Start
 
+Create a new Relay/Cumulus app:
+
+```bash
+npx create-cumulus@latest my-acme
+npm create cumulus@latest my-acme
+```
+
+Useful non-interactive examples:
+
+```bash
+npx create-cumulus@latest my-acme --template full --agent-auth hosted
+npx create-cumulus@latest my-acme --template outer --agent-auth hosted
+npx create-cumulus@latest my-acme --template inner --agent-auth self-hosted --cumulus-db both
+npx create-cumulus@latest my-acme --template agent-auth --cumulus-db cloud
+```
+
+The generator supports `full`, `outer`, `inner`, and `agent-auth` templates;
+`hosted` and `self-hosted` agent auth modes; and `cloud`, `local`, or `both`
+Cumulus DB modes. The marketing docs page at `/docs` explains every option.
+
+Run this repo locally:
+
 ```bash
 npm install
 cp .env.example .env.local
@@ -71,13 +93,16 @@ From npm, users can run:
 
 ```bash
 npx cumulush
+npx cumulush /documents
 npx cumulush /relay
 npx cumulush /contact
 ```
 
 The terminal site includes pages for Cumulus, Documents, Relay, Tado, Rune,
-and Contact. The contact page opens a local email draft to `hi@cumulush.com`;
-it does not ship email service secrets in the public package.
+and Contact. The home and Documents pages advertise `create-cumulus` and show
+how to install and choose templates. The contact page opens a local email draft
+to `hi@cumulush.com`; it does not ship email service secrets in the public
+package.
 
 ## Cumulus DB
 

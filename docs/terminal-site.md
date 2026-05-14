@@ -5,6 +5,29 @@ It gives Cumulus a website people can open from a terminal.
 The interactive frame uses ASCII Cumulus branding, a horizontal page link row,
 and a Tado mark on the `/tado` page.
 
+The TUI also advertises `create-cumulus`, the public package for creating a new
+Relay/Cumulus app. The Documents page is the terminal version of the package
+guide.
+
+## create-cumulus From The TUI
+
+The TUI home page shows the fastest project-start commands:
+
+```bash
+npx create-cumulus@latest my-acme
+npm create cumulus@latest my-acme
+npx create-cumulus@latest my-acme --template full --agent-auth hosted
+```
+
+The Documents page covers:
+
+- templates: `full`, `outer`, `inner`, and `agent-auth`,
+- agent auth modes: `hosted` and `self-hosted`,
+- Cumulus DB modes: `cloud`, `local`, and `both`,
+- non-interactive flags,
+- local Cumulus DB scripts,
+- license boundaries for generated projects.
+
 ## User Command
 
 From npm, users can run:
@@ -27,7 +50,7 @@ npx cumulush /contact
 ## Pages
 
 - `/` is the detailed Cumulus home page.
-- `/documents` explains the public docs and release safety path.
+- `/documents` explains how to install and use `create-cumulus`.
 - `/relay` explains agent-safe SaaS onboarding.
 - `/tado` explains the AI agent terminal canvas.
 - `/rune` explains the automation engine story.

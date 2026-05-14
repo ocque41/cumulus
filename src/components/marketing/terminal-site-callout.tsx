@@ -9,20 +9,20 @@ export function TerminalSiteCallout() {
     >
       <div className='grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-end'>
         <div>
-          <p className='font-mono text-[0.72rem] uppercase text-[color:var(--muted)]'>
-            Terminal site
+          <p className='font-mono text-[0.72rem] uppercase tracking-[0.2em] text-[color:var(--muted)]'>
+            create-cumulus
           </p>
           <h2
             id='terminal-site-title'
             className='mt-4 max-w-[14ch] text-[2.5rem] font-light leading-[0.98] text-[color:var(--title)] sm:text-[3.5rem]'
           >
-            Open Cumulus from a terminal.
+            Start Cumulus from a terminal.
           </h2>
           <p className='mt-5 max-w-[62ch] text-sm leading-7 text-[color:var(--subtitle)] sm:text-base'>
-            The Cumulus website now ships as a public TUI. Run the command, browse the
-            Cumulus, Documents, Relay, Tado, Rune, and Contact pages from a horizontal
-            link row, then send a local email draft to hi@cumulush.com from the contact
-            screen.
+            Use create-cumulus to scaffold a Relay/Cumulus app with agent auth,
+            signup, actions, dashboards, docs, and Cumulus DB choices. The separate
+            cumulush package still opens this website as a public TUI with Cumulus,
+            Documents, Relay, Tado, Rune, and Contact pages from a horizontal link row.
           </p>
         </div>
 
@@ -31,7 +31,7 @@ export function TerminalSiteCallout() {
             Run
           </p>
           <pre className='mt-3 overflow-x-auto font-mono text-sm leading-7 text-[color:var(--color-paper)]'>
-            <code>{'npx cumulush\nnpx cumulush /tado\nnpx cumulush /contact'}</code>
+            <code>{'npx create-cumulus@latest my-acme\nnpm create cumulus@latest my-acme\nnpx cumulush /documents'}</code>
           </pre>
           <div className='mt-5 flex flex-wrap gap-3 text-sm'>
             <Link
@@ -41,10 +41,10 @@ export function TerminalSiteCallout() {
               Read docs
             </Link>
             <a
-              href='https://www.npmjs.com/package/cumulush'
+              href='https://www.npmjs.com/package/create-cumulus'
               className='rounded-[5.5px] border border-[color:var(--color-paper-hair)] px-3 py-2 text-[color:var(--color-paper)] transition hover:border-[color:var(--color-paper)]'
             >
-              npm package
+              create-cumulus
             </a>
           </div>
         </div>

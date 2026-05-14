@@ -34,7 +34,7 @@ const sections: Array<{ title: string; links: FooterLink[] }> = [
     links: [
       { href: "/login", label: "Sign In" },
       { href: "/signup", label: "Create Account" },
-      { href: "https://www.npmjs.com/package/cumulush", label: "Terminal Package", external: true },
+      { href: "https://www.npmjs.com/package/create-cumulus", label: "create-cumulus", external: true },
     ],
   },
   {

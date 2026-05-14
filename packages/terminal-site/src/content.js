@@ -8,14 +8,23 @@ export const pages = [
     aliases: ["/home"],
     kicker: "studio",
     summary:
-      "Tools and infrastructure for people building with AI. Independent products, one quiet studio.",
+      "Tools and infrastructure for people building with AI. Start a new app with create-cumulus, then use the rest of the Cumulus surfaces when the project needs them.",
     sections: [
       {
         heading: "What Cumulus is",
         body: [
           "Cumulus is a small studio shipping AI-first product surfaces. Each product can stand on its own, with its own roadmap, license, and users.",
+          "The fastest way to start is the create-cumulus npm package. It scaffolds a Relay/Cumulus app with agent auth, signup flows, actions, dashboards, Cumulus DB options, and public docs.",
           "The public repo carries the parts that are safe to inspect, fork, and quote: marketing pages, public docs, auth integration, billing hooks, dashboards, tests, and the self-hosted Cumulus DB provider.",
           "The production overlay stays private. That is where real environment values, provider accounts, customer data, deployment credentials, and internal runbooks belong.",
+        ],
+      },
+      {
+        heading: "Start a project",
+        code: [
+          "npx create-cumulus@latest my-acme",
+          "npm create cumulus@latest my-acme",
+          "npx create-cumulus@latest my-acme --template full --agent-auth hosted",
         ],
       },
       {
@@ -30,6 +39,7 @@ export const pages = [
       {
         heading: "What is here",
         rows: [
+          ["create-cumulus", "Scaffold a Relay/Cumulus app with templates, agent auth, actions, dashboards, and Cumulus DB modes."],
           ["Documents", "Public docs for setup, licensing, self-hosting, and release safety."],
           ["Relay", "Agent-safe onboarding for SaaS products."],
           ["Tado", "A macOS terminal multiplexer for parallel AI coding agents."],
@@ -41,6 +51,7 @@ export const pages = [
         heading: "Run it",
         code: [
           "npx cumulush",
+          "npx cumulush /documents",
           "npx cumulush /relay",
           "npx cumulush /contact",
         ],
@@ -52,25 +63,91 @@ export const pages = [
     title: "Documents",
     route: "/documents",
     aliases: ["/docs", "/documents/"],
-    kicker: "public manual",
+    kicker: "create-cumulus guide",
     summary:
-      "The public documentation explains how Cumulus is shaped, what is safe to publish, and how people can run it.",
+      "One page for installing create-cumulus, choosing a template, choosing auth and database modes, and knowing what the generated app includes.",
     sections: [
       {
-        heading: "Start here",
+        heading: "Install",
         body: [
-          "The documentation is written for people who may not know this codebase. A good page explains what a setting does, when it is required, where it belongs, and whether it is public repo config or private overlay config.",
-          "The public repo should be useful without leaking production infrastructure. Docs should describe the interface and leave real values to the private overlay.",
+          "create-cumulus is a public npm package. It requires Node 18 or newer and runs as a project generator.",
+          "Use npx for the direct command, or npm create for the shorthand. Both run the same create-cumulus binary.",
+        ],
+        code: [
+          "npx create-cumulus@latest my-acme",
+          "npm create cumulus@latest my-acme",
+          "npx create-cumulus@latest my-acme --template full --agent-auth hosted",
         ],
       },
       {
-        heading: "Core documents",
+        heading: "What it creates",
+        rows: [
+          ["full", "Relay public site, /me, /dev, dashboards, API/MCP, docs, auth, signup, and actions."],
+          ["outer", "Marketing and docs site with discovery, signup, and action bootstrap."],
+          ["inner", "/me and /dev dashboards, settings, API/MCP, auth, and actions."],
+          ["agent-auth", "Smallest Relay-branded starter with attestation login, signup, and actions."],
+        ],
+      },
+      {
+        heading: "Auth modes",
+        rows: [
+          ["hosted", "Use hosted Relay auth, signup, and action dispatch."],
+          ["self-hosted", "Generate a local Relay-style API/MCP surface that the app owns."],
+        ],
+      },
+      {
+        heading: "Cumulus DB modes",
+        body: [
+          "Defaults matter: full, inner, and agent-auth default to both. outer defaults to cloud.",
+        ],
+        rows: [
+          ["cloud", "Use hosted Cumulus DB through hosted Relay/Cumulus Cloud."],
+          ["local", "Include the AGPL Cumulus DB service and run it locally."],
+          ["both", "Include local service files and keep the hosted path documented."],
+        ],
+      },
+      {
+        heading: "Main flags",
+        code: [
+          "create-cumulus <project-name>",
+          "  --template full|outer|inner|agent-auth",
+          "  --agent-auth hosted|self-hosted",
+          "  --cumulus-db cloud|local|both",
+          "  --company \"Acme Inc\"",
+          "  --package-manager npm|pnpm|yarn|bun",
+          "  --install | --no-install",
+          "  --git | --no-git",
+        ],
+      },
+      {
+        heading: "Local DB scripts",
+        code: [
+          "npm run cumulus-db:build",
+          "npm run cumulus-db:start",
+          "npm run cumulus-db:test",
+          "npm run cumulus-db:smoke",
+          "npm run cumulus-db:workspace",
+        ],
+      },
+      {
+        heading: "License boundary",
+        bullets: [
+          "The create-cumulus package is MIT-licensed.",
+          "Generated full, inner, and self-hosted Relay templates are AGPL-3.0-only.",
+          "outer defaults to cloud Cumulus DB and can stay MIT in hosted mode.",
+          "agent-auth defaults to both Cumulus DB modes, so it includes local Cumulus DB and is AGPL unless you explicitly use --cumulus-db cloud.",
+          "Generated app code talks to Cumulus DB over HTTP/token APIs. It does not import Cumulus DB source directly.",
+        ],
+      },
+      {
+        heading: "Related public docs",
         rows: [
           ["README.md", "Product overview, setup paths, commands, and repo structure."],
           ["docs/self-hosting.md", "How to run the public app and Cumulus DB yourself."],
           ["docs/licensing.md", "The Apache-2.0 and AGPL-3.0-only boundary."],
           ["docs/private-overlay.md", "What stays public and what belongs in production private config."],
           ["docs/public-release.md", "Checklist for a clean public release or export."],
+          ["docs/terminal-site.md", "How to run this terminal website package."],
         ],
       },
       {

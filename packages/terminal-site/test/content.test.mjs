@@ -24,6 +24,21 @@ test("all pages render useful plain output", () => {
   }
 });
 
+test("home and documents advertise create-cumulus", () => {
+  const home = renderPlain(findPage("/"));
+  const documents = renderPlain(findPage("/documents"));
+
+  assert.match(home, /npx create-cumulus@latest my-acme/);
+  assert.match(home, /npm create cumulus@latest my-acme/);
+  assert.match(documents, /--template full\|outer\|inner\|agent-auth/);
+  assert.match(documents, /--agent-auth hosted\|self-hosted/);
+  assert.match(documents, /--cumulus-db cloud\|local\|both/);
+  assert.match(documents, /full, inner, and agent-auth default to both/);
+  assert.match(documents, /outer defaults to cloud/);
+  assert.match(documents, /agent-auth defaults to both Cumulus DB modes/);
+  assert.match(documents, /Generated app code talks to Cumulus DB over HTTP\/token APIs/);
+});
+
 test("contact page uses the requested email address", () => {
   const contact = findPage("/contact");
   assert.equal(CONTACT_EMAIL, "hi@cumulush.com");

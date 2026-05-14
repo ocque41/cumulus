@@ -4,6 +4,9 @@ This package ships the Cumulus website as an interactive terminal UI.
 The TUI uses ASCII Cumulus branding, horizontal page links, and an ASCII Tado
 mark on the Tado page.
 
+The home page and `/documents` page advertise `create-cumulus`, the public npm
+package for scaffolding Relay/Cumulus apps.
+
 Run it from npm:
 
 ```bash
@@ -19,6 +22,24 @@ npx cumulush /rune
 npx cumulush /documents
 npx cumulush /contact
 ```
+
+Open the package guide in the TUI:
+
+```bash
+npx cumulush /documents
+```
+
+The guide covers the main `create-cumulus` commands:
+
+```bash
+npx create-cumulus@latest my-acme
+npm create cumulus@latest my-acme
+npx create-cumulus@latest my-acme --template full --agent-auth hosted
+```
+
+It also documents the `full`, `outer`, `inner`, and `agent-auth` templates;
+the `hosted` and `self-hosted` auth modes; and the `cloud`, `local`, and
+`both` Cumulus DB modes.
 
 ## Controls
 
