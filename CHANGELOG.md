@@ -4,6 +4,14 @@ All notable changes to Cumulus are documented here.
 
 This project follows semantic versioning. The root app is licensed under Apache-2.0, and the Cumulus Database provider in `apps/cumulus-db` is licensed under AGPL-3.0-only.
 
+## [cumulush@0.1.2] - 2026-05-14
+
+### Changed
+
+- Advertised the published `create-cumulus` package from the terminal home page.
+- Expanded the terminal Documents page into a `create-cumulus` install and usage guide.
+- Documented templates, agent auth modes, Cumulus DB modes/defaults, flags, local DB scripts, and license boundaries.
+
 ## [cumulush@0.1.1] - 2026-05-13
 
 ### Changed
