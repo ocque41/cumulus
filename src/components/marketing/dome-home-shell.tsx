@@ -2,7 +2,7 @@ import type { MarketingHomeDocument } from '@/lib/marketing/home-doc';
 import type { CurrencyCode, MarketLocale } from '@/lib/marketing/schema';
 
 import { CompanyHero } from './company-hero';
-import { DomeHomeClientOrchestrator } from './dome-home-client-orchestrator';
+import { DomeHomeClientAnalytics } from './dome-home-client-analytics';
 import { FinalCta } from './final-cta';
 import { ProductSurfaces } from './product-surfaces';
 import { TerminalSiteCallout } from './terminal-site-callout';
@@ -18,7 +18,7 @@ export function DomeHomeShell({ document, locale, currency }: DomeHomeShellProps
 
   return (
     <div data-dome-page className='relative mx-auto w-full max-w-[1700px] px-4 pb-24 pt-4 sm:px-6 lg:px-10'>
-      <DomeHomeClientOrchestrator locale={locale} currency={currency} />
+      <DomeHomeClientAnalytics locale={locale} currency={currency} />
 
       <article className='mx-auto w-full max-w-[1480px]'>
         <CompanyHero hero={hero} products={products} locale={locale} />

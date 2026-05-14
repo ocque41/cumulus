@@ -17,21 +17,15 @@ export function CompanyHero({ hero, products, locale }: CompanyHeroProps) {
     <section className='grid min-h-[clamp(30rem,76svh,42rem)] items-start gap-10 pb-14 pt-6 lg:min-h-[clamp(34rem,78svh,46rem)] lg:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] lg:items-end lg:gap-12 lg:pt-8'>
       <div className='space-y-8 pb-4 sm:space-y-10 lg:pb-10'>
         <div className='space-y-4'>
-          <p
-            data-dome-hero-eyebrow
-            className='w-fit rounded-full border border-white/20 bg-white/[0.04] px-3 py-1 text-[0.68rem] uppercase tracking-[0.22em] text-[color:var(--fg)]'
-          >
+          <p className='w-fit rounded-full border border-white/20 bg-white/[0.04] px-3 py-1 text-[0.68rem] uppercase tracking-[0.22em] text-[color:var(--fg)]'>
             {hero.eyebrow}
           </p>
-          <h1
-            data-dome-hero-title
-            className='max-w-[9ch] text-[clamp(3.2rem,8vw,6.6rem)] leading-[0.9] tracking-[-0.09em] text-[color:var(--fg)] [font-family:var(--type-title-family)] [font-weight:var(--type-title-weight)]'
-          >
+          <h1 className='max-w-[9ch] text-[clamp(3.2rem,8vw,6.6rem)] leading-[0.9] tracking-[-0.09em] text-[color:var(--fg)] [font-family:var(--type-title-family)] [font-weight:var(--type-title-weight)]'>
             {hero.title}
           </h1>
         </div>
 
-        <div data-dome-hero-copy className='max-w-[64rem] space-y-4'>
+        <div className='max-w-[64rem] space-y-4'>
           <p className='max-w-[56rem] text-[1.22rem] font-semibold leading-[1.45] tracking-[-0.06em] text-[color:var(--fg)] sm:text-[1.45rem]'>
             {hero.subtitle}
           </p>
@@ -40,11 +34,10 @@ export function CompanyHero({ hero, products, locale }: CompanyHeroProps) {
           </p>
         </div>
 
-        <ul data-dome-hero-copy className='flex flex-wrap gap-3'>
+        <ul className='flex flex-wrap gap-3'>
           {hero.scanPoints.map((point) => (
             <li
               key={point}
-              data-dome-idle
               className='rounded-full border border-white/20 bg-white/[0.03] px-3 py-2 text-xs uppercase tracking-[0.14em] text-[color:var(--fg)] sm:text-[0.78rem]'
             >
               {point}
@@ -52,7 +45,7 @@ export function CompanyHero({ hero, products, locale }: CompanyHeroProps) {
           ))}
         </ul>
 
-        <div data-dome-hero-cta className='flex flex-col gap-3 sm:flex-row sm:items-center'>
+        <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
           <Button
             asChild
             variant='brand'
@@ -71,7 +64,6 @@ export function CompanyHero({ hero, products, locale }: CompanyHeroProps) {
 
         {products.length > 0 ? (
           <nav
-            data-dome-hero-cta
             aria-label={t(locale, PHRASES.jumpToProduct)}
             className='flex flex-wrap gap-2 pt-2'
           >
@@ -79,7 +71,6 @@ export function CompanyHero({ hero, products, locale }: CompanyHeroProps) {
               <Link
                 key={product.id}
                 href={`#${product.id}`}
-                data-dome-idle
                 className='rounded-full border border-white/20 bg-white/[0.03] px-3 py-1 text-[0.7rem] uppercase tracking-[0.16em] text-[color:var(--fg)] transition-colors hover:border-white/40 hover:text-white'
               >
                 {product.meta.name}
@@ -95,7 +86,6 @@ export function CompanyHero({ hero, products, locale }: CompanyHeroProps) {
             {hero.sideLines.map((line) => (
               <p
                 key={line}
-                data-dome-idle
                 className='max-w-[22rem] text-[0.82rem] uppercase leading-[1.7] tracking-[0.2em] text-[color:rgba(245,245,245,0.78)]'
               >
                 {line}

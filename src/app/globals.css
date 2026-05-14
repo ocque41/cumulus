@@ -424,16 +424,6 @@ button a {
   }
 }
 
-/* Reveal-on-intersect preamble: hide targets before the hook animates them in.
-   Wrapped in `no-preference` so reduced-motion users see the content immediately
-   without the initial hide step. */
-@media (prefers-reduced-motion: no-preference) {
-  [data-dome-reveal-group]:not([data-dome-revealed]) [data-dome-reveal] {
-    opacity: 0;
-    transform: translateY(28px);
-  }
-}
-
 /* ============================================================
    Glass utilities — RETIRED.
    Per the master brand spec (no glass morphism, no backdrop blur,

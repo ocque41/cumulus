@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Matrix, dna, forcefield, radar, signal } from '@/components/ui/matrix';
+import { Matrix, dna, forcefield, radar, signal, type Frame } from '@/components/ui/matrix';
 import { Separator } from '@/components/ui/separator';
-import { ShimmeringText } from '@/components/ui/shimmering-text';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { ProductDocument, ProductSurface } from '@/lib/marketing/products/types';
 import type { MarketLocale } from '@/lib/marketing/schema';
-import Link from 'next/link';
 
 const matrixFrames = {
   forcefield,
@@ -17,6 +17,45 @@ const matrixFrames = {
   radar,
   dna,
 } as const;
+
+const TADO_LOGO_ROWS = 13;
+const TADO_LOGO_COLS = 26;
+const TADO_BLOCKS = [
+  { rowStart: 0, rowEnd: 13, colStart: 0, colEnd: 5 },
+  { rowStart: 8, rowEnd: 13, colStart: 7, colEnd: 12 },
+  { rowStart: 8, rowEnd: 13, colStart: 14, colEnd: 19 },
+  { rowStart: 8, rowEnd: 13, colStart: 21, colEnd: 26 },
+];
+
+function createTadoLogoFrame(revealColumn: number, highlightColumn: number): Frame {
+  const frame = Array.from({ length: TADO_LOGO_ROWS }, () => Array(TADO_LOGO_COLS).fill(0));
+
+  for (const block of TADO_BLOCKS) {
+    for (let row = block.rowStart; row < block.rowEnd; row += 1) {
+      for (let col = block.colStart; col < block.colEnd; col += 1) {
+        if (col > revealColumn) {
+          continue;
+        }
+
+        const isEdge =
+          row === block.rowStart ||
+          row === block.rowEnd - 1 ||
+          col === block.colStart ||
+          col === block.colEnd - 1;
+        const isHighlight = col === highlightColumn;
+        frame[row][col] = isHighlight ? 1 : isEdge ? 0.78 : 0.54;
+      }
+    }
+  }
+
+  return frame;
+}
+
+const tadoLogoFrames: Frame[] = Array.from({ length: TADO_LOGO_COLS + 8 }, (_, frameIndex) => {
+  const revealColumn = Math.min(TADO_LOGO_COLS - 1, frameIndex);
+  const highlightColumn = frameIndex % TADO_LOGO_COLS;
+  return createTadoLogoFrame(revealColumn, highlightColumn);
+});
 
 const proseClassName = cn(
   'space-y-4 text-[color:var(--text)]',
@@ -37,6 +76,41 @@ function HomeMarkdown({ children, className }: { children: ReactNode; className?
   return <div className={cn(proseClassName, className)}>{children}</div>;
 }
 
+function TadoLogoMatrix() {
+  return (
+    <Matrix
+      rows={TADO_LOGO_ROWS}
+      cols={TADO_LOGO_COLS}
+      frames={tadoLogoFrames}
+      fps={8}
+      size={7}
+      gap={3}
+      palette={{
+        on: '#8f8f8f',
+        off: 'rgba(245,245,245,0.045)',
+      }}
+      ariaLabel='Animated Tado matrix mark'
+    />
+  );
+}
+
+function TadoIdentityBand() {
+  return (
+    <div className='flex flex-col gap-5 border-y border-white/10 py-5 sm:flex-row sm:items-center sm:justify-between'>
+      <Image
+        src='/brand/generated/tado-mark-dark-transparent.png'
+        alt='Tado mark'
+        width={1176}
+        height={822}
+        className='h-auto w-full max-w-[19rem] object-contain'
+      />
+      <div className='flex justify-start sm:justify-end'>
+        <TadoLogoMatrix />
+      </div>
+    </div>
+  );
+}
+
 function SurfacePreview({ surface }: { surface: ProductSurface }) {
   const frames = matrixFrames[surface.matrixPreset];
 
@@ -45,14 +119,7 @@ function SurfacePreview({ surface }: { surface: ProductSurface }) {
       <div className='glass-surface glass-subtle glass-e1 flex flex-col items-center gap-4 rounded-[5.5px] p-5'>
         <div className='space-y-2 text-center'>
           <p className='text-[0.68rem] uppercase tracking-[0.22em] text-[color:var(--subtitle)]'>{surface.eyebrow}</p>
-          <ShimmeringText
-            text={surface.status}
-            className='text-sm font-semibold uppercase tracking-[0.16em] text-[color:#d7d7d7]'
-            color='#a7a7a7'
-            shimmerColor='#ffffff'
-            duration={2.2}
-            repeatDelay={1.2}
-          />
+          <p className='text-sm font-semibold uppercase tracking-[0.16em] text-[color:#d7d7d7]'>{surface.status}</p>
         </div>
         <div className='glass-surface glass-standard glass-e2 rounded-[5.5px] p-4'>
           <Matrix
@@ -62,6 +129,7 @@ function SurfacePreview({ surface }: { surface: ProductSurface }) {
             fps={11}
             size={8}
             gap={3}
+            autoplay={false}
             palette={{
               on: '#ffffff',
               off: 'rgba(167,167,167,0.12)',
@@ -91,13 +159,10 @@ export function ProductSurfaces({ product, locale }: ProductSurfacesProps) {
 
   return (
     <div id={meta.id} className='space-y-10 pt-12 sm:pt-16'>
-      <section
-        data-dome-reveal-group
-        className='scroll-mt-28 space-y-6 rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5 backdrop-blur-[18px] sm:p-8'
-      >
+      <section className='scroll-mt-28 space-y-6 rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5 backdrop-blur-[18px] sm:p-8'>
         <div className='grid gap-4 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:items-end'>
           <div className='space-y-3'>
-            <div data-dome-reveal className='flex flex-wrap items-center gap-2'>
+            <div className='flex flex-wrap items-center gap-2'>
               <p className='text-[0.72rem] uppercase tracking-[0.2em] text-[color:var(--subtitle)]'>
                 {frontMatter.surfacesEyebrow}
               </p>
@@ -117,22 +182,18 @@ export function ProductSurfaces({ product, locale }: ProductSurfacesProps) {
                 {meta.licenseLabel[locale]}
               </span>
             </div>
-            <h2
-              data-dome-reveal
-              className='text-[2.2rem] font-semibold leading-[0.98] tracking-[-0.09em] text-white sm:text-[3rem]'
-            >
+            <h2 className='text-[2.2rem] font-semibold leading-[0.98] tracking-[-0.09em] text-white sm:text-[3rem]'>
               {frontMatter.surfacesTitle}
             </h2>
           </div>
-          <p
-            data-dome-reveal
-            className='max-w-[58ch] text-[1rem] leading-[1.75] tracking-[-0.03em] text-[color:#a7a7a7]'
-          >
+          <p className='max-w-[58ch] text-[1rem] leading-[1.75] tracking-[-0.03em] text-[color:#a7a7a7]'>
             {frontMatter.surfacesIntro}
           </p>
         </div>
 
-        <div data-dome-reveal className='flex flex-wrap items-center gap-3 pt-1'>
+        {meta.id === 'tado' ? <TadoIdentityBand /> : null}
+
+        <div className='flex flex-wrap items-center gap-3 pt-1'>
           <Button
             asChild
             variant='brand'
@@ -151,7 +212,7 @@ export function ProductSurfaces({ product, locale }: ProductSurfacesProps) {
           ) : null}
         </div>
 
-        <div className='hidden md:block' data-dome-reveal>
+        <div className='hidden md:block'>
           <Tabs defaultValue={defaultSurface} className='gap-5'>
             <TabsList
               variant='glass'
@@ -177,7 +238,7 @@ export function ProductSurfaces({ product, locale }: ProductSurfacesProps) {
           </Tabs>
         </div>
 
-        <div className='md:hidden' data-dome-reveal>
+        <div className='md:hidden'>
           <Accordion type='single' collapsible defaultValue={defaultSurface} className='space-y-3'>
             {surfaces.map((surface) => (
               <AccordionItem
@@ -203,19 +264,15 @@ export function ProductSurfaces({ product, locale }: ProductSurfacesProps) {
             <section
               key={section.id}
               id={`${meta.id}-${section.id}`}
-              data-dome-reveal-group
               className='scroll-mt-28 grid gap-5 rounded-[5.5px] border border-white/10 bg-white/[0.03] p-5 backdrop-blur-[18px] sm:p-8 lg:grid-cols-[240px_minmax(0,1fr)]'
             >
               <div className='space-y-4'>
-                <p
-                  data-dome-reveal
-                  className='text-[0.72rem] uppercase tracking-[0.2em] text-[color:var(--subtitle)]'
-                >
+                <p className='text-[0.72rem] uppercase tracking-[0.2em] text-[color:var(--subtitle)]'>
                   {section.label}
                 </p>
-                <Separator data-dome-reveal className='bg-white/10' />
+                <Separator className='bg-white/10' />
               </div>
-              <div data-dome-reveal>
+              <div>
                 <HomeMarkdown>{section.content}</HomeMarkdown>
               </div>
             </section>
