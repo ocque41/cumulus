@@ -192,6 +192,7 @@ export const DEFAULT_OWNER_SYSTEM_SCOPES: TokenScope[] = [
   'schema:read',
   'schema:plan',
   'schema:apply_safe',
+  'schema:apply_destructive',
   'schema:revert_local',
   'data:read',
   'data:write',

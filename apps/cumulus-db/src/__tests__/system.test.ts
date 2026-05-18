@@ -116,4 +116,21 @@ describe('Cumulus system model', () => {
 
     await db.destroyAllForTests();
   });
+
+  it('rejects incomplete direct Nimbus IR before planning', async () => {
+    const db = await engine();
+    const created = await db.createWorkspace({ ownerAgentId: 'agent-1', humanOwnerEmail: 'owner@example.com' });
+    const compiled = compileNimbus('namespace acme { collection notes { fields: { id: { type: "ulid" } } } }');
+    const incomplete = {
+      ...compiled.ir,
+      spec: {
+        namespace: compiled.ir.spec.namespace,
+        collections: compiled.ir.spec.collections,
+      },
+    };
+
+    await expect(db.planSchema(created.manifest.id, { desired: incomplete as never })).rejects.toThrow('spec.apps');
+
+    await db.destroyAllForTests();
+  });
 });

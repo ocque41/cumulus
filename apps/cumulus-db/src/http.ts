@@ -131,10 +131,10 @@ async function requireDbToken(
   req: IncomingMessage,
   dbId: string,
   scopes: TokenScope[],
-): Promise<void> {
+): Promise<TokenRecord> {
   const token = bearer(req);
   if (!token) throw new Error('unauthorized');
-  await engine.authenticate(dbId, token, scopes);
+  return engine.authenticate(dbId, token, scopes);
 }
 
 async function requireAccess(
@@ -143,9 +143,15 @@ async function requireAccess(
   req: IncomingMessage,
   dbId: string,
   scopes: TokenScope[],
-): Promise<void> {
-  if (isAdmin(req, config)) return;
-  await requireDbToken(engine, req, dbId, scopes);
+): Promise<TokenRecord | null> {
+  if (isAdmin(req, config)) return null;
+  return requireDbToken(engine, req, dbId, scopes);
+}
+
+function assertCanGrantHardScopes(caller: TokenRecord | null, requestedScopes: TokenScope[]): void {
+  if (!caller) return;
+  const missing = requestedScopes.filter((scope) => isHardSystemScope(scope) && !caller.scopes.includes(scope));
+  if (missing.length) throw new Error('unauthorized');
 }
 
 function segments(pathname: string): string[] {
@@ -490,13 +496,9 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
         if (area === 'tokens' && req.method === 'POST') {
           const body = await readJson(req);
           const requestedScopes = stringArray(body.scopes) as TokenScope[];
-          await requireAccess(
-            engine,
-            config,
-            req,
-            dbId,
-            requestedScopes.some((scope) => isHardSystemScope(scope)) ? ['token:create'] : ['tokens:manage'],
-          );
+          const hardScopesRequested = requestedScopes.some((scope) => isHardSystemScope(scope));
+          const caller = await requireAccess(engine, config, req, dbId, hardScopesRequested ? ['token:create'] : ['tokens:manage']);
+          if (hardScopesRequested) assertCanGrantHardScopes(caller, requestedScopes);
           send(res, 201, {
             token: await engine.createToken(dbId, stringValue(body.label, 'manual token'), requestedScopes),
           });

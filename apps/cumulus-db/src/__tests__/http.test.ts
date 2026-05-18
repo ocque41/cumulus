@@ -225,6 +225,7 @@ describe('HTTP API', () => {
     const { baseUrl, engine } = await testServer();
     const created = await engine.createWorkspace({ ownerAgentId: 'agent-1' });
     const manager = await engine.createToken(created.manifest.id, 'legacy token manager', ['tokens:manage']);
+    const creator = await engine.createToken(created.manifest.id, 'limited system token creator', ['token:create']);
 
     const blocked = await fetch(new URL(`/v1/databases/${created.manifest.id}/tokens`, baseUrl), {
       method: 'POST',
@@ -236,6 +237,16 @@ describe('HTTP API', () => {
     });
     expect(blocked.status).toBe(401);
 
+    const escalated = await fetch(new URL(`/v1/databases/${created.manifest.id}/tokens`, baseUrl), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${creator.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ label: 'destructive applier', scopes: ['schema:apply_destructive'] }),
+    });
+    expect(escalated.status).toBe(401);
+
     const allowed = await fetch(new URL(`/v1/databases/${created.manifest.id}/tokens`, baseUrl), {
       method: 'POST',
       headers: {
@@ -245,6 +256,8 @@ describe('HTTP API', () => {
       body: JSON.stringify({ label: 'system reader', scopes: ['system:read'] }),
     });
     expect(allowed.status).toBe(201);
+    const allowedBody = (await allowed.json()) as { token: { token: string } };
+    expect(allowedBody.token.token).toMatch(/^cu_pat_v1_/);
   });
 
   it('exposes system bootstrap and schema lifecycle endpoints with hard scopes', async () => {

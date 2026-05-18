@@ -26,7 +26,7 @@ export const nimbusIrJsonSchema = {
     },
     spec: {
       type: 'object',
-      required: ['namespace', 'collections'],
+      required: ['namespace', 'apps', 'collections', 'indexes', 'policies', 'secrets', 'backups', 'approvals'],
       properties: {
         namespace: { type: 'string', minLength: 1 },
         apps: { type: 'array', items: { $ref: '#/$defs/namedObject' } },

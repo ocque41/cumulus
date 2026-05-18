@@ -45,6 +45,8 @@ Runtime data is written under `CUMULUS_DB_DATA_DIR` and is gitignored.
 
 The `/v1/system` surface is the protected control plane. It uses hard scopes:
 `database:admin` does not automatically satisfy new system scopes.
+Tokens that grant hard system scopes require `token:create`, and the caller
+must already hold each hard scope being granted.
 
 - `GET /v1/system/scopes` lists the v1 hard scopes and labels.
 - `POST /v1/system/agents/bootstrap` creates a pending agent workspace and
@@ -105,7 +107,8 @@ The compiler:
 ## Token storage
 
 New machine tokens are opaque and classed, for example
-`cu_agt_v1_<publicId>_<secret>` and `cdb_admin_v1_<publicId>_<secret>`.
+`cu_agt_v1_<publicId>_<secret>`, `cu_pat_v1_<publicId>_<secret>`, and
+`cdb_admin_v1_<publicId>_<secret>`.
 The provider stores the public id and an HMAC-SHA-256 of the random secret using
 the provider master key. Old local SHA-256 token records still verify so
 existing development workspaces do not break.

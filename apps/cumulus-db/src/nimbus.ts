@@ -558,6 +558,9 @@ export function validateNimbusIr(ir: NimbusIr): void {
     throw new Error('Nimbus IR metadata is incomplete');
   }
   if (!ir.spec.namespace) throw new Error('Nimbus IR namespace is required');
+  for (const key of ['apps', 'collections', 'indexes', 'policies', 'secrets', 'backups', 'approvals'] as const) {
+    if (!Array.isArray(ir.spec[key])) throw new Error(`Nimbus IR spec.${key} must be an array`);
+  }
   for (const collection of ir.spec.collections) {
     if (!collection.name) throw new Error('collection name is required');
     if (!collection.fields || !Object.keys(collection.fields).length) {

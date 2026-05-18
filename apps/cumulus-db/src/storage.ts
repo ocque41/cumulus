@@ -15,6 +15,7 @@ import {
 import {
   DEFAULT_AGENT_SYSTEM_SCOPES,
   buildSchemaPlan,
+  isHardSystemScope,
   newSystemState,
   normalizeTokenScopes,
   stableHash,
@@ -332,8 +333,10 @@ export class CumulusDbEngine {
 
   async createToken(dbId: string, label: string, scopes: TokenScope[]): Promise<TokenIssue> {
     const tokens = await this.readTokens(dbId);
-    const issued = issueToken(label, scopes.length ? normalizeTokenScopes(scopes) : ALL_DATA_SCOPES, 'cdb_data', this.masterKey, {
-      kind: 'data',
+    const normalizedScopes = scopes.length ? normalizeTokenScopes(scopes) : ALL_DATA_SCOPES;
+    const systemToken = normalizedScopes.some((scope) => isHardSystemScope(scope));
+    const issued = issueToken(label, normalizedScopes, systemToken ? 'cu_pat' : 'cdb_data', this.masterKey, {
+      kind: systemToken ? 'pat' : 'data',
     });
     tokens.push(issued.record);
     await this.writeTokens(dbId, tokens);
@@ -349,7 +352,13 @@ export class CumulusDbEngine {
     const issued = issueToken(
       current.label,
       current.scopes,
-      current.scopes.includes('database:admin') ? 'cdb_admin' : current.tokenKind === 'agent' ? 'cu_agt' : 'cdb_data',
+      current.scopes.includes('database:admin')
+        ? 'cdb_admin'
+        : current.tokenKind === 'agent'
+          ? 'cu_agt'
+          : current.tokenKind === 'pat'
+            ? 'cu_pat'
+            : 'cdb_data',
       this.masterKey,
       {
         kind: current.tokenKind,

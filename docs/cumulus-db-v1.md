@@ -67,6 +67,10 @@ System operations use explicit scopes. Important examples:
 The legacy `database:admin` scope remains for older data routes, but it is not a
 wildcard for new system scopes.
 
+Tokens that mint hard system scopes must already hold every hard scope they
+grant, plus `token:create`. This prevents a narrow token creator from turning
+itself into a destructive schema or organization operator.
+
 Agent bootstrap is admin-gated by default. Use
 `CUMULUS_DB_PUBLIC_AGENT_BOOTSTRAP_ENABLED=true` only for a local development
 provider where unauthenticated bootstrap is acceptable.
@@ -77,6 +81,7 @@ New machine tokens are opaque and classed:
 
 ```text
 cu_agt_v1_<publicId>_<secret>
+cu_pat_v1_<publicId>_<secret>
 cdb_admin_v1_<publicId>_<secret>
 ```
 
