@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -23,6 +23,64 @@ namespace acme {
     fields: {
       id: { type: "ulid", required: true }
     }
+  }
+}
+`;
+
+const expandedSurfaceSource = `
+namespace acme {
+  app web {
+    runtime: "next"
+  }
+
+  collection notes {
+    fields: {
+      id: { type: "ulid", required: true },
+      body: { type: "string" }
+    }
+    index notes_body {
+      keys: ["body"]
+    }
+  }
+
+  index notes_id {
+    collection: "notes",
+    keys: ["id"]
+  }
+
+  policy readers {
+    effect: "allow"
+  }
+
+  backup daily {
+    schedule: "daily"
+  }
+
+  approval destructive_schema {
+    scope: "schema:apply_destructive"
+  }
+}
+`;
+
+const expandedSurfaceChangedSource = `
+namespace acme {
+  collection notes {
+    fields: {
+      id: { type: "ulid", required: true },
+      body: { type: "string" }
+    }
+    index notes_body {
+      keys: ["id", "body"]
+    }
+  }
+
+  index notes_id {
+    collection: "notes",
+    keys: ["body"]
+  }
+
+  policy readers {
+    effect: "deny"
   }
 }
 `;
@@ -78,8 +136,12 @@ describe('Cumulus system model', () => {
     expect(destructiveApply.snapshot?.kind).toBe('pre_apply');
     expect((await db.getSystemState(created.manifest.id)).schema.live?.spec.collections[0]?.fields.status).toBeUndefined();
 
-    const snapshotBody = JSON.parse(await readFile(destructiveApply.snapshot!.path, 'utf8')) as { ciphertext: string };
-    expect(snapshotBody.ciphertext).toBeTruthy();
+    const snapshotBody = JSON.parse(await readFile(destructiveApply.snapshot!.path, 'utf8')) as {
+      ciphertext?: string;
+      crypto?: { ciphertext?: string; wrappedDek?: string };
+    };
+    expect(snapshotBody.crypto?.ciphertext ?? snapshotBody.ciphertext).toBeTruthy();
+    expect(snapshotBody.crypto?.wrappedDek).toBeTruthy();
     expect(JSON.stringify(snapshotBody)).not.toContain('"status"');
 
     const revertApproval = await db.createRevertApproval(created.manifest.id, { versionId: firstApply.versionId });
@@ -130,6 +192,39 @@ describe('Cumulus system model', () => {
     };
 
     await expect(db.planSchema(created.manifest.id, { desired: incomplete as never })).rejects.toThrow('spec.apps');
+
+    await db.destroyAllForTests();
+  });
+
+  it('classifies apps, indexes, policies, backups, and approvals in schema plans', async () => {
+    const db = await engine();
+    const created = await db.createWorkspace({ ownerAgentId: 'agent-1', humanOwnerEmail: 'owner@example.com' });
+
+    const createPlan = await db.planSchema(created.manifest.id, { source: expandedSurfaceSource });
+    expect(createPlan.operations.map((operation) => operation.kind)).toEqual(
+      expect.arrayContaining(['add_app', 'add_index', 'add_policy', 'add_backup', 'add_approval']),
+    );
+    await db.applySchemaPlan(created.manifest.id, { planId: createPlan.id });
+
+    const changedPlan = await db.planSchema(created.manifest.id, { source: expandedSurfaceChangedSource });
+    expect(changedPlan.operations.map((operation) => operation.kind)).toEqual(
+      expect.arrayContaining(['alter_index', 'alter_policy', 'remove_app', 'remove_backup', 'remove_approval']),
+    );
+    expect(changedPlan.riskLevel).toBe('destructive');
+
+    await db.destroyAllForTests();
+  });
+
+  it('uses a JSONL lock file around schema apply operations', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'cumulus-db-system-lock-'));
+    const db = new CumulusDbEngine(dataDir, Buffer.alloc(32, 5));
+    const created = await db.createWorkspace({ ownerAgentId: 'agent-1', humanOwnerEmail: 'owner@example.com' });
+    const plan = await db.planSchema(created.manifest.id, { source: initialSource });
+    const lockPath = join(dataDir, 'databases', created.manifest.id, 'system', 'apply.lock');
+    await mkdir(join(dataDir, 'databases', created.manifest.id, 'system'), { recursive: true });
+    await writeFile(lockPath, '{"createdAt":"test"}\n', 'utf8');
+
+    await expect(db.applySchemaPlan(created.manifest.id, { planId: plan.id })).rejects.toThrow('schema operation already in progress');
 
     await db.destroyAllForTests();
   });

@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { assertNimbusNamespaceAllowed, compileNimbus, validateNimbusIr, type NimbusIr } from './nimbus.js';
-import { decryptString, encryptString } from './crypto.js';
+import {
+  decryptString,
+  decryptStringWithWrappedDek,
+  encryptString,
+  encryptStringWithWrappedDek,
+  type WrappedEncryptedString,
+} from './crypto.js';
 import { detectSecretKeys } from './secrets.js';
 import {
   hasScopes,
@@ -244,6 +250,10 @@ export class CumulusDbEngine {
     return join(this.workspaceDir(dbId), 'system', 'snapshots');
   }
 
+  private systemLockPath(dbId: string): string {
+    return join(this.workspaceDir(dbId), 'system', 'apply.lock');
+  }
+
   async ensureRoot(): Promise<void> {
     await mkdir(join(this.dataDir, 'databases'), { recursive: true });
   }
@@ -327,7 +337,7 @@ export class CumulusDbEngine {
     return readJson<TokenRecord[]>(this.tokensPath(dbId), []);
   }
 
-  private async writeTokens(dbId: string, tokens: TokenRecord[]): Promise<void> {
+  async writeTokens(dbId: string, tokens: TokenRecord[]): Promise<void> {
     await atomicWrite(this.tokensPath(dbId), `${JSON.stringify(tokens, null, 2)}\n`);
   }
 
@@ -566,6 +576,14 @@ export class CumulusDbEngine {
     versionId: string;
     snapshot: SystemSnapshotRecord | null;
   }> {
+    return this.withSystemLock(dbId, async () => this.applySchemaPlanLocked(dbId, input));
+  }
+
+  private async applySchemaPlanLocked(dbId: string, input: ApplySchemaInput): Promise<{
+    plan: SchemaPlanRecord;
+    versionId: string;
+    snapshot: SystemSnapshotRecord | null;
+  }> {
     const state = await this.readSystemState(dbId);
     const plan = state.schema.plans.find((item) => item.id === input.planId);
     if (!plan) throw new Error('schema plan not found');
@@ -616,6 +634,14 @@ export class CumulusDbEngine {
   }
 
   async revertSchema(dbId: string, input: RevertSchemaInput): Promise<{
+    versionId: string;
+    revertedToHash: string | null;
+    snapshot: SystemSnapshotRecord;
+  }> {
+    return this.withSystemLock(dbId, async () => this.revertSchemaLocked(dbId, input));
+  }
+
+  private async revertSchemaLocked(dbId: string, input: RevertSchemaInput): Promise<{
     versionId: string;
     revertedToHash: string | null;
     snapshot: SystemSnapshotRecord;
@@ -684,6 +710,27 @@ export class CumulusDbEngine {
       },
     });
     return { versionId: version.id, revertedToHash: targetHash, snapshot };
+  }
+
+  private async withSystemLock<T>(dbId: string, fn: () => Promise<T>): Promise<T> {
+    const lockPath = this.systemLockPath(dbId);
+    await mkdir(dirname(lockPath), { recursive: true });
+    let handle: Awaited<ReturnType<typeof open>> | undefined;
+    try {
+      handle = await open(lockPath, 'wx');
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
+        throw new Error('schema operation already in progress');
+      }
+      throw err;
+    }
+    try {
+      await handle.writeFile(`${JSON.stringify({ pid: process.pid, createdAt: nowIso() })}\n`, 'utf8');
+      return await fn();
+    } finally {
+      await handle.close().catch(() => undefined);
+      await unlink(lockPath).catch(() => undefined);
+    }
   }
 
   async createSystemSnapshot(dbId: string, kind: 'manual' | 'pre_apply' | 'revert_point' = 'manual'): Promise<SystemSnapshotRecord> {
@@ -895,7 +942,24 @@ export class CumulusDbEngine {
     const system = await this.readSystemState(dbId);
     const at = nowIso();
     const path = join(this.workspaceDir(dbId), 'backups', `snapshot-${at.replace(/[:.]/g, '-')}.json`);
-    await atomicWrite(path, `${JSON.stringify({ manifest, records, tokens, system, createdAt: at }, null, 2)}\n`);
+    const payload = { manifest, records, tokens, system, createdAt: at };
+    await atomicWrite(
+      path,
+      `${JSON.stringify(
+        {
+          version: 1,
+          kind: 'backup',
+          createdAt: at,
+          crypto: encryptStringWithWrappedDek(JSON.stringify(payload), this.masterKey, {
+            dbId,
+            kind: 'backup',
+            createdAt: at,
+          }),
+        },
+        null,
+        2,
+      )}\n`,
+    );
     await appendJsonLine(this.auditPath(dbId), { action: 'backup', path, records: records.length, at });
     return { path, records: records.length };
   }
@@ -922,7 +986,7 @@ export class CumulusDbEngine {
     return state;
   }
 
-  private async writeSystemState(dbId: string, state: SystemState): Promise<void> {
+  async writeSystemState(dbId: string, state: SystemState): Promise<void> {
     await atomicWrite(this.systemStatePath(dbId), `${JSON.stringify(state, null, 2)}\n`);
   }
 
@@ -1001,7 +1065,7 @@ export class CumulusDbEngine {
           kind,
           createdAt,
           aad: { dbId, kind, createdAt },
-          ciphertext: encryptString(JSON.stringify(payload), this.masterKey),
+          crypto: encryptStringWithWrappedDek(JSON.stringify(payload), this.masterKey, { dbId, kind, createdAt }),
         },
         null,
         2,
@@ -1023,12 +1087,18 @@ export class CumulusDbEngine {
   }
 
   private async readSystemSnapshot(dbId: string, snapshotId: string): Promise<SystemState> {
-    const snapshot = await readJson<{ ciphertext: string }>(join(this.systemSnapshotDir(dbId), safeId(snapshotId) + '.json'), null as never);
-    const payload = JSON.parse(decryptString(snapshot.ciphertext, this.masterKey)) as { state: SystemState };
+    const snapshot = await readJson<{ ciphertext?: string; crypto?: WrappedEncryptedString }>(
+      join(this.systemSnapshotDir(dbId), safeId(snapshotId) + '.json'),
+      null as never,
+    );
+    const body = snapshot.crypto
+      ? decryptStringWithWrappedDek(snapshot.crypto, this.masterKey)
+      : decryptString(snapshot.ciphertext ?? '', this.masterKey);
+    const payload = JSON.parse(body) as { state: SystemState };
     return payload.state;
   }
 
-  private async writeAudit(
+  async writeAudit(
     dbId: string,
     event: {
       action: string;

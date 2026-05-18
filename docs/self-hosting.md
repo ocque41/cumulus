@@ -26,6 +26,12 @@ npm run dev
 
 Use placeholders from `.env.example`. Do not commit your local `.env.local`.
 
+`CUMULUS_AUTH_MODE=supabase` is the default for the Next.js app. Set
+`CUMULUS_AUTH_MODE=cumulus_oidc` only when you want the Cumulus DB system proxy
+to verify the provided Cumulus bearer through `/oidc/userinfo` instead of a
+Supabase browser session. The full browser login migration remains private
+overlay work.
+
 For the app database schema, use the SQL baseline in `supabase/migrations`.
 Run it with Supabase local tooling or with `psql` against a normal
 `postgres://` connection string. Do not run local migrations through hosted-only
@@ -67,10 +73,23 @@ Use system tokens with explicit scopes. New system scopes are hard scopes:
 `database:admin` is not a wildcard for destructive schema, approval, revert,
 secret, billing, or member operations.
 
-Local self-hosting uses the JSONL engine. Hosted Cumulus should use the
-PostgreSQL control-plane schema in `apps/cumulus-db/postgres/system-v1.sql` for
-MVCC, durable commits, and point-in-time recovery. The JSONL engine remains the
-reference path for offline development, fixtures, and deterministic tests.
+Select the engine with `CUMULUS_DB_ENGINE`.
+
+- `jsonl` stores deterministic local files under `CUMULUS_DB_DATA_DIR`.
+- `postgres` uses `CUMULUS_DB_POSTGRES_URL` and the provider runtime schema.
+
+For PostgreSQL, apply `apps/cumulus-db/postgres/system-v1.sql` and
+`apps/cumulus-db/postgres/data-v1.sql`, or set
+`CUMULUS_DB_AUTO_MIGRATE=true` for local/dev startup. Keep
+`CUMULUS_DB_AUTO_MIGRATE=false` for production unless your private overlay owns
+the migration step.
+
+Use `npm run db:cli -- help` after `npm run db:build` for device login, agent
+bootstrap, schema plan/apply, snapshots, revert, grants, and audit commands.
+
+Hosted Cumulus should use PostgreSQL for MVCC, durable commits, and
+point-in-time recovery. The JSONL engine remains the reference path for offline
+development, fixtures, and deterministic tests.
 
 ## Cloud API Path
 

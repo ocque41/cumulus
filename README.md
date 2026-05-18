@@ -130,9 +130,11 @@ The v1 database foundation also includes:
 
 - Nimbus `.nimbus` source compilation to canonical JSON IR,
 - hard `/v1/system` scopes for agents, schema plans, approvals, snapshots, audit, apply, and revert,
-- local JSONL plan/apply/revert execution for development and deterministic tests,
+- local JSONL and hosted-style PostgreSQL plan/apply/revert execution,
 - classed opaque machine tokens stored with keyed HMAC verification,
-- a hosted PostgreSQL system schema contract at `apps/cumulus-db/postgres/system-v1.sql`.
+- Cumulus-native OIDC/OAuth-compatible local/dev endpoints,
+- a Cumulus DB CLI through `npm run db:cli -- help`,
+- hosted PostgreSQL schema contracts at `apps/cumulus-db/postgres/system-v1.sql` and `apps/cumulus-db/postgres/data-v1.sql`.
 
 See `docs/cumulus-db-v1.md` for the system flow, hard scopes, Nimbus rules, and hosted/local engine split.
 

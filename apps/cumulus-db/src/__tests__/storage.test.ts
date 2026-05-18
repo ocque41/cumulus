@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -35,6 +35,12 @@ describe('CumulusDbEngine', () => {
 
     const backup = await db.backup(created.manifest.id);
     expect(backup.records).toBe(1);
+    const backupBody = JSON.parse(await readFile(backup.path, 'utf8')) as {
+      crypto?: { ciphertext?: string; wrappedDek?: string };
+    };
+    expect(backupBody.crypto?.ciphertext).toBeTruthy();
+    expect(backupBody.crypto?.wrappedDek).toBeTruthy();
+    expect(JSON.stringify(backupBody)).not.toContain('Remember the Cumulus database launch notes.');
 
     await db.destroyAllForTests();
   });

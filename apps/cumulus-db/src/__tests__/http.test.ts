@@ -18,6 +18,7 @@ afterEach(async () => {
 async function testServer() {
   const dataDir = await mkdtemp(join(tmpdir(), 'cumulus-db-http-'));
   const config: CumulusDbConfig = {
+    engine: 'jsonl',
     dataDir,
     publicUrl: 'http://127.0.0.1:0',
     adminSecret: Buffer.alloc(32, 4).toString('base64'),
@@ -25,6 +26,7 @@ async function testServer() {
     relayWebhookSecret: null,
     publicAgentBootstrapEnabled: false,
     port: 0,
+    postgres: { url: null, ssl: false, autoMigrate: false },
     embeddings: { baseUrl: null, apiKey: null, model: null },
   };
   const engine = new CumulusDbEngine(dataDir, config.masterKey);
@@ -165,12 +167,22 @@ describe('HTTP API', () => {
 
     const manifest = await fetch(new URL('/mcp', baseUrl));
     expect(manifest.status).toBe(200);
-    const manifestBody = (await manifest.json()) as { tools: string[] };
+    const manifestBody = (await manifest.json()) as {
+      tools: string[];
+      toolSchemas: Array<{ name: string; inputSchema: { required: string[] }; dryRunFirst?: boolean }>;
+    };
     expect(manifestBody.tools).toContain('cumulus_db_put_kv');
     expect(manifestBody.tools).toContain('cumulus_db_get_kv');
     expect(manifestBody.tools).toContain('cumulus_db_reveal_secret');
     expect(manifestBody.tools).toContain('cumulus.plan_schema');
     expect(manifestBody.tools).toContain('cumulus.rotate_self_token');
+    expect(manifestBody.toolSchemas.find((tool) => tool.name === 'cumulus.apply_schema')?.dryRunFirst).toBe(true);
+    expect(manifestBody.toolSchemas.find((tool) => tool.name === 'cumulus_db_put_kv')?.inputSchema.required).toEqual([
+      'database_id',
+      'token',
+      'key',
+      'value',
+    ]);
 
     const put = await fetch(new URL('/mcp', baseUrl), {
       method: 'POST',
@@ -219,6 +231,14 @@ describe('HTTP API', () => {
     expect(reveal.status).toBe(200);
     const revealBody = (await reveal.json()) as { result: { value: string } };
     expect(revealBody.result.value).toBe('demo-secret-not-real');
+
+    const missing = await fetch(new URL('/mcp', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool: 'cumulus_db_put_kv', arguments: { database_id: created.manifest.id, token: created.dataToken.token } }),
+    });
+    expect(missing.status).toBe(400);
+    expect((await missing.json()) as { error: string }).toMatchObject({ error: 'missing required MCP argument(s): key, value' });
   });
 
   it('does not let legacy token managers mint hard system scopes', async () => {

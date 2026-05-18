@@ -41,7 +41,20 @@ export interface SchemaOperation {
     | 'add_secret'
     | 'remove_secret'
     | 'add_index'
+    | 'alter_index'
     | 'remove_index'
+    | 'add_app'
+    | 'alter_app'
+    | 'remove_app'
+    | 'add_policy'
+    | 'alter_policy'
+    | 'remove_policy'
+    | 'add_backup'
+    | 'alter_backup'
+    | 'remove_backup'
+    | 'add_approval'
+    | 'alter_approval'
+    | 'remove_approval'
     | 'noop';
   target: string;
   risk: SchemaRiskLevel;
@@ -265,6 +278,73 @@ export function newSystemState(input: {
   };
 }
 
+export function humanPrincipalId(email: string): string {
+  return `usr_${createHash('sha256').update(email.trim().toLowerCase()).digest('hex').slice(0, 24)}`;
+}
+
+export function claimSystemOrg(
+  state: SystemState,
+  input: {
+    email: string;
+    now: string;
+  },
+): SystemPrincipal {
+  const email = input.email.trim().toLowerCase();
+  if (!email) throw new Error('claim email is required');
+  if (state.org.status === 'suspended') throw new Error('organization is suspended');
+  if (state.org.claimedAt && state.org.humanOwnerEmail && state.org.humanOwnerEmail !== email) {
+    throw new Error('organization is already claimed');
+  }
+
+  state.org.status = 'active';
+  state.org.humanOwnerEmail = email;
+  state.org.claimedAt = state.org.claimedAt ?? input.now;
+
+  const id = humanPrincipalId(email);
+  const existing = state.principals.find((principal) => principal.id === id);
+  if (existing) {
+    existing.status = 'active';
+    existing.displayName = email;
+    existing.grants = normalizeTokenScopes([...new Set([...existing.grants, ...DEFAULT_OWNER_SYSTEM_SCOPES])]);
+    return existing;
+  }
+
+  const principal: SystemPrincipal = {
+    id,
+    type: 'human',
+    displayName: email,
+    status: 'active',
+    createdAt: input.now,
+    lastSeenAt: null,
+    grants: DEFAULT_OWNER_SYSTEM_SCOPES,
+  };
+  state.principals.push(principal);
+  for (const item of state.principals) {
+    if (item.status === 'pending_claim') item.status = 'active';
+  }
+  return principal;
+}
+
+export function updateSystemPrincipalGrants(
+  state: SystemState,
+  input: {
+    principalId: string;
+    grants: TokenScope[];
+  },
+): SystemPrincipal {
+  const principal = state.principals.find((item) => item.id === input.principalId);
+  if (!principal) throw new Error('principal not found');
+  principal.grants = normalizeTokenScopes(input.grants);
+  return principal;
+}
+
+export function disableSystemAgent(state: SystemState, agentId: string): SystemPrincipal {
+  const principal = state.principals.find((item) => item.id === agentId && item.type === 'agent');
+  if (!principal) throw new Error('agent not found');
+  principal.status = 'disabled';
+  return principal;
+}
+
 export function buildSchemaPlan(input: {
   desired: NimbusIr;
   desiredHash: string;
@@ -302,17 +382,34 @@ export function stableHash(value: unknown): string {
 }
 
 function diffNimbus(desired: NimbusIr, live: NimbusIr | null): SchemaOperation[] {
+  const operations: SchemaOperation[] = [];
   if (!live) {
-    const operations = desired.spec.collections.map<SchemaOperation>((collection) => ({
+    operations.push(...desired.spec.collections.map<SchemaOperation>((collection) => ({
       kind: 'create_collection',
       target: `collection.${collection.name}`,
       risk: 'low',
       summary: `Create collection ${collection.name}`,
-    }));
+    })));
+    for (const collection of desired.spec.collections) {
+      operations.push(
+        ...namedAddOperations(
+          collection.indexes ?? [],
+          `collection.${collection.name}.index`,
+          'add_index',
+          'medium',
+          `Add index to ${collection.name}`,
+        ),
+      );
+    }
+    operations.push(...namedAddOperations(desired.spec.apps, 'app', 'add_app', 'low', 'Add app'));
+    operations.push(...namedAddOperations(desired.spec.indexes, 'index', 'add_index', 'medium', 'Add index'));
+    operations.push(...namedAddOperations(desired.spec.policies, 'policy', 'add_policy', 'medium', 'Add policy'));
+    operations.push(...namedAddOperations(desired.spec.secrets, 'secret', 'add_secret', 'medium', 'Add secret handle'));
+    operations.push(...namedAddOperations(desired.spec.backups, 'backup', 'add_backup', 'low', 'Add backup rule'));
+    operations.push(...namedAddOperations(desired.spec.approvals, 'approval', 'add_approval', 'medium', 'Add approval rule'));
     return operations.length ? operations : [{ kind: 'noop', target: desired.spec.namespace, risk: 'none', summary: 'No schema changes' }];
   }
 
-  const operations: SchemaOperation[] = [];
   const liveCollections = new Map(live.spec.collections.map((collection) => [collection.name, collection]));
   const desiredCollections = new Map(desired.spec.collections.map((collection) => [collection.name, collection]));
 
@@ -338,6 +435,16 @@ function diffNimbus(desired: NimbusIr, live: NimbusIr | null): SchemaOperation[]
         operations.push({ kind: 'drop_field', target: `collection.${name}.field.${field}`, risk: 'destructive', summary: `Drop field ${field} from ${name}` });
       }
     }
+    diffNamedItems(operations, current.indexes ?? [], collection.indexes ?? [], {
+      targetPrefix: `collection.${name}.index`,
+      addKind: 'add_index',
+      alterKind: 'alter_index',
+      removeKind: 'remove_index',
+      addRisk: 'medium',
+      alterRisk: 'medium',
+      removeRisk: 'high',
+      label: `index on ${name}`,
+    });
   }
 
   for (const name of liveCollections.keys()) {
@@ -346,18 +453,130 @@ function diffNimbus(desired: NimbusIr, live: NimbusIr | null): SchemaOperation[]
     }
   }
 
-  const liveSecrets = new Set(live.spec.secrets.map((secret) => secret.name));
-  const desiredSecrets = new Set(desired.spec.secrets.map((secret) => secret.name));
-  for (const secret of desiredSecrets) {
-    if (!liveSecrets.has(secret)) {
-      operations.push({ kind: 'add_secret', target: `secret.${secret}`, risk: 'medium', summary: `Add secret handle ${secret}` });
-    }
-  }
-  for (const secret of liveSecrets) {
-    if (!desiredSecrets.has(secret)) {
-      operations.push({ kind: 'remove_secret', target: `secret.${secret}`, risk: 'high', summary: `Remove secret handle ${secret}` });
-    }
-  }
+  diffNamedItems(operations, live.spec.apps, desired.spec.apps, {
+    targetPrefix: 'app',
+    addKind: 'add_app',
+    alterKind: 'alter_app',
+    removeKind: 'remove_app',
+    addRisk: 'low',
+    alterRisk: 'medium',
+    removeRisk: 'high',
+    label: 'app',
+  });
+  diffNamedItems(operations, live.spec.indexes, desired.spec.indexes, {
+    targetPrefix: 'index',
+    addKind: 'add_index',
+    alterKind: 'alter_index',
+    removeKind: 'remove_index',
+    addRisk: 'medium',
+    alterRisk: 'medium',
+    removeRisk: 'high',
+    label: 'index',
+  });
+  diffNamedItems(operations, live.spec.policies, desired.spec.policies, {
+    targetPrefix: 'policy',
+    addKind: 'add_policy',
+    alterKind: 'alter_policy',
+    removeKind: 'remove_policy',
+    addRisk: 'medium',
+    alterRisk: 'high',
+    removeRisk: 'destructive',
+    label: 'policy',
+  });
+  diffNamedItems(operations, live.spec.secrets, desired.spec.secrets, {
+    targetPrefix: 'secret',
+    addKind: 'add_secret',
+    removeKind: 'remove_secret',
+    addRisk: 'medium',
+    removeRisk: 'high',
+    label: 'secret handle',
+  });
+  diffNamedItems(operations, live.spec.backups, desired.spec.backups, {
+    targetPrefix: 'backup',
+    addKind: 'add_backup',
+    alterKind: 'alter_backup',
+    removeKind: 'remove_backup',
+    addRisk: 'low',
+    alterRisk: 'medium',
+    removeRisk: 'high',
+    label: 'backup rule',
+  });
+  diffNamedItems(operations, live.spec.approvals, desired.spec.approvals, {
+    targetPrefix: 'approval',
+    addKind: 'add_approval',
+    alterKind: 'alter_approval',
+    removeKind: 'remove_approval',
+    addRisk: 'medium',
+    alterRisk: 'high',
+    removeRisk: 'destructive',
+    label: 'approval rule',
+  });
 
   return operations.length ? operations : [{ kind: 'noop', target: desired.spec.namespace, risk: 'none', summary: 'No schema changes' }];
+}
+
+type NamedPlanKind = Exclude<SchemaOperation['kind'], 'create_collection' | 'drop_collection' | 'add_field' | 'drop_field' | 'alter_field' | 'noop'>;
+
+function namedAddOperations(
+  items: Array<{ name: string }>,
+  targetPrefix: string,
+  kind: NamedPlanKind,
+  risk: SchemaRiskLevel,
+  label: string,
+): SchemaOperation[] {
+  return items.map((item) => ({
+    kind,
+    target: `${targetPrefix}.${item.name}`,
+    risk,
+    summary: `${label} ${item.name}`,
+  }));
+}
+
+function diffNamedItems(
+  operations: SchemaOperation[],
+  liveItems: Array<{ name: string }>,
+  desiredItems: Array<{ name: string }>,
+  config: {
+    targetPrefix: string;
+    addKind: NamedPlanKind;
+    alterKind?: NamedPlanKind;
+    removeKind: NamedPlanKind;
+    addRisk: SchemaRiskLevel;
+    alterRisk?: SchemaRiskLevel;
+    removeRisk: SchemaRiskLevel;
+    label: string;
+  },
+): void {
+  const liveByName = new Map(liveItems.map((item) => [item.name, item]));
+  const desiredByName = new Map(desiredItems.map((item) => [item.name, item]));
+  for (const [name, desired] of desiredByName) {
+    const current = liveByName.get(name);
+    if (!current) {
+      operations.push({
+        kind: config.addKind,
+        target: `${config.targetPrefix}.${name}`,
+        risk: config.addRisk,
+        summary: `Add ${config.label} ${name}`,
+      });
+      continue;
+    }
+    if (config.alterKind && canonicalStringify(current) !== canonicalStringify(desired)) {
+      operations.push({
+        kind: config.alterKind,
+        target: `${config.targetPrefix}.${name}`,
+        risk: config.alterRisk ?? config.addRisk,
+        summary: `Change ${config.label} ${name}`,
+      });
+    }
+  }
+  for (const name of liveByName.keys()) {
+    if (!desiredByName.has(name)) {
+      operations.push({
+        kind: config.removeKind,
+        target: `${config.targetPrefix}.${name}`,
+        risk: config.removeRisk,
+        summary: `Remove ${config.label} ${name}`,
+      });
+    }
+  }
 }

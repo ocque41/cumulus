@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import {
   NIMBUS_API_VERSION,
   NIMBUS_IR_SCHEMA_ID,
@@ -101,6 +103,14 @@ export interface CompileNimbusOptions {
   fileName?: string;
   allowSystemNamespace?: boolean;
   name?: string;
+  resolveImports?: boolean;
+  importRoot?: string;
+  readImport?: (absolutePath: string) => string;
+}
+
+export interface CompileNimbusFileOptions extends Omit<CompileNimbusOptions, 'fileName' | 'resolveImports' | 'readImport'> {
+  rootDir?: string;
+  readFile?: (absolutePath: string) => string;
 }
 
 export interface CompileNimbusResult {
@@ -109,6 +119,38 @@ export interface CompileNimbusResult {
   canonicalJson: string;
   hash: string;
   schema: typeof nimbusIrJsonSchema;
+}
+
+export type NimbusDiagnosticSeverity = 'error' | 'warning';
+export type NimbusDiagnosticStage = 'lex' | 'parse' | 'resolve' | 'compile' | 'check' | 'format';
+
+export interface NimbusDiagnostic {
+  code: string;
+  severity: NimbusDiagnosticSeverity;
+  stage: NimbusDiagnosticStage;
+  message: string;
+  file: string;
+  start?: number;
+  end?: number;
+  line?: number;
+  column?: number;
+  related?: Array<{ file: string; message: string; line?: number; column?: number }>;
+}
+
+export interface NimbusCheckResult {
+  ok: boolean;
+  diagnostics: NimbusDiagnostic[];
+  result?: CompileNimbusResult;
+}
+
+export class NimbusDiagnosticError extends Error {
+  readonly diagnostics: NimbusDiagnostic[];
+
+  constructor(diagnostics: NimbusDiagnostic[]) {
+    super(diagnostics.map(formatNimbusDiagnostic).join('\n'));
+    this.name = 'NimbusDiagnosticError';
+    this.diagnostics = diagnostics;
+  }
 }
 
 const DECLARATION_TYPES = new Set([
@@ -133,17 +175,102 @@ function sha256(value: string): string {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`;
 }
 
+function lineColumnFor(source: string, index: number): { line: number; column: number } {
+  const safeIndex = Math.max(0, Math.min(index, source.length));
+  let line = 1;
+  let column = 1;
+  for (let cursor = 0; cursor < safeIndex; cursor += 1) {
+    if (source[cursor] === '\n') {
+      line += 1;
+      column = 1;
+    } else {
+      column += 1;
+    }
+  }
+  return { line, column };
+}
+
+function diagnostic(input: {
+  code: string;
+  stage: NimbusDiagnosticStage;
+  message: string;
+  file: string;
+  source?: string;
+  start?: number;
+  end?: number;
+  related?: NimbusDiagnostic['related'];
+}): NimbusDiagnostic {
+  const position =
+    input.source !== undefined && input.start !== undefined ? lineColumnFor(input.source, input.start) : {};
+  return {
+    code: input.code,
+    severity: 'error',
+    stage: input.stage,
+    message: input.message,
+    file: input.file,
+    ...(input.start !== undefined ? { start: input.start } : {}),
+    ...(input.end !== undefined ? { end: input.end } : {}),
+    ...position,
+    ...(input.related?.length ? { related: input.related } : {}),
+  };
+}
+
+function failWithDiagnostic(input: Parameters<typeof diagnostic>[0]): never {
+  throw new NimbusDiagnosticError([diagnostic(input)]);
+}
+
+export function isNimbusDiagnosticError(error: unknown): error is NimbusDiagnosticError {
+  return error instanceof NimbusDiagnosticError;
+}
+
+export function toNimbusDiagnostics(
+  error: unknown,
+  fallback: {
+    code?: string;
+    stage?: NimbusDiagnosticStage;
+    file?: string;
+    source?: string;
+  } = {},
+): NimbusDiagnostic[] {
+  if (isNimbusDiagnosticError(error)) return error.diagnostics;
+  const message = error instanceof Error ? error.message : String(error);
+  return [
+    diagnostic({
+      code: fallback.code ?? 'NIMBUS_UNEXPECTED_ERROR',
+      stage: fallback.stage ?? 'compile',
+      message,
+      file: fallback.file ?? 'document.nimbus',
+      source: fallback.source,
+    }),
+  ];
+}
+
+export function formatNimbusDiagnostic(item: NimbusDiagnostic): string {
+  const location = item.line && item.column ? `${item.file}:${item.line}:${item.column}` : item.file;
+  return `${location} ${item.code}: ${item.message}`;
+}
+
 function isReservedNamespace(namespace: string): boolean {
   return RESERVED_NAMESPACES.some((reserved) => namespace === reserved || namespace.startsWith(`${reserved}.`));
 }
 
-export function assertNimbusNamespaceAllowed(ir: NimbusIr, allowSystemNamespace = false): void {
+export function assertNimbusNamespaceAllowed(
+  ir: NimbusIr,
+  allowSystemNamespace = false,
+  context: { fileName?: string; source?: string } = {},
+): void {
   if (isReservedNamespace(ir.spec.namespace) && !allowSystemNamespace) {
-    throw new Error(`namespace ${ir.spec.namespace} is reserved for provider-owned system documents`);
+    failWithDiagnostic({
+      code: 'NIMBUS_RESERVED_NAMESPACE',
+      stage: 'check',
+      message: `namespace ${ir.spec.namespace} is reserved for provider-owned system documents`,
+      file: context.fileName ?? '<ir>',
+      source: context.source,
+    });
   }
 }
 
-function tokenize(source: string): Token[] {
+function tokenize(source: string, fileName: string): Token[] {
   const tokens: Token[] = [];
   let index = 0;
 
@@ -179,16 +306,28 @@ function tokenize(source: string): Token[] {
     if (char === '"') {
       index += 1;
       let value = '';
+      let closed = false;
       while (index < source.length) {
         const current = source[index] ?? '';
         if (current === '"') {
           index += 1;
           push('string', value, start, index);
+          closed = true;
           break;
         }
         if (current === '\\') {
           const escaped = source[index + 1];
-          if (escaped === undefined) throw new Error('unterminated string escape');
+          if (escaped === undefined) {
+            failWithDiagnostic({
+              code: 'NIMBUS_LEX_UNTERMINATED_STRING',
+              stage: 'lex',
+              message: 'unterminated string escape',
+              file: fileName,
+              source,
+              start,
+              end: index,
+            });
+          }
           const map: Record<string, string> = { n: '\n', r: '\r', t: '\t', '"': '"', '\\': '\\' };
           value += map[escaped] ?? escaped;
           index += 2;
@@ -197,7 +336,17 @@ function tokenize(source: string): Token[] {
         value += current;
         index += 1;
       }
-      if (tokens[tokens.length - 1]?.start !== start) throw new Error('unterminated string literal');
+      if (!closed) {
+        failWithDiagnostic({
+          code: 'NIMBUS_LEX_UNTERMINATED_STRING',
+          stage: 'lex',
+          message: 'unterminated string literal',
+          file: fileName,
+          source,
+          start,
+          end: index,
+        });
+      }
       continue;
     }
 
@@ -218,7 +367,15 @@ function tokenize(source: string): Token[] {
       continue;
     }
 
-    throw new Error(`unexpected character ${JSON.stringify(char)} at ${start}`);
+    failWithDiagnostic({
+      code: 'NIMBUS_LEX_UNEXPECTED_CHARACTER',
+      stage: 'lex',
+      message: `unexpected character ${JSON.stringify(char)}`,
+      file: fileName,
+      source,
+      start,
+      end: start + 1,
+    });
   }
 
   tokens.push({ type: 'eof', value: '', start: source.length, end: source.length });
@@ -232,6 +389,7 @@ class Parser {
   constructor(
     private readonly tokens: Token[],
     private readonly fileName: string,
+    private readonly source: string,
   ) {}
 
   parseDocument(): NimbusDocumentAst {
@@ -270,7 +428,9 @@ class Parser {
     const docs = this.consumeDocs();
     const start = this.current().start;
     const type = this.expect('identifier').value;
-    if (!DECLARATION_TYPES.has(type)) throw new Error(`unknown Nimbus declaration ${type}`);
+    if (!DECLARATION_TYPES.has(type)) {
+      this.fail('NIMBUS_PARSE_UNKNOWN_DECLARATION', `unknown Nimbus declaration ${type}`, this.lookahead(-1));
+    }
     const nameToken = this.peek('string') ? this.expect('string') : this.expect('identifier');
     this.expect('{');
     const fields: Record<string, NimbusValue> = {};
@@ -328,7 +488,7 @@ class Parser {
       }
       return { kind: 'reference', path };
     }
-    throw new Error(`unexpected value token ${token.type}`);
+    this.fail('NIMBUS_PARSE_UNEXPECTED_VALUE', `unexpected value token ${token.type}`, token);
   }
 
   private parseArray(): NimbusValue[] {
@@ -389,32 +549,416 @@ class Parser {
   private expect(type: TokenType, value?: string): Token {
     const token = this.current();
     if (token.type !== type || (value !== undefined && token.value !== value)) {
-      throw new Error(`expected ${value ?? type}, got ${token.value || token.type}`);
+      this.fail('NIMBUS_PARSE_EXPECTED_TOKEN', `expected ${value ?? type}, got ${token.value || token.type}`, token);
     }
     this.cursor += 1;
     return token;
   }
+
+  private fail(code: string, message: string, token = this.current()): never {
+    failWithDiagnostic({
+      code,
+      stage: 'parse',
+      message,
+      file: this.fileName,
+      source: this.source,
+      start: token.start,
+      end: token.end,
+    });
+  }
+}
+
+interface ParsedNimbusFile {
+  fileKey: string;
+  displayFile: string;
+  source: string;
+  ast: NimbusDocumentAst;
+}
+
+interface NimbusGraph {
+  ast: NimbusDocumentAst;
+  sourceHashInput: string;
+  sourceByFile: Map<string, string>;
+}
+
+function parseNimbusDocument(source: string, fileName: string): NimbusDocumentAst {
+  return new Parser(tokenize(source, fileName), fileName, source).parseDocument();
 }
 
 export function parseNimbus(source: string, options: CompileNimbusOptions = {}): NimbusDocumentAst {
-  return new Parser(tokenize(source), options.fileName ?? 'document.nimbus').parseDocument();
+  return parseNimbusDocument(source, options.fileName ?? 'document.nimbus');
 }
 
 export function compileNimbus(source: string, options: CompileNimbusOptions = {}): CompileNimbusResult {
-  const ast = parseNimbus(source, options);
-  const ir = astToIr(ast, source, options);
-  const canonicalJson = canonicalStringify(ir);
+  const fallbackFile = options.fileName ?? 'document.nimbus';
+  try {
+    const graph = resolveNimbusGraph(source, options);
+    const ir = astToIr(graph.ast, graph.sourceHashInput, options, graph.sourceByFile);
+    const canonicalJson = canonicalStringify(ir);
+    return {
+      ast: graph.ast,
+      ir,
+      canonicalJson,
+      hash: sha256(canonicalJson),
+      schema: nimbusIrJsonSchema,
+    };
+  } catch (error) {
+    throw new NimbusDiagnosticError(
+      toNimbusDiagnostics(error, {
+        code: 'NIMBUS_COMPILE_FAILED',
+        stage: 'compile',
+        file: fallbackFile,
+        source,
+      }),
+    );
+  }
+}
+
+export function compileNimbusFile(filePath: string, options: CompileNimbusFileOptions = {}): CompileNimbusResult {
+  const rootDir = resolve(options.rootDir ?? (isAbsolute(filePath) ? dirname(resolve(filePath)) : process.cwd()));
+  const absolutePath = isAbsolute(filePath) ? resolve(filePath) : resolve(rootDir, filePath);
+  const readFile = options.readFile ?? ((path: string) => readFileSync(path, 'utf8'));
+  const source = readFile(absolutePath);
+  return compileNimbus(source, {
+    ...options,
+    fileName: absolutePath,
+    importRoot: rootDir,
+    resolveImports: true,
+    readImport: readFile,
+  });
+}
+
+export function checkNimbus(source: string, options: CompileNimbusOptions = {}): NimbusCheckResult {
+  try {
+    return { ok: true, diagnostics: [], result: compileNimbus(source, options) };
+  } catch (error) {
+    return {
+      ok: false,
+      diagnostics: toNimbusDiagnostics(error, {
+        code: 'NIMBUS_CHECK_FAILED',
+        stage: 'check',
+        file: options.fileName ?? 'document.nimbus',
+        source,
+      }),
+    };
+  }
+}
+
+export function checkNimbusFile(filePath: string, options: CompileNimbusFileOptions = {}): NimbusCheckResult {
+  try {
+    return { ok: true, diagnostics: [], result: compileNimbusFile(filePath, options) };
+  } catch (error) {
+    return {
+      ok: false,
+      diagnostics: toNimbusDiagnostics(error, {
+        code: 'NIMBUS_CHECK_FAILED',
+        stage: 'check',
+        file: filePath,
+      }),
+    };
+  }
+}
+
+function resolveNimbusGraph(source: string, options: CompileNimbusOptions): NimbusGraph {
+  const entryFileName = options.fileName ?? 'document.nimbus';
+  const entryAbsolute = isAbsolute(entryFileName) ? resolve(entryFileName) : resolve(options.importRoot ?? process.cwd(), entryFileName);
+  const importRoot = resolve(options.importRoot ?? (isAbsolute(entryFileName) ? dirname(entryAbsolute) : process.cwd()));
+  const canResolveImports = options.resolveImports === true || options.readImport !== undefined;
+  const readImport = options.readImport ?? ((path: string) => readFileSync(path, 'utf8'));
+  const finished = new Set<string>();
+  const ordered: ParsedNimbusFile[] = [];
+
+  const visit = (
+    fileKey: string,
+    displayFile: string,
+    fileSource: string,
+    stack: Array<{ fileKey: string; displayFile: string }>,
+  ): void => {
+    const cycleStart = stack.findIndex((item) => item.fileKey === fileKey);
+    if (cycleStart !== -1) {
+      const cycle = [...stack.slice(cycleStart), { fileKey, displayFile }].map((item) => item.displayFile);
+      failWithDiagnostic({
+        code: 'NIMBUS_IMPORT_CYCLE',
+        stage: 'resolve',
+        message: `import cycle detected: ${cycle.join(' -> ')}`,
+        file: displayFile,
+        source: fileSource,
+      });
+    }
+    if (finished.has(fileKey)) return;
+
+    const ast = parseNimbusDocument(fileSource, displayFile);
+    const nextStack = [...stack, { fileKey, displayFile }];
+    for (const item of ast.imports) {
+      if (!canResolveImports) {
+        failWithDiagnostic({
+          code: 'NIMBUS_IMPORTS_DISABLED',
+          stage: 'resolve',
+          message: 'Nimbus imports require local file import resolution',
+          file: displayFile,
+          source: fileSource,
+        });
+      }
+      const resolvedImport = resolveLocalImport({
+        importPath: item.path,
+        fromFile: fileKey,
+        fromDisplayFile: displayFile,
+        importRoot,
+        source: fileSource,
+      });
+      let importedSource: string;
+      try {
+        importedSource = readImport(resolvedImport.fileKey);
+      } catch {
+        failWithDiagnostic({
+          code: 'NIMBUS_IMPORT_READ_FAILED',
+          stage: 'resolve',
+          message: `unable to read Nimbus import ${item.path}`,
+          file: displayFile,
+          source: fileSource,
+        });
+      }
+      visit(resolvedImport.fileKey, resolvedImport.displayFile, importedSource, nextStack);
+    }
+
+    finished.add(fileKey);
+    ordered.push({ fileKey, displayFile, source: fileSource, ast });
+  };
+
+  visit(entryAbsolute, displayPath(entryAbsolute, importRoot), source, []);
+  return mergeNimbusFiles(ordered);
+}
+
+function resolveLocalImport(input: {
+  importPath: string;
+  fromFile: string;
+  fromDisplayFile: string;
+  importRoot: string;
+  source: string;
+}): { fileKey: string; displayFile: string } {
+  if (
+    isAbsolute(input.importPath) ||
+    /^[A-Za-z][A-Za-z0-9+.-]*:/.test(input.importPath) ||
+    !(input.importPath.startsWith('./') || input.importPath.startsWith('../'))
+  ) {
+    failWithDiagnostic({
+      code: 'NIMBUS_IMPORT_LOCAL_ONLY',
+      stage: 'resolve',
+      message: `Nimbus import ${input.importPath} must be a relative local path`,
+      file: input.fromDisplayFile,
+      source: input.source,
+    });
+  }
+
+  const fileKey = resolve(dirname(input.fromFile), input.importPath);
+  if (!isPathInside(input.importRoot, fileKey)) {
+    failWithDiagnostic({
+      code: 'NIMBUS_IMPORT_OUTSIDE_ROOT',
+      stage: 'resolve',
+      message: `Nimbus import ${input.importPath} resolves outside the import root`,
+      file: input.fromDisplayFile,
+      source: input.source,
+    });
+  }
+
+  return { fileKey, displayFile: displayPath(fileKey, input.importRoot) };
+}
+
+function isPathInside(root: string, candidate: string): boolean {
+  const path = relative(root, candidate);
+  return path === '' || (!path.startsWith('..') && !isAbsolute(path));
+}
+
+function displayPath(path: string, root: string): string {
+  const pathFromRoot = relative(root, path);
+  if (!pathFromRoot || pathFromRoot.startsWith('..') || isAbsolute(pathFromRoot)) return path;
+  return pathFromRoot.split('\\').join('/');
+}
+
+function mergeNimbusFiles(files: ParsedNimbusFile[]): NimbusGraph {
+  const root = files[files.length - 1];
+  if (!root) {
+    failWithDiagnostic({
+      code: 'NIMBUS_EMPTY_GRAPH',
+      stage: 'resolve',
+      message: 'Nimbus graph is empty',
+      file: 'document.nimbus',
+    });
+  }
+
+  const sourceByFile = new Map(files.map((file) => [file.displayFile, file.source]));
+  const importedFiles = files.slice(0, -1);
+  const rootNamespace = singleNamespace(root);
+  const rootNamespaceName = rootNamespace?.name ?? 'default';
+  const importedDeclarations = importedFiles.flatMap((file) => {
+    if (file.ast.version !== root.ast.version) {
+      failWithDiagnostic({
+        code: 'NIMBUS_IMPORT_VERSION_MISMATCH',
+        stage: 'compile',
+        message: `import ${file.displayFile} uses Nimbus ${file.ast.version}, expected ${root.ast.version}`,
+        file: file.displayFile,
+        source: file.source,
+      });
+    }
+    const namespace = singleNamespace(file);
+    if (namespace) {
+      if (namespace.name !== rootNamespaceName) {
+        failWithDiagnostic({
+          code: 'NIMBUS_IMPORT_NAMESPACE_MISMATCH',
+          stage: 'compile',
+          message: `import ${file.displayFile} declares namespace ${namespace.name}, expected ${rootNamespaceName}`,
+          file: namespace.sourceSpan.file,
+          source: file.source,
+          start: namespace.sourceSpan.start,
+          end: namespace.sourceSpan.end,
+        });
+      }
+      return namespace.declarations;
+    }
+    return file.ast.declarations;
+  });
+
+  const ast = rootNamespace
+    ? {
+        ...root.ast,
+        declarations: [
+          {
+            ...rootNamespace,
+            declarations: [...importedDeclarations, ...rootNamespace.declarations],
+          },
+        ],
+      }
+    : {
+        ...root.ast,
+        declarations: [...importedDeclarations, ...root.ast.declarations],
+      };
+
   return {
     ast,
-    ir,
-    canonicalJson,
-    hash: sha256(canonicalJson),
-    schema: nimbusIrJsonSchema,
+    sourceHashInput: files.map((file) => file.source).join('\n'),
+    sourceByFile,
   };
+}
+
+function singleNamespace(file: ParsedNimbusFile): NimbusDeclaration | undefined {
+  const namespaces = file.ast.declarations.filter((item) => item.type === 'namespace');
+  if (namespaces.length > 1) {
+    const second = namespaces[1]!;
+    failWithDiagnostic({
+      code: 'NIMBUS_MULTIPLE_NAMESPACES',
+      stage: 'compile',
+      message: 'Nimbus documents may declare only one namespace',
+      file: second.sourceSpan.file,
+      source: file.source,
+      start: second.sourceSpan.start,
+      end: second.sourceSpan.end,
+    });
+  }
+  return namespaces[0];
 }
 
 export function canonicalStringify(value: unknown): string {
   return JSON.stringify(sortCanonical(value));
+}
+
+export function formatNimbusSource(source: string, options: Pick<CompileNimbusOptions, 'fileName'> = {}): string {
+  const ast = parseNimbus(source, options);
+  return `${formatDocument(ast).trim()}\n`;
+}
+
+function formatDocument(ast: NimbusDocumentAst): string {
+  const lines: string[] = [];
+  if (ast.version !== 'v1alpha1') {
+    lines.push(`nimbus ${formatString(ast.version)}`, '');
+  }
+  for (const item of ast.imports) {
+    lines.push(`import ${formatString(item.path)}${item.alias ? ` as ${item.alias}` : ''}`);
+  }
+  if (ast.imports.length) lines.push('');
+  ast.declarations.forEach((item, index) => {
+    if (index > 0) lines.push('');
+    lines.push(...formatDeclaration(item, 0));
+  });
+  return lines.join('\n');
+}
+
+function formatDeclaration(declaration: NimbusDeclaration, depth: number): string[] {
+  const indent = '  '.repeat(depth);
+  const lines: string[] = [];
+  if (declaration.docs) {
+    for (const line of declaration.docs.split('\n')) lines.push(`${indent}/// ${line}`);
+  }
+  lines.push(`${indent}${declaration.type} ${formatName(declaration.name)} {`);
+  const fieldEntries = Object.entries(declaration.fields).sort(([left], [right]) => left.localeCompare(right));
+  fieldEntries.forEach(([key, value], index) => {
+    if (index > 0) lines.push('');
+    lines.push(...formatField(key, value, depth + 1));
+  });
+  declaration.declarations.forEach((child) => {
+    if (fieldEntries.length || lines[lines.length - 1] !== `${indent}${declaration.type} ${formatName(declaration.name)} {`) {
+      lines.push('');
+    }
+    lines.push(...formatDeclaration(child, depth + 1));
+  });
+  lines.push(`${indent}}`);
+  return lines;
+}
+
+function formatField(key: string, value: NimbusValue, depth: number): string[] {
+  const indent = '  '.repeat(depth);
+  const formatted = formatValue(value, depth);
+  if (formatted.length === 1) return [`${indent}${key}: ${formatted[0]}`];
+  return [`${indent}${key}: ${formatted[0]}`, ...formatted.slice(1).map((line) => `${indent}${line}`)];
+}
+
+function formatValue(value: NimbusValue, depth: number): string[] {
+  if (typeof value === 'string') return [formatString(value)];
+  if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+  if (value === null) return ['null'];
+  if (Array.isArray(value)) return formatArray(value, depth);
+  if (isEnvRef(value)) return [`env(${formatString(value.name)})`];
+  if (isReference(value)) return [value.path.join('.')];
+  return formatObject(value, depth);
+}
+
+function formatArray(values: NimbusValue[], depth: number): string[] {
+  if (!values.length) return ['[]'];
+  if (values.every(isInlineValue)) return [`[${values.map((value) => formatValue(value, depth)[0]).join(', ')}]`];
+  const indent = '  '.repeat(depth + 1);
+  return ['[', ...values.flatMap((value) => formatValue(value, depth + 1).map((line) => `${indent}${line}`)), `${'  '.repeat(depth)}]`];
+}
+
+function formatObject(value: Record<string, NimbusValue>, depth: number): string[] {
+  const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right));
+  if (!entries.length) return ['{}'];
+  if (entries.length <= 3 && entries.every(([, entry]) => isInlineValue(entry))) {
+    return [`{ ${entries.map(([key, entry]) => `${formatObjectKey(key)}: ${formatValue(entry, depth)[0]}`).join(', ')} }`];
+  }
+  const indent = '  '.repeat(depth + 1);
+  const lines = entries.flatMap(([key, entry]) => {
+    const formatted = formatValue(entry, depth + 1);
+    if (formatted.length === 1) return `${indent}${formatObjectKey(key)}: ${formatted[0]}`;
+    return [`${indent}${formatObjectKey(key)}: ${formatted[0]}`, ...formatted.slice(1).map((line) => `${indent}${line}`)];
+  });
+  return ['{', ...lines, `${'  '.repeat(depth)}}`];
+}
+
+function isInlineValue(value: NimbusValue): boolean {
+  if (Array.isArray(value)) return value.every(isInlineValue) && value.length <= 4;
+  if (value && typeof value === 'object') return isEnvRef(value) || isReference(value);
+  return true;
+}
+
+function formatName(name: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_-]*$/.test(name) ? name : formatString(name);
+}
+
+function formatObjectKey(key: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_-]*$/.test(key) ? key : formatString(key);
+}
+
+function formatString(value: string): string {
+  return JSON.stringify(value);
 }
 
 function sortCanonical(value: unknown): unknown {
@@ -428,7 +972,12 @@ function sortCanonical(value: unknown): unknown {
   );
 }
 
-function astToIr(ast: NimbusDocumentAst, source: string, options: CompileNimbusOptions): NimbusIr {
+function astToIr(
+  ast: NimbusDocumentAst,
+  source: string,
+  options: CompileNimbusOptions,
+  sourceByFile: Map<string, string>,
+): NimbusIr {
   const namespaces = ast.declarations.filter((item) => item.type === 'namespace');
   const namespace = namespaces[0]?.name ?? 'default';
 
@@ -470,15 +1019,31 @@ function astToIr(ast: NimbusDocumentAst, source: string, options: CompileNimbusO
     },
   };
 
-  validateNimbusIr(ir);
-  assertNimbusNamespaceAllowed(ir, options.allowSystemNamespace);
+  validateNimbusIr(ir, { fileName: sourceFileForNamespace(namespaces[0]), sourceByFile });
+  assertNimbusNamespaceAllowed(ir, options.allowSystemNamespace, {
+    fileName: sourceFileForNamespace(namespaces[0]),
+    source: namespaces[0] ? sourceByFile.get(namespaces[0].sourceSpan.file) : undefined,
+  });
   return ir;
+}
+
+function sourceFileForNamespace(namespace: NimbusDeclaration | undefined): string {
+  return namespace?.sourceSpan.file ?? '<ir>';
 }
 
 function collectionToIr(declaration: NimbusDeclaration): NimbusCollectionIr {
   const childIndexes = declaration.declarations.filter((item) => item.type === 'index').map((item) => namedToIr(item));
   const fields = unknownRecord(declaration.fields.fields ?? {});
-  if (!Object.keys(fields).length) throw new Error(`collection ${declaration.name} must define fields`);
+  if (!Object.keys(fields).length) {
+    failWithDiagnostic({
+      code: 'NIMBUS_COLLECTION_FIELDS_REQUIRED',
+      stage: 'compile',
+      message: `collection ${declaration.name} must define fields`,
+      file: declaration.sourceSpan.file,
+      start: declaration.sourceSpan.start,
+      end: declaration.sourceSpan.end,
+    });
+  }
   const attributes = attributesWithout(declaration.fields, ['fields']);
   return {
     name: declaration.name,
@@ -491,7 +1056,16 @@ function collectionToIr(declaration: NimbusDeclaration): NimbusCollectionIr {
 
 function secretToIr(declaration: NimbusDeclaration): NimbusSecretIr {
   const from = declaration.fields.from ?? declaration.fields.source;
-  if (!isEnvRef(from)) throw new Error(`secret ${declaration.name} must use from: env("NAME")`);
+  if (!isEnvRef(from)) {
+    failWithDiagnostic({
+      code: 'NIMBUS_SECRET_ENV_REF_REQUIRED',
+      stage: 'compile',
+      message: `secret ${declaration.name} must use from: env("NAME")`,
+      file: declaration.sourceSpan.file,
+      start: declaration.sourceSpan.start,
+      end: declaration.sourceSpan.end,
+    });
+  }
   const attributes = attributesWithout(declaration.fields, ['from', 'source']);
   return {
     name: declaration.name,
@@ -550,26 +1124,39 @@ function isReference(value: unknown): value is { kind: 'reference'; path: string
   return Boolean(value && typeof value === 'object' && (value as { kind?: unknown }).kind === 'reference');
 }
 
-export function validateNimbusIr(ir: NimbusIr): void {
-  if (ir.$schema !== NIMBUS_IR_SCHEMA_ID) throw new Error('invalid Nimbus IR schema id');
-  if (ir.apiVersion !== NIMBUS_API_VERSION) throw new Error('invalid Nimbus IR apiVersion');
-  if (ir.kind !== NIMBUS_KIND) throw new Error('invalid Nimbus IR kind');
-  if (!ir.metadata.name || !ir.metadata.compilerVersion || !ir.metadata.sourceHash) {
-    throw new Error('Nimbus IR metadata is incomplete');
+export function validateNimbusIr(
+  ir: NimbusIr,
+  context: { fileName?: string; sourceByFile?: Map<string, string> } = {},
+): void {
+  const file = context.fileName ?? '<ir>';
+  const fail = (message: string): never =>
+    failWithDiagnostic({
+      code: 'NIMBUS_IR_INVALID',
+      stage: 'check',
+      message,
+      file,
+      source: context.sourceByFile?.get(file),
+    });
+  if (ir.$schema !== NIMBUS_IR_SCHEMA_ID) fail('invalid Nimbus IR schema id');
+  if (ir.apiVersion !== NIMBUS_API_VERSION) fail('invalid Nimbus IR apiVersion');
+  if (ir.kind !== NIMBUS_KIND) fail('invalid Nimbus IR kind');
+  if (!ir.metadata || !ir.metadata.name || !ir.metadata.compilerVersion || !ir.metadata.sourceHash) {
+    fail('Nimbus IR metadata is incomplete');
   }
-  if (!ir.spec.namespace) throw new Error('Nimbus IR namespace is required');
+  if (!ir.spec || typeof ir.spec !== 'object') fail('Nimbus IR spec is required');
+  if (!ir.spec.namespace) fail('Nimbus IR namespace is required');
   for (const key of ['apps', 'collections', 'indexes', 'policies', 'secrets', 'backups', 'approvals'] as const) {
-    if (!Array.isArray(ir.spec[key])) throw new Error(`Nimbus IR spec.${key} must be an array`);
+    if (!Array.isArray(ir.spec[key])) fail(`Nimbus IR spec.${key} must be an array`);
   }
   for (const collection of ir.spec.collections) {
-    if (!collection.name) throw new Error('collection name is required');
+    if (!collection.name) fail('collection name is required');
     if (!collection.fields || !Object.keys(collection.fields).length) {
-      throw new Error(`collection ${collection.name} must define fields`);
+      fail(`collection ${collection.name} must define fields`);
     }
   }
   for (const secret of ir.spec.secrets) {
-    if (secret.source.kind !== 'envRef' || !secret.source.name) {
-      throw new Error(`secret ${secret.name} must compile to an envRef source`);
+    if (!secret.source || secret.source.kind !== 'envRef' || !secret.source.name) {
+      fail(`secret ${secret.name} must compile to an envRef source`);
     }
   }
 }

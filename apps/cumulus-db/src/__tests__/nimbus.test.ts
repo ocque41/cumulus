@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { compileNimbus } from '../nimbus.js';
+import {
+  checkNimbus,
+  compileNimbus,
+  compileNimbusFile,
+  isNimbusDiagnosticError,
+  toNimbusDiagnostics,
+} from '../nimbus.js';
 
 const source = `
 nimbus "v1alpha1"
@@ -77,5 +86,132 @@ describe('Nimbus compiler', () => {
         }
       `),
     ).toThrow('env');
+  });
+
+  it('resolves relative local imports before compiling canonical IR', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cumulus-nimbus-imports-'));
+    await writeFile(
+      join(dir, 'collections.nimbus'),
+      `
+        namespace acme {
+          collection agents {
+            fields: {
+              id: { type: "ulid", required: true }
+            }
+          }
+        }
+      `,
+    );
+    await writeFile(
+      join(dir, 'root.nimbus'),
+      `
+        import "./collections.nimbus"
+
+        namespace acme {
+          collection runs {
+            fields: {
+              id: { type: "ulid", required: true }
+            }
+          }
+        }
+      `,
+    );
+
+    const result = compileNimbusFile('root.nimbus', { rootDir: dir });
+
+    expect(result.ast.imports).toEqual([{ path: './collections.nimbus' }]);
+    expect(result.ir.spec.collections.map((collection) => collection.name)).toEqual(['agents', 'runs']);
+    expect(result.ir.metadata.sourceHash).toMatch(/^sha256:[a-f0-9]{64}$/);
+  });
+
+  it('does not resolve imports unless local file resolution is explicit', () => {
+    const result = checkNimbus('import "./collections.nimbus"');
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics[0]?.code).toBe('NIMBUS_IMPORTS_DISABLED');
+  });
+
+  it('rejects non-local imports and imports outside the root', () => {
+    const remote = checkNimbus('import "https://example.com/schema.nimbus"', {
+      fileName: 'root.nimbus',
+      resolveImports: true,
+      importRoot: '/workspace',
+    });
+    expect(remote.ok).toBe(false);
+    expect(remote.diagnostics[0]?.code).toBe('NIMBUS_IMPORT_LOCAL_ONLY');
+
+    const outside = checkNimbus('import "../private.nimbus"', {
+      fileName: '/workspace/root.nimbus',
+      resolveImports: true,
+      importRoot: '/workspace',
+    });
+    expect(outside.ok).toBe(false);
+    expect(outside.diagnostics[0]?.code).toBe('NIMBUS_IMPORT_OUTSIDE_ROOT');
+  });
+
+  it('detects import cycles with stable structured diagnostics', () => {
+    const files = new Map<string, string>([
+      [
+        '/workspace/a.nimbus',
+        `
+          import "./b.nimbus"
+          namespace acme {
+            collection a { fields: { id: { type: "ulid" } } }
+          }
+        `,
+      ],
+      [
+        '/workspace/b.nimbus',
+        `
+          import "./a.nimbus"
+          namespace acme {
+            collection b { fields: { id: { type: "ulid" } } }
+          }
+        `,
+      ],
+    ]);
+
+    try {
+      compileNimbus(files.get('/workspace/a.nimbus')!, {
+        fileName: '/workspace/a.nimbus',
+        importRoot: '/workspace',
+        resolveImports: true,
+        readImport: (path) => {
+          const content = files.get(path);
+          if (content === undefined) throw new Error(`missing ${path}`);
+          return content;
+        },
+      });
+      throw new Error('expected cycle error');
+    } catch (error) {
+      expect(isNimbusDiagnosticError(error)).toBe(true);
+      const diagnostics = toNimbusDiagnostics(error);
+      expect(diagnostics[0]).toMatchObject({
+        code: 'NIMBUS_IMPORT_CYCLE',
+        stage: 'resolve',
+        file: 'a.nimbus',
+      });
+      expect(diagnostics[0]?.message).toContain('a.nimbus -> b.nimbus -> a.nimbus');
+    }
+  });
+
+  it('returns line-numbered diagnostics for parse and check failures', () => {
+    const broken = checkNimbus(`
+      namespace acme {
+        collection notes {
+          fields: { id: { type: "ulid" } }
+    `);
+
+    expect(broken.ok).toBe(false);
+    expect(broken.diagnostics[0]).toMatchObject({
+      code: 'NIMBUS_PARSE_EXPECTED_TOKEN',
+      severity: 'error',
+      stage: 'parse',
+      line: 5,
+    });
+
+    const reserved = checkNimbus('namespace system { collection notes { fields: { id: { type: "ulid" } } } }');
+    expect(reserved.ok).toBe(false);
+    expect(reserved.diagnostics[0]?.code).toBe('NIMBUS_RESERVED_NAMESPACE');
   });
 });

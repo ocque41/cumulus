@@ -4,8 +4,20 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { CumulusDbConfig } from './config.js';
 import { parseEnvFile } from './env-parser.js';
 import type { NimbusIr } from './nimbus.js';
+import { LocalOAuthProvider, type OAuthHttpResult } from './oauth.js';
+import { LocalPasskeyStepUpStore } from './passkeys.js';
+import { InMemoryRateLimiter, type RateLimitPolicy, type RateLimitResult } from './rate-limit.js';
 import type { CumulusDbEngine } from './storage.js';
-import { SYSTEM_SCOPE_REGISTRY, isHardSystemScope, type SystemSnapshotRecord, type SystemState } from './system.js';
+import {
+  SYSTEM_SCOPE_REGISTRY,
+  claimSystemOrg,
+  disableSystemAgent,
+  isHardSystemScope,
+  updateSystemPrincipalGrants,
+  type PrincipalType,
+  type SystemSnapshotRecord,
+  type SystemState,
+} from './system.js';
 import type { RecordType, TokenRecord, TokenScope } from './types.js';
 
 function send(res: ServerResponse, status: number, body: unknown): void {
@@ -19,6 +31,25 @@ function send(res: ServerResponse, status: number, body: unknown): void {
 function sendNoContent(res: ServerResponse): void {
   res.writeHead(204, { 'Cache-Control': 'no-store' });
   res.end();
+}
+
+function sendOAuth(res: ServerResponse, result: OAuthHttpResult): void {
+  send(res, result.status, result.body);
+}
+
+function sendRateLimited(res: ServerResponse, result: RateLimitResult): void {
+  res.writeHead(429, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Retry-After': String(result.retryAfterSeconds),
+  });
+  res.end(
+    JSON.stringify({
+      error: 'rate_limited',
+      retryAfterSeconds: result.retryAfterSeconds,
+      resetAt: result.resetAt,
+    }),
+  );
 }
 
 function publicTokenRecord(token: TokenRecord): Omit<TokenRecord, 'tokenHash' | 'secretMac'> {
@@ -82,6 +113,130 @@ function publicApplyResult<T extends { snapshot: SystemSnapshotRecord | null }>(
   };
 }
 
+interface McpToolContract {
+  name: string;
+  description: string;
+  mode: 'read' | 'write' | 'dry-run' | 'destructive';
+  required: string[];
+  dryRunFirst?: boolean;
+  inputSchema: {
+    type: 'object';
+    required: string[];
+    properties: Record<string, unknown>;
+    additionalProperties: boolean;
+  };
+}
+
+function mcpTool(
+  name: string,
+  description: string,
+  mode: McpToolContract['mode'],
+  required: string[],
+  properties: Record<string, unknown>,
+  options: Pick<McpToolContract, 'dryRunFirst'> = {},
+): McpToolContract {
+  return {
+    name,
+    description,
+    mode,
+    required,
+    ...options,
+    inputSchema: {
+      type: 'object',
+      required,
+      properties,
+      additionalProperties: false,
+    },
+  };
+}
+
+const mcpBaseProperties = {
+  database_id: { type: 'string' },
+  token: { type: 'string' },
+} as const;
+
+const MCP_TOOL_SCHEMAS = [
+  mcpTool('cumulus_db_create_record', 'Create a workspace record.', 'write', ['database_id', 'token', 'type'], {
+    ...mcpBaseProperties,
+    type: { type: 'string' },
+    title: { type: 'string' },
+    content: { type: 'string' },
+    json: {},
+    tags: { type: 'array', items: { type: 'string' } },
+    metadata: { type: 'object' },
+  }),
+  mcpTool('cumulus_db_search', 'Search records by text, vector, type, and limit.', 'read', ['database_id', 'token'], {
+    ...mcpBaseProperties,
+    query: { type: 'string' },
+    vector: { type: 'array', items: { type: 'number' } },
+    type: { type: 'string' },
+    limit: { type: 'number' },
+  }),
+  mcpTool('cumulus_db_append_event', 'Append an event record.', 'write', ['database_id', 'token'], {
+    ...mcpBaseProperties,
+    title: { type: 'string' },
+    content: { type: 'string' },
+    json: {},
+    tags: { type: 'array', items: { type: 'string' } },
+    metadata: { type: 'object' },
+  }),
+  mcpTool('cumulus_db_put_kv', 'Write a key-value entry.', 'write', ['database_id', 'token', 'key', 'value'], {
+    ...mcpBaseProperties,
+    key: { type: 'string' },
+    value: {},
+    metadata: { type: 'object' },
+  }),
+  mcpTool('cumulus_db_get_kv', 'Read a key-value entry.', 'read', ['database_id', 'token', 'key'], {
+    ...mcpBaseProperties,
+    key: { type: 'string' },
+  }),
+  mcpTool('cumulus_db_parse_env', 'Parse dotenv content without persisting it.', 'read', ['content'], {
+    content: { type: 'string' },
+  }),
+  mcpTool('cumulus_db_reveal_secret', 'Reveal an encrypted secret with the required scope.', 'destructive', ['database_id', 'token', 'record_id'], {
+    ...mcpBaseProperties,
+    record_id: { type: 'string' },
+    field: { type: 'string' },
+  }),
+  mcpTool('cumulus.plan_schema', 'Compile and plan Nimbus schema changes without applying them.', 'dry-run', ['database_id', 'token'], {
+    ...mcpBaseProperties,
+    source: { type: 'string' },
+    desired: { type: 'object' },
+  }),
+  mcpTool('cumulus.read_system_state', 'Read public-safe system state.', 'read', ['database_id', 'token'], mcpBaseProperties),
+  mcpTool('cumulus.request_approval', 'Request a short-lived approval token.', 'write', ['database_id', 'token'], {
+    ...mcpBaseProperties,
+    plan_id: { type: 'string' },
+    kind: { type: 'string' },
+    version_id: { type: 'string' },
+    snapshot_id: { type: 'string' },
+  }),
+  mcpTool('cumulus.apply_schema', 'Apply a previously planned schema change.', 'destructive', ['database_id', 'token', 'plan_id'], {
+    ...mcpBaseProperties,
+    plan_id: { type: 'string' },
+    approval_token: { type: 'string' },
+  }, { dryRunFirst: true }),
+  mcpTool('cumulus.create_snapshot', 'Create a provider-managed logical snapshot.', 'write', ['database_id', 'token'], mcpBaseProperties),
+  mcpTool('cumulus.revert_version', 'Revert schema state to a version or snapshot.', 'destructive', ['database_id', 'token', 'approval_token'], {
+    ...mcpBaseProperties,
+    version_id: { type: 'string' },
+    snapshot_id: { type: 'string' },
+    approval_token: { type: 'string' },
+  }, { dryRunFirst: true }),
+  mcpTool('cumulus.rotate_self_token', 'Rotate the current bearer token.', 'write', ['database_id', 'token'], mcpBaseProperties),
+] as const satisfies readonly McpToolContract[];
+
+const MCP_TOOL_NAMES = MCP_TOOL_SCHEMAS.map((tool) => tool.name);
+
+function validateMcpArguments(toolName: string, args: Record<string, unknown>): void {
+  const schema = MCP_TOOL_SCHEMAS.find((tool) => tool.name === toolName);
+  if (!schema) return;
+  const missing = schema.required.filter((key) => args[key] === undefined || args[key] === null || args[key] === '');
+  if (missing.length) {
+    throw new Error(`missing required MCP argument(s): ${missing.join(', ')}`);
+  }
+}
+
 async function readBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
@@ -98,6 +253,20 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   return parsed as Record<string, unknown>;
 }
 
+async function readBodyObject(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const raw = await readBody(req);
+  if (!raw.trim()) return {};
+  const contentType = Array.isArray(req.headers['content-type']) ? req.headers['content-type'][0] : req.headers['content-type'];
+  if (contentType?.includes('application/x-www-form-urlencoded')) {
+    return Object.fromEntries(new URLSearchParams(raw).entries());
+  }
+  const parsed = JSON.parse(raw) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('expected request object');
+  }
+  return parsed as Record<string, unknown>;
+}
+
 function bearer(req: IncomingMessage): string | null {
   const auth = req.headers.authorization;
   if (!auth) return null;
@@ -109,6 +278,37 @@ function isAdmin(req: IncomingMessage, config: CumulusDbConfig): boolean {
   const header = req.headers['x-cumulus-admin-key'];
   const value = Array.isArray(header) ? header[0] : header;
   return Boolean(config.adminSecret && value && value === config.adminSecret);
+}
+
+function requestIp(req: IncomingMessage): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  const forwardedValue = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return forwardedValue?.split(',')[0]?.trim() || req.socket.remoteAddress || 'local';
+}
+
+function checkRateLimit(
+  limiter: InMemoryRateLimiter,
+  res: ServerResponse,
+  key: string,
+  policy: RateLimitPolicy,
+): boolean {
+  const result = limiter.consume(key, policy);
+  if (result.allowed) return true;
+  sendRateLimited(res, result);
+  return false;
+}
+
+function principalKey(token: TokenRecord | null): string {
+  return token?.principalId ?? token?.id ?? 'admin';
+}
+
+function principalType(token: TokenRecord | null): PrincipalType {
+  return token?.principalType ?? 'system';
+}
+
+function approvalActorType(token: TokenRecord | null): 'human' | 'agent' | 'system' {
+  const type = principalType(token);
+  return type === 'human' || type === 'agent' ? type : 'system';
 }
 
 function verifyRelaySignature(rawBody: string, req: IncomingMessage, secret: string | null): boolean {
@@ -146,6 +346,31 @@ async function requireAccess(
 ): Promise<TokenRecord | null> {
   if (isAdmin(req, config)) return null;
   return requireDbToken(engine, req, dbId, scopes);
+}
+
+interface MutableSystemEngine {
+  writeSystemState(dbId: string, state: SystemState): Promise<void>;
+  writeAudit(
+    dbId: string,
+    event: {
+      action: string;
+      actor: { type: string; id: string };
+      target: { type: string; id: string };
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<void>;
+}
+
+async function writeSystemState(engine: CumulusDbEngine, dbId: string, state: SystemState): Promise<void> {
+  await (engine as unknown as MutableSystemEngine).writeSystemState(dbId, state);
+}
+
+async function writeSystemAudit(
+  engine: CumulusDbEngine,
+  dbId: string,
+  event: Parameters<MutableSystemEngine['writeAudit']>[1],
+): Promise<void> {
+  await (engine as unknown as MutableSystemEngine).writeAudit(dbId, event);
 }
 
 function assertCanGrantHardScopes(caller: TokenRecord | null, requestedScopes: TokenScope[]): void {
@@ -199,10 +424,59 @@ function recordInput(body: Record<string, unknown>) {
 }
 
 export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) {
+  const limiter = new InMemoryRateLimiter();
+  const passkeys = new LocalPasskeyStepUpStore();
+  const oauth = new LocalOAuthProvider({
+    issuer: config.publicUrl,
+    publicUrl: config.publicUrl,
+    masterKey: config.masterKey,
+    engine,
+  });
+
   return async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
       const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
       const parts = segments(url.pathname);
+
+      if (req.method === 'GET' && (url.pathname === '/.well-known/openid-configuration' || url.pathname === '/.well-known/oauth-authorization-server')) {
+        send(res, 200, oauth.discovery());
+        return;
+      }
+
+      if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/oauth/authorize') {
+        const body = req.method === 'POST' ? await readBodyObject(req) : Object.fromEntries(url.searchParams.entries());
+        const email = stringValue(body.email ?? body.login_hint, 'unknown');
+        if (!checkRateLimit(limiter, res, `login:${requestIp(req)}:${email}`, { max: 10, windowMs: 60_000 })) return;
+        sendOAuth(res, await oauth.authorize(body));
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/oauth/device_authorization') {
+        if (!checkRateLimit(limiter, res, `device-login:${requestIp(req)}`, { max: 10, windowMs: 60_000 })) return;
+        sendOAuth(res, await oauth.deviceAuthorization(await readBodyObject(req)));
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/oauth/device_authorization/verify') {
+        if (!checkRateLimit(limiter, res, `device-login:${requestIp(req)}`, { max: 10, windowMs: 60_000 })) return;
+        sendOAuth(res, oauth.verifyDevice(await readBodyObject(req)));
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/oauth/token') {
+        const body = await readBodyObject(req);
+        const deviceCode = stringValue(body.device_code);
+        if (body.grant_type === 'urn:ietf:params:oauth:grant-type:device_code') {
+          if (!checkRateLimit(limiter, res, `device-poll:${requestIp(req)}:${deviceCode}`, { max: 30, windowMs: 60_000 })) return;
+        }
+        sendOAuth(res, await oauth.token(body));
+        return;
+      }
+
+      if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/oidc/userinfo') {
+        sendOAuth(res, await oauth.userinfo(bearer(req)));
+        return;
+      }
 
       if (req.method === 'GET' && url.pathname === '/health') {
         send(res, 200, { ok: true, service: 'cumulus-db' });
@@ -221,6 +495,7 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
       }
 
       if (req.method === 'POST' && url.pathname === '/v1/system/agents/bootstrap') {
+        if (!checkRateLimit(limiter, res, `bootstrap:${requestIp(req)}`, { max: 5, windowMs: 60_000 })) return;
         if (!config.publicAgentBootstrapEnabled && !isAdmin(req, config)) {
           send(res, 401, { error: 'agent bootstrap requires admin access' });
           return;
@@ -235,6 +510,128 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
       }
 
       if (parts[0] === 'v1' && parts[1] === 'system') {
+        if (parts[2] === 'passkeys' && parts[3] === 'step-up' && req.method === 'POST') {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          const caller = await requireDbToken(engine, req, dbId, ['member:approve']);
+          if (!checkRateLimit(limiter, res, `approval:${dbId}:${principalKey(caller)}`, { max: 8, windowMs: 60_000 })) return;
+          const stepUp = passkeys.create({ dbId, principalId: principalKey(caller) });
+          await writeSystemAudit(engine, dbId, {
+            action: 'system.passkey_step_up',
+            actor: { type: principalType(caller), id: principalKey(caller) },
+            target: { type: 'principal', id: principalKey(caller) },
+            metadata: { method: stepUp.method, expiresAt: stepUp.expiresAt },
+          });
+          send(res, 201, { stepUp });
+          return;
+        }
+
+        if ((parts[2] === 'org' || parts[2] === 'orgs') && parts[3] === 'claim' && req.method === 'POST') {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          if (!checkRateLimit(limiter, res, `claim:${requestIp(req)}:${dbId}`, { max: 5, windowMs: 60_000 })) return;
+          const caller = await requireDbToken(engine, req, dbId, ['org:claim']);
+          const state = await engine.getSystemState(dbId);
+          const principal = claimSystemOrg(state, { email: stringValue(body.email), now: new Date().toISOString() });
+          await writeSystemState(engine, dbId, state);
+          await writeSystemAudit(engine, dbId, {
+            action: 'system.org_claim',
+            actor: { type: principalType(caller), id: principalKey(caller) },
+            target: { type: 'org', id: state.org.id },
+            metadata: { humanOwnerEmail: state.org.humanOwnerEmail, principalId: principal.id },
+          });
+          send(res, 200, { org: state.org, principal });
+          return;
+        }
+
+        if (
+          ((parts[2] === 'principals' && parts[3] && parts[4] === 'grants') || parts[2] === 'grants') &&
+          (req.method === 'PATCH' || req.method === 'POST')
+        ) {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          const principalId = parts[2] === 'grants' ? stringValue(body.principalId) : parts[3];
+          const grants = stringArray(body.grants) as TokenScope[];
+          const caller = await requireDbToken(engine, req, dbId, ['member:approve']);
+          if (!checkRateLimit(limiter, res, `approval:${dbId}:${principalKey(caller)}`, { max: 8, windowMs: 60_000 })) return;
+          assertCanGrantHardScopes(caller, grants);
+          const state = await engine.getSystemState(dbId);
+          const principal = updateSystemPrincipalGrants(state, { principalId, grants });
+          await writeSystemState(engine, dbId, state);
+          await writeSystemAudit(engine, dbId, {
+            action: 'system.principal_grants_update',
+            actor: { type: principalType(caller), id: principalKey(caller) },
+            target: { type: 'principal', id: principal.id },
+            metadata: { grants: principal.grants },
+          });
+          send(res, 200, { principal });
+          return;
+        }
+
+        if (parts[2] === 'agents' && parts[3] && parts[4] === 'disable' && req.method === 'POST') {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          const caller = await requireDbToken(engine, req, dbId, ['agent:disable']);
+          if (!checkRateLimit(limiter, res, `destructive:${dbId}:${principalKey(caller)}:agent-disable`, { max: 8, windowMs: 60_000 })) return;
+          const state = await engine.getSystemState(dbId);
+          const principal = disableSystemAgent(state, parts[3]);
+          await writeSystemState(engine, dbId, state);
+          const tokens = await engine.readTokens(dbId);
+          const disabledTokenIds = tokens
+            .filter((token) => token.principalType === 'agent' && token.principalId === parts[3] && !token.revokedAt)
+            .map((token) => token.id);
+          for (const tokenId of disabledTokenIds) {
+            await engine.revokeToken(dbId, tokenId);
+          }
+          await writeSystemAudit(engine, dbId, {
+            action: 'system.agent_disable',
+            actor: { type: principalType(caller), id: principalKey(caller) },
+            target: { type: 'agent', id: principal.id },
+            metadata: { disabledTokenIds },
+          });
+          send(res, 200, { principal, disabledTokenIds });
+          return;
+        }
+
+        if (parts[2] === 'agents' && parts[3] && (parts[4] === 'rotate' || parts[4] === 'revoke') && req.method === 'POST') {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          const agentId = parts[3];
+          const caller = await requireDbToken(engine, req, dbId, ['token:revoke_any']);
+          if (!checkRateLimit(limiter, res, `destructive:${dbId}:${principalKey(caller)}:agent-token-${parts[4]}`, { max: 8, windowMs: 60_000 })) return;
+          const tokens = await engine.readTokens(dbId);
+          const activeAgentTokens = tokens.filter(
+            (token) => token.principalType === 'agent' && token.principalId === agentId && !token.revokedAt,
+          );
+          if (!activeAgentTokens.length) throw new Error('agent token not found');
+
+          if (parts[4] === 'rotate') {
+            const token = await engine.rotateToken(dbId, activeAgentTokens[0]!.id);
+            await writeSystemAudit(engine, dbId, {
+              action: 'system.agent_token_rotate',
+              actor: { type: principalType(caller), id: principalKey(caller) },
+              target: { type: 'agent', id: agentId },
+              metadata: { rotatedFromId: activeAgentTokens[0]!.id },
+            });
+            send(res, 200, { token });
+            return;
+          }
+
+          const revokedTokenIds: string[] = [];
+          for (const token of activeAgentTokens) {
+            await engine.revokeToken(dbId, token.id);
+            revokedTokenIds.push(token.id);
+          }
+          await writeSystemAudit(engine, dbId, {
+            action: 'system.agent_token_revoke',
+            actor: { type: principalType(caller), id: principalKey(caller) },
+            target: { type: 'agent', id: agentId },
+            metadata: { revokedTokenIds },
+          });
+          send(res, 200, { revokedTokenIds });
+          return;
+        }
+
         if (req.method === 'GET' && parts[2] === 'state') {
           const dbId = stringValue(url.searchParams.get('dbId'));
           await requireDbToken(engine, req, dbId, ['system:read']);
@@ -269,20 +666,42 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
         if (parts[2] === 'schema' && parts[3] === 'approvals' && req.method === 'POST') {
           const body = await readJson(req);
           const dbId = stringValue(body.dbId);
-          await requireDbToken(engine, req, dbId, ['member:approve']);
+          const caller = await requireDbToken(engine, req, dbId, ['member:approve']);
+          if (!checkRateLimit(limiter, res, `approval:${dbId}:${principalKey(caller)}`, { max: 8, windowMs: 60_000 })) return;
+          const isHumanApproval = principalType(caller) === 'human';
           if (body.kind === 'revert') {
+            if (
+              isHumanApproval &&
+              !passkeys.verify({ dbId, principalId: principalKey(caller), stepUpToken: typeof body.stepUpToken === 'string' ? body.stepUpToken : undefined })
+            ) {
+              send(res, 400, { error: 'recent passkey step-up required for destructive approval' });
+              return;
+            }
             send(res, 201, {
               approval: await engine.createRevertApproval(dbId, {
                 versionId: typeof body.versionId === 'string' ? body.versionId : undefined,
                 snapshotId: typeof body.snapshotId === 'string' ? body.snapshotId : undefined,
-                actorType: 'human',
-                actorId: stringValue(body.actorId, 'operator'),
+                actorType: approvalActorType(caller),
+                actorId: principalKey(caller),
               }),
             });
             return;
           }
+          const state = await engine.getSystemState(dbId);
+          const plan = state.schema.plans.find((item) => item.id === stringValue(body.planId));
+          if (plan?.approvalRequired && isHumanApproval) {
+            const verified = passkeys.verify({
+              dbId,
+              principalId: principalKey(caller),
+              stepUpToken: typeof body.stepUpToken === 'string' ? body.stepUpToken : undefined,
+            });
+            if (!verified) {
+              send(res, 400, { error: 'recent passkey step-up required for destructive approval' });
+              return;
+            }
+          }
           send(res, 201, {
-            approval: await engine.createSchemaApproval(dbId, stringValue(body.planId), 'human', stringValue(body.actorId, 'operator')),
+            approval: await engine.createSchemaApproval(dbId, stringValue(body.planId), approvalActorType(caller), principalKey(caller)),
           });
           return;
         }
@@ -292,14 +711,20 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
           const dbId = stringValue(body.dbId);
           const state = await engine.getSystemState(dbId);
           const plan = state.schema.plans.find((item) => item.id === stringValue(body.planId));
-          await requireDbToken(engine, req, dbId, [plan?.riskLevel === 'destructive' ? 'schema:apply_destructive' : 'schema:apply_safe']);
+          const caller = await requireDbToken(engine, req, dbId, [plan?.riskLevel === 'destructive' ? 'schema:apply_destructive' : 'schema:apply_safe']);
+          if (
+            plan?.riskLevel === 'destructive' &&
+            !checkRateLimit(limiter, res, `destructive:${dbId}:${principalKey(caller)}:schema-apply`, { max: 8, windowMs: 60_000 })
+          ) {
+            return;
+          }
           send(res, 200, {
             apply: publicApplyResult(
               await engine.applySchemaPlan(dbId, {
                 planId: stringValue(body.planId),
                 approvalToken: typeof body.approvalToken === 'string' ? body.approvalToken : undefined,
-                actorType: 'human',
-                actorId: stringValue(body.actorId, 'operator'),
+                actorType: approvalActorType(caller),
+                actorId: principalKey(caller),
               }),
             ),
           });
@@ -309,15 +734,16 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
         if (parts[2] === 'schema' && parts[3] === 'revert' && req.method === 'POST') {
           const body = await readJson(req);
           const dbId = stringValue(body.dbId);
-          await requireDbToken(engine, req, dbId, ['schema:revert_local']);
+          const caller = await requireDbToken(engine, req, dbId, ['schema:revert_local']);
+          if (!checkRateLimit(limiter, res, `destructive:${dbId}:${principalKey(caller)}:schema-revert`, { max: 8, windowMs: 60_000 })) return;
           send(res, 200, {
             revert: publicApplyResult(
               await engine.revertSchema(dbId, {
                 versionId: typeof body.versionId === 'string' ? body.versionId : undefined,
                 snapshotId: typeof body.snapshotId === 'string' ? body.snapshotId : undefined,
                 approvalToken: typeof body.approvalToken === 'string' ? body.approvalToken : undefined,
-                actorType: 'human',
-                actorId: stringValue(body.actorId, 'operator'),
+                actorType: approvalActorType(caller),
+                actorId: principalKey(caller),
               }),
             ),
           });
@@ -543,22 +969,8 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
       if (req.method === 'GET' && url.pathname === '/mcp') {
         send(res, 200, {
           name: 'cumulus-database',
-          tools: [
-            'cumulus_db_create_record',
-            'cumulus_db_search',
-            'cumulus_db_append_event',
-            'cumulus_db_put_kv',
-            'cumulus_db_get_kv',
-            'cumulus_db_parse_env',
-            'cumulus_db_reveal_secret',
-            'cumulus.plan_schema',
-            'cumulus.read_system_state',
-            'cumulus.request_approval',
-            'cumulus.apply_schema',
-            'cumulus.create_snapshot',
-            'cumulus.revert_version',
-            'cumulus.rotate_self_token',
-          ],
+          tools: MCP_TOOL_NAMES,
+          toolSchemas: MCP_TOOL_SCHEMAS,
         });
         return;
       }
@@ -569,6 +981,7 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
         const args = (body.arguments ??
           (body.params as Record<string, unknown> | undefined)?.arguments ??
           {}) as Record<string, unknown>;
+        validateMcpArguments(tool, args);
         const dbId = stringValue(args.database_id);
         const token = stringValue(args.token);
         const fakeReq = { headers: { authorization: `Bearer ${token}` } } as IncomingMessage;

@@ -56,6 +56,10 @@ Then test:
 
 - cloud API configuration path,
 - self-host Cumulus DB path,
+- Cumulus DB OIDC discovery, device flow, and token exchange,
+- JSONL and PostgreSQL Cumulus DB engines,
+- Nimbus schema export and OpenAPI contract export,
+- system console plan, approval, snapshot, revert, and audit flows,
 - auth flow,
 - dashboard database connection with a scoped token,
 - legal pages with template provider data.
