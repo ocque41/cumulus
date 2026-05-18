@@ -1,11 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { decryptString, encryptString, sha256 } from './crypto.js';
+import { assertNimbusNamespaceAllowed, compileNimbus, validateNimbusIr, type NimbusIr } from './nimbus.js';
+import { decryptString, encryptString } from './crypto.js';
 import { detectSecretKeys } from './secrets.js';
-import { hasScopes, issueToken, issueWorkspaceTokens } from './tokens.js';
+import {
+  hasScopes,
+  issueToken,
+  issueWorkspaceTokens,
+  verifyTokenRecord,
+} from './tokens.js';
+import {
+  DEFAULT_AGENT_SYSTEM_SCOPES,
+  buildSchemaPlan,
+  newSystemState,
+  normalizeTokenScopes,
+  stableHash,
+  type SchemaPlanRecord,
+  type SchemaRiskLevel,
+  type SystemSnapshotRecord,
+  type SystemState,
+} from './system.js';
 import type {
   PublicRecord,
   RecordType,
@@ -45,6 +62,40 @@ interface SearchInput {
   vector?: number[];
   type?: RecordType;
   limit?: number;
+}
+
+interface AgentBootstrapInput {
+  displayName?: string;
+  humanOwnerEmail?: string | null;
+}
+
+interface PlanSchemaInput {
+  source?: string;
+  desired?: NimbusIr;
+  fileName?: string;
+  allowSystemNamespace?: boolean;
+}
+
+interface ApplySchemaInput {
+  planId: string;
+  approvalToken?: string;
+  actorType?: 'human' | 'agent' | 'system';
+  actorId?: string;
+}
+
+interface RevertSchemaInput {
+  versionId?: string;
+  snapshotId?: string;
+  approvalToken?: string;
+  actorType?: 'human' | 'agent' | 'system';
+  actorId?: string;
+}
+
+interface CreateRevertApprovalInput {
+  versionId?: string;
+  snapshotId?: string;
+  actorType?: 'human' | 'agent' | 'system';
+  actorId?: string;
 }
 
 interface Operation {
@@ -131,6 +182,29 @@ function normalizeVector(vector: unknown): number[] | undefined {
   return normalized;
 }
 
+function emptyNimbusDocument(): NimbusIr {
+  return {
+    $schema: 'https://schemas.cumulus.sh/nimbus-ir/v1alpha1.schema.json',
+    apiVersion: 'nimbus.cumulus/v1alpha1',
+    kind: 'NimbusDocument',
+    metadata: {
+      name: 'empty',
+      compilerVersion: '0.1.0',
+      sourceHash: 'sha256:empty',
+    },
+    spec: {
+      namespace: 'default',
+      apps: [],
+      collections: [],
+      indexes: [],
+      policies: [],
+      secrets: [],
+      backups: [],
+      approvals: [],
+    },
+  };
+}
+
 export class CumulusDbEngine {
   constructor(
     private readonly dataDir: string,
@@ -161,6 +235,14 @@ export class CumulusDbEngine {
     return join(this.workspaceDir(dbId), 'audit.jsonl');
   }
 
+  private systemStatePath(dbId: string): string {
+    return join(this.workspaceDir(dbId), 'system', 'state.json');
+  }
+
+  private systemSnapshotDir(dbId: string): string {
+    return join(this.workspaceDir(dbId), 'system', 'snapshots');
+  }
+
   async ensureRoot(): Promise<void> {
     await mkdir(join(this.dataDir, 'databases'), { recursive: true });
   }
@@ -186,12 +268,25 @@ export class CumulusDbEngine {
       lastCompactedAt: null,
       activeSegment,
     };
-    const tokens = issueWorkspaceTokens();
+    const tokens = issueWorkspaceTokens(this.masterKey);
+    tokens.records = tokens.records.map((token) =>
+      token.tokenKind === 'data'
+        ? { ...token, principalId: input.ownerAgentId }
+        : token,
+    );
+    const systemState = newSystemState({
+      dbId: id,
+      ownerAgentId: input.ownerAgentId,
+      humanOwnerEmail: input.humanOwnerEmail ?? null,
+      createdAt,
+    });
 
     await mkdir(join(this.workspaceDir(id), 'segments'), { recursive: true });
     await mkdir(join(this.workspaceDir(id), 'backups'), { recursive: true });
+    await mkdir(this.systemSnapshotDir(id), { recursive: true });
     await atomicWrite(this.manifestPath(id), `${JSON.stringify(manifest, null, 2)}\n`);
     await atomicWrite(this.tokensPath(id), `${JSON.stringify(tokens.records, null, 2)}\n`);
+    await atomicWrite(this.systemStatePath(id), `${JSON.stringify(systemState, null, 2)}\n`);
     await atomicWrite(this.walPath(id), '');
     await atomicWrite(this.segmentPath(id, activeSegment), '');
     await appendJsonLine(this.auditPath(id), { action: 'workspace_create', at: createdAt });
@@ -218,8 +313,7 @@ export class CumulusDbEngine {
 
   async authenticate(dbId: string, token: string, required: TokenScope[]): Promise<TokenRecord> {
     const tokens = await this.readTokens(dbId);
-    const hash = sha256(token);
-    const match = tokens.find((item) => item.tokenHash === hash && !item.revokedAt);
+    const match = tokens.find((item) => verifyTokenRecord(item, token, this.masterKey) && !item.revokedAt);
     if (!match || !hasScopes(match, required)) {
       throw new Error('unauthorized');
     }
@@ -238,7 +332,9 @@ export class CumulusDbEngine {
 
   async createToken(dbId: string, label: string, scopes: TokenScope[]): Promise<TokenIssue> {
     const tokens = await this.readTokens(dbId);
-    const issued = issueToken(label, scopes.length ? scopes : ALL_DATA_SCOPES, 'cdb_data');
+    const issued = issueToken(label, scopes.length ? normalizeTokenScopes(scopes) : ALL_DATA_SCOPES, 'cdb_data', this.masterKey, {
+      kind: 'data',
+    });
     tokens.push(issued.record);
     await this.writeTokens(dbId, tokens);
     await appendJsonLine(this.auditPath(dbId), { action: 'token_create', tokenId: issued.record.id, at: nowIso() });
@@ -250,7 +346,19 @@ export class CumulusDbEngine {
     const current = tokens.find((token) => token.id === tokenId && !token.revokedAt);
     if (!current) throw new Error('token not found');
     current.revokedAt = nowIso();
-    const issued = issueToken(current.label, current.scopes, current.scopes.includes('database:admin') ? 'cdb_admin' : 'cdb_data');
+    const issued = issueToken(
+      current.label,
+      current.scopes,
+      current.scopes.includes('database:admin') ? 'cdb_admin' : current.tokenKind === 'agent' ? 'cu_agt' : 'cdb_data',
+      this.masterKey,
+      {
+        kind: current.tokenKind,
+        principalType: current.principalType,
+        principalId: current.principalId,
+        expiresAt: current.expiresAt,
+        rotatedFromId: current.id,
+      },
+    );
     tokens.push(issued.record);
     await this.writeTokens(dbId, tokens);
     await appendJsonLine(this.auditPath(dbId), { action: 'token_rotate', oldTokenId: tokenId, newTokenId: issued.record.id, at: nowIso() });
@@ -264,6 +372,323 @@ export class CumulusDbEngine {
     current.revokedAt = current.revokedAt ?? nowIso();
     await this.writeTokens(dbId, tokens);
     await appendJsonLine(this.auditPath(dbId), { action: 'token_revoke', tokenId, at: current.revokedAt });
+  }
+
+  async bootstrapAgent(input: AgentBootstrapInput = {}): Promise<{
+    databaseId: string;
+    orgId: string;
+    agentId: string;
+    token: TokenIssue;
+    scopes: TokenScope[];
+  }> {
+    const agentId = `agt_${randomUUID().replace(/-/g, '')}`;
+    const created = await this.createWorkspace({
+      ownerAgentId: agentId,
+      humanOwnerEmail: input.humanOwnerEmail ?? null,
+    });
+    await this.revokeToken(created.manifest.id, created.dataToken.id);
+    await this.revokeToken(created.manifest.id, created.adminToken.id);
+
+    const tokenRecord = issueToken(
+      input.displayName ?? 'bootstrap agent',
+      DEFAULT_AGENT_SYSTEM_SCOPES,
+      'cu_agt',
+      this.masterKey,
+      { kind: 'agent', principalType: 'agent', principalId: agentId },
+    );
+    const tokens = await this.readTokens(created.manifest.id);
+    tokens.push(tokenRecord.record);
+    await this.writeTokens(created.manifest.id, tokens);
+
+    const state = await this.readSystemState(created.manifest.id);
+    state.principals = state.principals.map((principal) =>
+      principal.id === agentId
+        ? { ...principal, displayName: input.displayName ?? principal.displayName, grants: DEFAULT_AGENT_SYSTEM_SCOPES }
+        : principal,
+    );
+    await this.writeSystemState(created.manifest.id, state);
+    await this.writeAudit(created.manifest.id, {
+      action: 'system.agent_bootstrap',
+      actor: { type: 'agent', id: agentId },
+      target: { type: 'agent', id: agentId },
+      metadata: { scopes: DEFAULT_AGENT_SYSTEM_SCOPES },
+    });
+
+    return {
+      databaseId: created.manifest.id,
+      orgId: state.org.id,
+      agentId,
+      token: tokenRecord.issue,
+      scopes: DEFAULT_AGENT_SYSTEM_SCOPES,
+    };
+  }
+
+  async getSystemState(dbId: string): Promise<SystemState> {
+    return this.readSystemState(dbId);
+  }
+
+  async listAudit(dbId: string, limit = 100): Promise<unknown[]> {
+    const raw = await readFile(this.auditPath(dbId), 'utf8').catch((err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') return '';
+      throw err;
+    });
+    return raw
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line) as unknown)
+      .slice(-Math.max(1, Math.min(limit, 500)))
+      .reverse();
+  }
+
+  async planSchema(dbId: string, input: PlanSchemaInput): Promise<SchemaPlanRecord> {
+    const compiled = input.source
+      ? compileNimbus(input.source, {
+          fileName: input.fileName ?? 'schema.nimbus',
+          allowSystemNamespace: input.allowSystemNamespace,
+        })
+      : null;
+    const desired = compiled?.ir ?? input.desired;
+    if (!desired) throw new Error('schema plan requires Nimbus source or desired IR');
+    validateNimbusIr(desired);
+    assertNimbusNamespaceAllowed(desired, input.allowSystemNamespace === true);
+    const desiredHash = compiled?.hash ?? stableHash(desired);
+    const state = await this.readSystemState(dbId);
+    const plan = buildSchemaPlan({
+      desired,
+      desiredHash,
+      live: state.schema.live,
+      lastApplied: state.schema.lastApplied,
+      createdAt: nowIso(),
+    });
+    state.schema.plans.push(plan);
+    await this.writeSystemState(dbId, state);
+    await this.writeAudit(dbId, {
+      action: 'system.schema_plan',
+      actor: { type: 'system', id: 'planner' },
+      target: { type: 'schema_plan', id: plan.id },
+      metadata: {
+        planHash: plan.planHash,
+        riskLevel: plan.riskLevel,
+        operations: plan.operations.map((operation) => operation.kind),
+      },
+    });
+    return plan;
+  }
+
+  async createSchemaApproval(dbId: string, planId: string, actorType: 'human' | 'agent' | 'system' = 'human', actorId = 'operator'): Promise<{
+    approvalId: string;
+    approvalToken: string;
+    expiresAt: string;
+  }> {
+    const state = await this.readSystemState(dbId);
+    const plan = state.schema.plans.find((item) => item.id === planId);
+    if (!plan) throw new Error('schema plan not found');
+    const approvalToken = randomBytes(32).toString('base64url');
+    const createdAt = nowIso();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const approval = {
+      id: `apv_${randomUUID().replace(/-/g, '')}`,
+      tokenHash: this.approvalTokenMac(approvalToken),
+      planId: plan.id,
+      planHash: plan.planHash,
+      scope: 'schema:apply_destructive' as TokenScope,
+      createdAt,
+      expiresAt,
+      usedAt: null,
+      actorType,
+      actorId,
+    };
+    state.approvals.push(approval);
+    await this.writeSystemState(dbId, state);
+    await this.writeAudit(dbId, {
+      action: 'system.schema_approval_create',
+      actor: { type: actorType, id: actorId },
+      target: { type: 'schema_plan', id: plan.id },
+      metadata: { approvalId: approval.id, planHash: plan.planHash, expiresAt },
+    });
+    return { approvalId: approval.id, approvalToken, expiresAt };
+  }
+
+  async createRevertApproval(dbId: string, input: CreateRevertApprovalInput): Promise<{
+    approvalId: string;
+    approvalToken: string;
+    expiresAt: string;
+  }> {
+    if (!input.versionId && !input.snapshotId) {
+      throw new Error('revert approval requires a target version or snapshot');
+    }
+    const state = await this.readSystemState(dbId);
+    if (input.versionId && !state.schema.versions.some((version) => version.id === input.versionId)) {
+      throw new Error('schema revert target not found');
+    }
+    if (input.snapshotId && !state.schema.snapshots.some((snapshot) => snapshot.id === input.snapshotId)) {
+      throw new Error('schema revert snapshot not found');
+    }
+    const approvalToken = randomBytes(32).toString('base64url');
+    const createdAt = nowIso();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const approval = {
+      id: `apv_${randomUUID().replace(/-/g, '')}`,
+      tokenHash: this.approvalTokenMac(approvalToken),
+      planId: 'revert',
+      planHash: 'revert',
+      scope: 'schema:revert_local' as TokenScope,
+      createdAt,
+      expiresAt,
+      usedAt: null,
+      actorType: input.actorType ?? 'human',
+      actorId: input.actorId ?? 'operator',
+      targetVersionId: input.versionId ?? null,
+      targetSnapshotId: input.snapshotId ?? null,
+    };
+    state.approvals.push(approval);
+    await this.writeSystemState(dbId, state);
+    await this.writeAudit(dbId, {
+      action: 'system.schema_revert_approval_create',
+      actor: { type: input.actorType ?? 'human', id: input.actorId ?? 'operator' },
+      target: { type: 'schema_revert', id: approval.id },
+      metadata: { expiresAt, targetVersionId: input.versionId ?? null, targetSnapshotId: input.snapshotId ?? null },
+    });
+    return { approvalId: approval.id, approvalToken, expiresAt };
+  }
+
+  async applySchemaPlan(dbId: string, input: ApplySchemaInput): Promise<{
+    plan: SchemaPlanRecord;
+    versionId: string;
+    snapshot: SystemSnapshotRecord | null;
+  }> {
+    const state = await this.readSystemState(dbId);
+    const plan = state.schema.plans.find((item) => item.id === input.planId);
+    if (!plan) throw new Error('schema plan not found');
+    if (plan.status !== 'planned') throw new Error('schema plan is not pending');
+    if (state.schema.liveHash !== plan.baseLiveHash || state.schema.lastAppliedHash !== plan.baseLastAppliedHash) {
+      throw new Error('schema plan is stale; re-plan against the current live state');
+    }
+    if (plan.approvalRequired) this.consumePlanApproval(state, plan, input.approvalToken);
+
+    const snapshot =
+      plan.snapshotRequired
+        ? await this.createSystemSnapshotFromState(dbId, state, 'pre_apply', input.actorType ?? 'system', input.actorId ?? 'apply')
+        : null;
+
+    const appliedAt = nowIso();
+    plan.status = 'applied';
+    plan.appliedAt = appliedAt;
+    state.schema.live = plan.desired;
+    state.schema.liveHash = plan.desiredHash;
+    state.schema.lastApplied = plan.desired;
+    state.schema.lastAppliedHash = plan.desiredHash;
+    if (snapshot) state.schema.snapshots.push(snapshot);
+    const version = {
+      id: `ver_${randomUUID().replace(/-/g, '')}`,
+      desiredHash: plan.desiredHash,
+      canonicalJson: plan.desired,
+      planId: plan.id,
+      planHash: plan.planHash,
+      riskLevel: plan.riskLevel,
+      applyStatus: 'applied' as const,
+      createdAt: plan.createdAt,
+      appliedAt,
+    };
+    state.schema.versions.push(version);
+    await this.writeSystemState(dbId, state);
+    await this.writeAudit(dbId, {
+      action: 'system.schema_apply',
+      actor: { type: input.actorType ?? 'system', id: input.actorId ?? 'apply' },
+      target: { type: 'schema_version', id: version.id },
+      metadata: {
+        planId: plan.id,
+        planHash: plan.planHash,
+        riskLevel: plan.riskLevel,
+        snapshotId: snapshot?.id ?? null,
+      },
+    });
+    return { plan, versionId: version.id, snapshot };
+  }
+
+  async revertSchema(dbId: string, input: RevertSchemaInput): Promise<{
+    versionId: string;
+    revertedToHash: string | null;
+    snapshot: SystemSnapshotRecord;
+  }> {
+    if (!input.versionId && !input.snapshotId) {
+      throw new Error('schema revert requires a target version or snapshot');
+    }
+    const state = await this.readSystemState(dbId);
+    let targetLive: NimbusIr | null = null;
+    let targetHash: string | null = null;
+
+    if (input.snapshotId) {
+      const restored = await this.readSystemSnapshot(dbId, input.snapshotId);
+      targetLive = restored.schema.live;
+      targetHash = restored.schema.liveHash;
+    } else {
+      const targetVersion = input.versionId
+        ? state.schema.versions.find((version) => version.id === input.versionId)
+        : state.schema.versions.at(-2);
+      if (!targetVersion) throw new Error('schema revert target not found');
+      targetLive = targetVersion.canonicalJson;
+      targetHash = targetVersion.desiredHash;
+    }
+
+    this.consumeRevertApproval(state, input.approvalToken, {
+      versionId: input.versionId,
+      snapshotId: input.snapshotId,
+    });
+
+    const snapshot = await this.createSystemSnapshotFromState(
+      dbId,
+      state,
+      'revert_point',
+      input.actorType ?? 'system',
+      input.actorId ?? 'revert',
+    );
+
+    const revertedAt = nowIso();
+    state.schema.live = targetLive;
+    state.schema.liveHash = targetHash;
+    state.schema.lastApplied = targetLive;
+    state.schema.lastAppliedHash = targetHash;
+    state.schema.snapshots.push(snapshot);
+    const version = {
+      id: `ver_${randomUUID().replace(/-/g, '')}`,
+      desiredHash: targetHash ?? 'sha256:empty',
+      canonicalJson: targetLive ?? emptyNimbusDocument(),
+      planId: 'revert',
+      planHash: stableHash({ revert: input.versionId ?? input.snapshotId ?? 'previous', at: revertedAt }),
+      riskLevel: 'high' as SchemaRiskLevel,
+      applyStatus: 'reverted' as const,
+      createdAt: revertedAt,
+      appliedAt: revertedAt,
+      revertedAt,
+    };
+    state.schema.versions.push(version);
+    await this.writeSystemState(dbId, state);
+    await this.writeAudit(dbId, {
+      action: 'system.schema_revert',
+      actor: { type: input.actorType ?? 'system', id: input.actorId ?? 'revert' },
+      target: { type: 'schema_version', id: version.id },
+      metadata: {
+        targetVersionId: input.versionId ?? null,
+        targetSnapshotId: input.snapshotId ?? null,
+        snapshotId: snapshot.id,
+      },
+    });
+    return { versionId: version.id, revertedToHash: targetHash, snapshot };
+  }
+
+  async createSystemSnapshot(dbId: string, kind: 'manual' | 'pre_apply' | 'revert_point' = 'manual'): Promise<SystemSnapshotRecord> {
+    const state = await this.readSystemState(dbId);
+    const snapshot = await this.createSystemSnapshotFromState(dbId, state, kind, 'system', 'manual');
+    state.schema.snapshots.push(snapshot);
+    await this.writeSystemState(dbId, state);
+    await this.writeAudit(dbId, {
+      action: 'system.snapshot_create',
+      actor: { type: 'system', id: 'manual' },
+      target: { type: 'snapshot', id: snapshot.id },
+      metadata: { kind },
+    });
+    return snapshot;
   }
 
   async writeRecord(dbId: string, input: WriteRecordInput): Promise<PublicRecord> {
@@ -456,11 +881,12 @@ export class CumulusDbEngine {
 
   async backup(dbId: string): Promise<{ path: string; records: number }> {
     const manifest = await this.getManifest(dbId);
-    const records = await this.listRecords(dbId);
+    const records = [...(await this.loadRecords(dbId)).values()];
     const tokens = await this.readTokens(dbId);
+    const system = await this.readSystemState(dbId);
     const at = nowIso();
     const path = join(this.workspaceDir(dbId), 'backups', `snapshot-${at.replace(/[:.]/g, '-')}.json`);
-    await atomicWrite(path, `${JSON.stringify({ manifest, records, tokens, createdAt: at }, null, 2)}\n`);
+    await atomicWrite(path, `${JSON.stringify({ manifest, records, tokens, system, createdAt: at }, null, 2)}\n`);
     await appendJsonLine(this.auditPath(dbId), { action: 'backup', path, records: records.length, at });
     return { path, records: records.length };
   }
@@ -471,6 +897,149 @@ export class CumulusDbEngine {
 
   private async appendOperation(dbId: string, op: Operation): Promise<void> {
     await appendJsonLine(this.walPath(dbId), op);
+  }
+
+  private async readSystemState(dbId: string): Promise<SystemState> {
+    const existing = await readJson<SystemState | null>(this.systemStatePath(dbId), null);
+    if (existing) return existing;
+    const manifest = await this.getManifest(dbId);
+    const state = newSystemState({
+      dbId,
+      ownerAgentId: manifest.ownerAgentId,
+      humanOwnerEmail: manifest.humanOwnerEmail,
+      createdAt: manifest.createdAt,
+    });
+    await this.writeSystemState(dbId, state);
+    return state;
+  }
+
+  private async writeSystemState(dbId: string, state: SystemState): Promise<void> {
+    await atomicWrite(this.systemStatePath(dbId), `${JSON.stringify(state, null, 2)}\n`);
+  }
+
+  private approvalTokenMac(token: string): string {
+    return createHmac('sha256', this.masterKey).update(token).digest('hex');
+  }
+
+  private consumePlanApproval(state: SystemState, plan: SchemaPlanRecord, approvalToken?: string): void {
+    if (!approvalToken) throw new Error('approval token required for destructive schema plan');
+    const approval = state.approvals.find(
+      (item) =>
+        item.planId === plan.id &&
+        item.planHash === plan.planHash &&
+        item.scope === 'schema:apply_destructive' &&
+        !item.usedAt &&
+        item.tokenHash === this.approvalTokenMac(approvalToken),
+    );
+    if (!approval || Date.parse(approval.expiresAt) <= Date.now()) {
+      throw new Error('valid approval token required for destructive schema plan');
+    }
+    approval.usedAt = nowIso();
+  }
+
+  private consumeRevertApproval(
+    state: SystemState,
+    approvalToken: string | undefined,
+    target: { versionId?: string; snapshotId?: string },
+  ): void {
+    if (!approvalToken) throw new Error('approval token required for schema revert');
+    const approval = state.approvals.find(
+      (item) =>
+        item.planId === 'revert' &&
+        item.scope === 'schema:revert_local' &&
+        (item.targetVersionId ?? null) === (target.versionId ?? null) &&
+        (item.targetSnapshotId ?? null) === (target.snapshotId ?? null) &&
+        !item.usedAt &&
+        item.tokenHash === this.approvalTokenMac(approvalToken),
+    );
+    if (!approval || Date.parse(approval.expiresAt) <= Date.now()) {
+      throw new Error('valid approval token required for schema revert');
+    }
+    approval.usedAt = nowIso();
+  }
+
+  private async createSystemSnapshotFromState(
+    dbId: string,
+    state: SystemState,
+    kind: 'pre_apply' | 'manual' | 'revert_point',
+    createdByType: 'human' | 'agent' | 'app' | 'system',
+    createdById: string,
+  ): Promise<SystemSnapshotRecord> {
+    const id = `snap_${randomUUID().replace(/-/g, '')}`;
+    const createdAt = nowIso();
+    const path = join(this.systemSnapshotDir(dbId), `${id}.json`);
+    const manifest = await this.getManifest(dbId);
+    const wal = await readFile(this.walPath(dbId), 'utf8').catch((err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') return '';
+      throw err;
+    });
+    const storedRecords = [...(await this.loadRecords(dbId)).values()];
+    const payload = {
+      version: 1,
+      dbId,
+      kind,
+      createdAt,
+      manifest,
+      state,
+      wal,
+      storedRecords,
+    };
+    await atomicWrite(
+      path,
+      `${JSON.stringify(
+        {
+          id,
+          kind,
+          createdAt,
+          aad: { dbId, kind, createdAt },
+          ciphertext: encryptString(JSON.stringify(payload), this.masterKey),
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return {
+      id,
+      kind,
+      path,
+      createdAt,
+      createdByType,
+      createdById,
+      metadata: {
+        recordCount: storedRecords.length,
+        liveHash: state.schema.liveHash,
+        lastAppliedHash: state.schema.lastAppliedHash,
+      },
+    };
+  }
+
+  private async readSystemSnapshot(dbId: string, snapshotId: string): Promise<SystemState> {
+    const snapshot = await readJson<{ ciphertext: string }>(join(this.systemSnapshotDir(dbId), safeId(snapshotId) + '.json'), null as never);
+    const payload = JSON.parse(decryptString(snapshot.ciphertext, this.masterKey)) as { state: SystemState };
+    return payload.state;
+  }
+
+  private async writeAudit(
+    dbId: string,
+    event: {
+      action: string;
+      actor: { type: string; id: string };
+      target: { type: string; id: string };
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    await appendJsonLine(this.auditPath(dbId), {
+      id: `aud_${randomUUID().replace(/-/g, '')}`,
+      orgId: (await this.readSystemState(dbId)).org.id,
+      action: event.action,
+      actorType: event.actor.type,
+      actorId: event.actor.id,
+      targetType: event.target.type,
+      targetId: event.target.id,
+      requestId: `req_${randomUUID().replace(/-/g, '')}`,
+      metadata: event.metadata ?? {},
+      at: nowIso(),
+    });
   }
 
   private async loadRecords(dbId: string): Promise<Map<string, StoredRecord>> {

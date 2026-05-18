@@ -26,7 +26,38 @@ export type TokenScope =
   | 'secrets:reveal'
   | 'tokens:manage'
   | 'backups:manage'
-  | 'database:admin';
+  | 'database:admin'
+  | 'system:read'
+  | 'audit:read'
+  | 'org:read'
+  | 'org:claim'
+  | 'member:invite'
+  | 'member:approve'
+  | 'member:revoke'
+  | 'agent:create'
+  | 'agent:disable'
+  | 'app:create'
+  | 'app:update'
+  | 'token:create'
+  | 'token:rotate_self'
+  | 'token:revoke_any'
+  | 'schema:read'
+  | 'schema:plan'
+  | 'schema:apply_safe'
+  | 'schema:apply_destructive'
+  | 'schema:revert_local'
+  | 'schema:revert_cloud'
+  | 'data:read'
+  | 'data:write'
+  | 'data:delete_soft'
+  | 'data:delete_hard'
+  | 'secret:read'
+  | 'secret:write'
+  | 'backup:create'
+  | 'backup:restore'
+  | 'billing:read'
+  | 'billing:write'
+  | 'org:destroy';
 
 export interface WorkspaceManifest {
   id: string;
@@ -88,11 +119,18 @@ export interface PublicRecord {
 export interface TokenRecord {
   id: string;
   label: string;
-  tokenHash: string;
+  tokenHash?: string;
+  tokenPublicId?: string;
+  secretMac?: string;
+  tokenKind?: 'data' | 'admin' | 'agent' | 'pat' | 'session' | 'approval' | 'exchange';
+  principalType?: 'human' | 'agent' | 'app' | 'system';
+  principalId?: string;
   scopes: TokenScope[];
   createdAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  expiresAt?: string | null;
+  rotatedFromId?: string | null;
 }
 
 export interface TokenIssue {

@@ -3,7 +3,9 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { CumulusDbConfig } from './config.js';
 import { parseEnvFile } from './env-parser.js';
+import type { NimbusIr } from './nimbus.js';
 import type { CumulusDbEngine } from './storage.js';
+import { SYSTEM_SCOPE_REGISTRY, isHardSystemScope, type SystemSnapshotRecord, type SystemState } from './system.js';
 import type { RecordType, TokenRecord, TokenScope } from './types.js';
 
 function send(res: ServerResponse, status: number, body: unknown): void {
@@ -19,14 +21,64 @@ function sendNoContent(res: ServerResponse): void {
   res.end();
 }
 
-function publicTokenRecord(token: TokenRecord): Omit<TokenRecord, 'tokenHash'> {
+function publicTokenRecord(token: TokenRecord): Omit<TokenRecord, 'tokenHash' | 'secretMac'> {
   return {
     id: token.id,
     label: token.label,
+    ...(token.tokenPublicId ? { tokenPublicId: token.tokenPublicId } : {}),
+    ...(token.tokenKind ? { tokenKind: token.tokenKind } : {}),
+    ...(token.principalType ? { principalType: token.principalType } : {}),
+    ...(token.principalId ? { principalId: token.principalId } : {}),
     scopes: token.scopes,
     createdAt: token.createdAt,
     lastUsedAt: token.lastUsedAt,
     revokedAt: token.revokedAt,
+    expiresAt: token.expiresAt,
+    rotatedFromId: token.rotatedFromId,
+  };
+}
+
+function publicSnapshot(snapshot: SystemSnapshotRecord): Omit<SystemSnapshotRecord, 'path'> & { storage: 'provider-managed' } {
+  return {
+    id: snapshot.id,
+    kind: snapshot.kind,
+    createdAt: snapshot.createdAt,
+    createdByType: snapshot.createdByType,
+    createdById: snapshot.createdById,
+    metadata: snapshot.metadata,
+    storage: 'provider-managed',
+  };
+}
+
+function publicSystemState(state: SystemState) {
+  return {
+    ...state,
+    approvals: state.approvals.map((approval) => ({
+      id: approval.id,
+      planId: approval.planId,
+      planHash: approval.planHash,
+      scope: approval.scope,
+      createdAt: approval.createdAt,
+      expiresAt: approval.expiresAt,
+      usedAt: approval.usedAt,
+      actorType: approval.actorType,
+      actorId: approval.actorId,
+      targetVersionId: approval.targetVersionId,
+      targetSnapshotId: approval.targetSnapshotId,
+    })),
+    schema: {
+      ...state.schema,
+      snapshots: state.schema.snapshots.map(publicSnapshot),
+    },
+  };
+}
+
+function publicApplyResult<T extends { snapshot: SystemSnapshotRecord | null }>(result: T): Omit<T, 'snapshot'> & {
+  snapshot: ReturnType<typeof publicSnapshot> | null;
+} {
+  return {
+    ...result,
+    snapshot: result.snapshot ? publicSnapshot(result.snapshot) : null,
   };
 }
 
@@ -155,6 +207,132 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
         const body = await readJson(req);
         send(res, 200, parseEnvFile(stringValue(body.content)));
         return;
+      }
+
+      if (req.method === 'GET' && url.pathname === '/v1/system/scopes') {
+        send(res, 200, { scopes: SYSTEM_SCOPE_REGISTRY });
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/system/agents/bootstrap') {
+        if (!config.publicAgentBootstrapEnabled && !isAdmin(req, config)) {
+          send(res, 401, { error: 'agent bootstrap requires admin access' });
+          return;
+        }
+        const body = await readJson(req);
+        const bootstrap = await engine.bootstrapAgent({
+          displayName: stringValue(body.displayName, 'bootstrap agent'),
+          humanOwnerEmail: typeof body.humanOwnerEmail === 'string' ? body.humanOwnerEmail : null,
+        });
+        send(res, 201, bootstrap);
+        return;
+      }
+
+      if (parts[0] === 'v1' && parts[1] === 'system') {
+        if (req.method === 'GET' && parts[2] === 'state') {
+          const dbId = stringValue(url.searchParams.get('dbId'));
+          await requireDbToken(engine, req, dbId, ['system:read']);
+          send(res, 200, { system: publicSystemState(await engine.getSystemState(dbId)) });
+          return;
+        }
+
+        if (req.method === 'GET' && parts[2] === 'audit') {
+          const dbId = stringValue(url.searchParams.get('dbId'));
+          await requireDbToken(engine, req, dbId, ['audit:read']);
+          send(res, 200, { audit: await engine.listAudit(dbId, Number(url.searchParams.get('limit') ?? 100)) });
+          return;
+        }
+
+        if (parts[2] === 'schema' && parts[3] === 'plan' && req.method === 'POST') {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          await requireDbToken(engine, req, dbId, ['schema:plan']);
+          send(res, 200, {
+            plan: await engine.planSchema(dbId, {
+              source: typeof body.source === 'string' ? body.source : undefined,
+              desired:
+                body.desired && typeof body.desired === 'object' && !Array.isArray(body.desired)
+                  ? (body.desired as NimbusIr)
+                  : undefined,
+              fileName: typeof body.fileName === 'string' ? body.fileName : undefined,
+            }),
+          });
+          return;
+        }
+
+        if (parts[2] === 'schema' && parts[3] === 'approvals' && req.method === 'POST') {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          await requireDbToken(engine, req, dbId, ['member:approve']);
+          if (body.kind === 'revert') {
+            send(res, 201, {
+              approval: await engine.createRevertApproval(dbId, {
+                versionId: typeof body.versionId === 'string' ? body.versionId : undefined,
+                snapshotId: typeof body.snapshotId === 'string' ? body.snapshotId : undefined,
+                actorType: 'human',
+                actorId: stringValue(body.actorId, 'operator'),
+              }),
+            });
+            return;
+          }
+          send(res, 201, {
+            approval: await engine.createSchemaApproval(dbId, stringValue(body.planId), 'human', stringValue(body.actorId, 'operator')),
+          });
+          return;
+        }
+
+        if (parts[2] === 'schema' && parts[3] === 'apply' && req.method === 'POST') {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          const state = await engine.getSystemState(dbId);
+          const plan = state.schema.plans.find((item) => item.id === stringValue(body.planId));
+          await requireDbToken(engine, req, dbId, [plan?.riskLevel === 'destructive' ? 'schema:apply_destructive' : 'schema:apply_safe']);
+          send(res, 200, {
+            apply: publicApplyResult(
+              await engine.applySchemaPlan(dbId, {
+                planId: stringValue(body.planId),
+                approvalToken: typeof body.approvalToken === 'string' ? body.approvalToken : undefined,
+                actorType: 'human',
+                actorId: stringValue(body.actorId, 'operator'),
+              }),
+            ),
+          });
+          return;
+        }
+
+        if (parts[2] === 'schema' && parts[3] === 'revert' && req.method === 'POST') {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          await requireDbToken(engine, req, dbId, ['schema:revert_local']);
+          send(res, 200, {
+            revert: publicApplyResult(
+              await engine.revertSchema(dbId, {
+                versionId: typeof body.versionId === 'string' ? body.versionId : undefined,
+                snapshotId: typeof body.snapshotId === 'string' ? body.snapshotId : undefined,
+                approvalToken: typeof body.approvalToken === 'string' ? body.approvalToken : undefined,
+                actorType: 'human',
+                actorId: stringValue(body.actorId, 'operator'),
+              }),
+            ),
+          });
+          return;
+        }
+
+        if (parts[2] === 'snapshots' && req.method === 'GET') {
+          const dbId = stringValue(url.searchParams.get('dbId'));
+          await requireDbToken(engine, req, dbId, ['system:read']);
+          send(res, 200, { snapshots: (await engine.getSystemState(dbId)).schema.snapshots.map(publicSnapshot) });
+          return;
+        }
+
+        if (parts[2] === 'snapshots' && req.method === 'POST') {
+          const body = await readJson(req);
+          const dbId = stringValue(body.dbId);
+          await requireDbToken(engine, req, dbId, ['backup:create']);
+          const kind = body.kind === 'pre_apply' || body.kind === 'revert_point' ? body.kind : 'manual';
+          send(res, 201, { snapshot: publicSnapshot(await engine.createSystemSnapshot(dbId, kind)) });
+          return;
+        }
       }
 
       if (req.method === 'POST' && url.pathname === '/v1/relay/signup') {
@@ -310,10 +488,17 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
         }
 
         if (area === 'tokens' && req.method === 'POST') {
-          await requireAccess(engine, config, req, dbId, ['tokens:manage']);
           const body = await readJson(req);
+          const requestedScopes = stringArray(body.scopes) as TokenScope[];
+          await requireAccess(
+            engine,
+            config,
+            req,
+            dbId,
+            requestedScopes.some((scope) => isHardSystemScope(scope)) ? ['token:create'] : ['tokens:manage'],
+          );
           send(res, 201, {
-            token: await engine.createToken(dbId, stringValue(body.label, 'manual token'), stringArray(body.scopes) as TokenScope[]),
+            token: await engine.createToken(dbId, stringValue(body.label, 'manual token'), requestedScopes),
           });
           return;
         }
@@ -364,6 +549,13 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
             'cumulus_db_get_kv',
             'cumulus_db_parse_env',
             'cumulus_db_reveal_secret',
+            'cumulus.plan_schema',
+            'cumulus.read_system_state',
+            'cumulus.request_approval',
+            'cumulus.apply_schema',
+            'cumulus.create_snapshot',
+            'cumulus.revert_version',
+            'cumulus.rotate_self_token',
           ],
         });
         return;
@@ -432,6 +624,75 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
               typeof args.field === 'string' ? args.field : undefined,
             ),
           });
+          return;
+        }
+        if (tool === 'cumulus.plan_schema') {
+          await requireDbToken(engine, fakeReq, dbId, ['schema:plan']);
+          send(res, 200, {
+            result: await engine.planSchema(dbId, {
+              source: typeof args.source === 'string' ? args.source : undefined,
+              desired:
+                args.desired && typeof args.desired === 'object' && !Array.isArray(args.desired)
+                  ? (args.desired as NimbusIr)
+                  : undefined,
+            }),
+          });
+          return;
+        }
+        if (tool === 'cumulus.read_system_state') {
+          await requireDbToken(engine, fakeReq, dbId, ['system:read']);
+          send(res, 200, { result: publicSystemState(await engine.getSystemState(dbId)) });
+          return;
+        }
+        if (tool === 'cumulus.request_approval') {
+          await requireDbToken(engine, fakeReq, dbId, ['member:approve']);
+          if (args.kind === 'revert') {
+            send(res, 200, {
+              result: await engine.createRevertApproval(dbId, {
+                versionId: typeof args.version_id === 'string' ? args.version_id : typeof args.versionId === 'string' ? args.versionId : undefined,
+                snapshotId: typeof args.snapshot_id === 'string' ? args.snapshot_id : typeof args.snapshotId === 'string' ? args.snapshotId : undefined,
+              }),
+            });
+            return;
+          }
+          send(res, 200, { result: await engine.createSchemaApproval(dbId, stringValue(args.plan_id ?? args.planId)) });
+          return;
+        }
+        if (tool === 'cumulus.apply_schema') {
+          const state = await engine.getSystemState(dbId);
+          const plan = state.schema.plans.find((item) => item.id === stringValue(args.plan_id ?? args.planId));
+          await requireDbToken(engine, fakeReq, dbId, [plan?.riskLevel === 'destructive' ? 'schema:apply_destructive' : 'schema:apply_safe']);
+          send(res, 200, {
+            result: publicApplyResult(
+              await engine.applySchemaPlan(dbId, {
+                planId: stringValue(args.plan_id ?? args.planId),
+                approvalToken: typeof args.approval_token === 'string' ? args.approval_token : typeof args.approvalToken === 'string' ? args.approvalToken : undefined,
+              }),
+            ),
+          });
+          return;
+        }
+        if (tool === 'cumulus.create_snapshot') {
+          await requireDbToken(engine, fakeReq, dbId, ['backup:create']);
+          send(res, 200, { result: publicSnapshot(await engine.createSystemSnapshot(dbId)) });
+          return;
+        }
+        if (tool === 'cumulus.revert_version') {
+          await requireDbToken(engine, fakeReq, dbId, ['schema:revert_local']);
+          send(res, 200, {
+            result: publicApplyResult(
+              await engine.revertSchema(dbId, {
+                versionId: typeof args.version_id === 'string' ? args.version_id : typeof args.versionId === 'string' ? args.versionId : undefined,
+                snapshotId: typeof args.snapshot_id === 'string' ? args.snapshot_id : typeof args.snapshotId === 'string' ? args.snapshotId : undefined,
+                approvalToken: typeof args.approval_token === 'string' ? args.approval_token : typeof args.approvalToken === 'string' ? args.approvalToken : undefined,
+              }),
+            ),
+          });
+          return;
+        }
+        if (tool === 'cumulus.rotate_self_token') {
+          const tokenRecord = await engine.authenticate(dbId, token, ['token:rotate_self']);
+          send(res, 200, { result: await engine.rotateToken(dbId, tokenRecord.id) });
           return;
         }
         send(res, 404, { error: `unknown tool: ${tool}` });

@@ -11,7 +11,7 @@ Cumulus uses a split license model.
 
 ## Boundary Rules
 
-- Keep the database engine, storage layer, token system, search, secrets, HTTP server, and provider tests inside `apps/cumulus-db`.
+- Keep the database engine, Nimbus compiler, system schema lifecycle, storage layer, token system, search, secrets, HTTP server, and provider tests inside `apps/cumulus-db`.
 - Keep app integration code outside `apps/cumulus-db` Apache-2.0. It must talk to Cumulus DB over HTTP/token APIs.
 - Do not import `@cumulus/database` or `apps/cumulus-db` source from Apache-side app code.
 - If a future shared protocol package is needed, create it outside `apps/cumulus-db` and license it Apache-2.0.

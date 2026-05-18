@@ -23,6 +23,7 @@ async function testServer() {
     adminSecret: Buffer.alloc(32, 4).toString('base64'),
     masterKey: Buffer.alloc(32, 4),
     relayWebhookSecret: null,
+    publicAgentBootstrapEnabled: false,
     port: 0,
     embeddings: { baseUrl: null, apiKey: null, model: null },
   };
@@ -168,6 +169,8 @@ describe('HTTP API', () => {
     expect(manifestBody.tools).toContain('cumulus_db_put_kv');
     expect(manifestBody.tools).toContain('cumulus_db_get_kv');
     expect(manifestBody.tools).toContain('cumulus_db_reveal_secret');
+    expect(manifestBody.tools).toContain('cumulus.plan_schema');
+    expect(manifestBody.tools).toContain('cumulus.rotate_self_token');
 
     const put = await fetch(new URL('/mcp', baseUrl), {
       method: 'POST',
@@ -216,5 +219,200 @@ describe('HTTP API', () => {
     expect(reveal.status).toBe(200);
     const revealBody = (await reveal.json()) as { result: { value: string } };
     expect(revealBody.result.value).toBe('demo-secret-not-real');
+  });
+
+  it('does not let legacy token managers mint hard system scopes', async () => {
+    const { baseUrl, engine } = await testServer();
+    const created = await engine.createWorkspace({ ownerAgentId: 'agent-1' });
+    const manager = await engine.createToken(created.manifest.id, 'legacy token manager', ['tokens:manage']);
+
+    const blocked = await fetch(new URL(`/v1/databases/${created.manifest.id}/tokens`, baseUrl), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${manager.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ label: 'system reader', scopes: ['system:read'] }),
+    });
+    expect(blocked.status).toBe(401);
+
+    const allowed = await fetch(new URL(`/v1/databases/${created.manifest.id}/tokens`, baseUrl), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${created.adminToken.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ label: 'system reader', scopes: ['system:read'] }),
+    });
+    expect(allowed.status).toBe(201);
+  });
+
+  it('exposes system bootstrap and schema lifecycle endpoints with hard scopes', async () => {
+    const { baseUrl, engine } = await testServer();
+
+    const bootstrap = await fetch(new URL('/v1/system/agents/bootstrap', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: 'builder-agent' }),
+    });
+    expect(bootstrap.status).toBe(401);
+
+    const authorizedBootstrap = await fetch(new URL('/v1/system/agents/bootstrap', baseUrl), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Cumulus-Admin-Key': Buffer.alloc(32, 4).toString('base64'),
+      },
+      body: JSON.stringify({ displayName: 'builder-agent' }),
+    });
+    expect(authorizedBootstrap.status).toBe(201);
+    const bootBody = (await authorizedBootstrap.json()) as {
+      databaseId: string;
+      token: { token: string };
+    };
+    expect(bootBody.token.token).toMatch(/^cu_agt_v1_/);
+
+    const agentHeaders = {
+      Authorization: `Bearer ${bootBody.token.token}`,
+      'Content-Type': 'application/json',
+    };
+    const agentPlan = await fetch(new URL('/v1/system/schema/plan', baseUrl), {
+      method: 'POST',
+      headers: agentHeaders,
+      body: JSON.stringify({
+        dbId: bootBody.databaseId,
+        source: 'namespace acme { collection notes { fields: { id: { type: "ulid" } } } }',
+      }),
+    });
+    expect(agentPlan.status).toBe(200);
+    const agentPlanBody = (await agentPlan.json()) as { plan: { id: string } };
+
+    const agentApply = await fetch(new URL('/v1/system/schema/apply', baseUrl), {
+      method: 'POST',
+      headers: agentHeaders,
+      body: JSON.stringify({ dbId: bootBody.databaseId, planId: agentPlanBody.plan.id }),
+    });
+    expect(agentApply.status).toBe(401);
+
+    const created = await engine.createWorkspace({ ownerAgentId: 'agent-1', humanOwnerEmail: 'owner@example.com' });
+    const operator = await engine.createToken(created.manifest.id, 'schema operator', [
+      'system:read',
+      'audit:read',
+      'member:approve',
+      'schema:plan',
+      'schema:apply_safe',
+      'schema:apply_destructive',
+      'schema:revert_local',
+      'backup:create',
+    ]);
+    const headers = {
+      Authorization: `Bearer ${operator.token}`,
+      'Content-Type': 'application/json',
+    };
+
+    const initialPlan = await fetch(new URL('/v1/system/schema/plan', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        dbId: created.manifest.id,
+        source: `
+          namespace acme {
+            collection agents {
+              fields: {
+                id: { type: "ulid", required: true },
+                status: { type: "string" }
+              }
+            }
+          }
+        `,
+      }),
+    });
+    expect(initialPlan.status).toBe(200);
+    const initialPlanBody = (await initialPlan.json()) as { plan: { id: string; riskLevel: string } };
+    expect(initialPlanBody.plan.riskLevel).toBe('low');
+
+    const initialApply = await fetch(new URL('/v1/system/schema/apply', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, planId: initialPlanBody.plan.id }),
+    });
+    expect(initialApply.status).toBe(200);
+    const initialApplyBody = (await initialApply.json()) as { apply: { versionId: string } };
+    expect(initialApplyBody.apply.versionId).toMatch(/^ver_/);
+
+    const destructivePlan = await fetch(new URL('/v1/system/schema/plan', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        dbId: created.manifest.id,
+        source: `
+          namespace acme {
+            collection agents {
+              fields: { id: { type: "ulid", required: true } }
+            }
+          }
+        `,
+      }),
+    });
+    const destructivePlanBody = (await destructivePlan.json()) as { plan: { id: string; riskLevel: string } };
+    expect(destructivePlanBody.plan.riskLevel).toBe('destructive');
+
+    const rejectedApply = await fetch(new URL('/v1/system/schema/apply', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, planId: destructivePlanBody.plan.id }),
+    });
+    expect(rejectedApply.status).toBe(400);
+
+    const approval = await fetch(new URL('/v1/system/schema/approvals', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, planId: destructivePlanBody.plan.id }),
+    });
+    expect(approval.status).toBe(201);
+    const approvalBody = (await approval.json()) as { approval: { approvalToken: string } };
+
+    const destructiveApply = await fetch(new URL('/v1/system/schema/apply', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        dbId: created.manifest.id,
+        planId: destructivePlanBody.plan.id,
+        approvalToken: approvalBody.approval.approvalToken,
+      }),
+    });
+    expect(destructiveApply.status).toBe(200);
+    const destructiveApplyBody = (await destructiveApply.json()) as { apply: { snapshot: { id: string; path?: string; storage: string } } };
+    expect(destructiveApplyBody.apply.snapshot.id).toMatch(/^snap_/);
+    expect(destructiveApplyBody.apply.snapshot.storage).toBe('provider-managed');
+    expect(destructiveApplyBody.apply.snapshot.path).toBeUndefined();
+
+    const state = await fetch(new URL(`/v1/system/state?dbId=${created.manifest.id}`, baseUrl), { headers });
+    const stateBody = (await state.json()) as { system: { approvals: Array<{ tokenHash?: string }>; schema: { snapshots: Array<{ path?: string }> } } };
+    expect(JSON.stringify(stateBody.system.approvals)).not.toContain('tokenHash');
+    expect(stateBody.system.schema.snapshots.some((snapshot) => snapshot.path)).toBe(false);
+
+    const revertApproval = await fetch(new URL('/v1/system/schema/approvals', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, kind: 'revert', versionId: initialApplyBody.apply.versionId }),
+    });
+    const revertApprovalBody = (await revertApproval.json()) as { approval: { approvalToken: string } };
+
+    const revert = await fetch(new URL('/v1/system/schema/revert', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        dbId: created.manifest.id,
+        versionId: initialApplyBody.apply.versionId,
+        approvalToken: revertApprovalBody.approval.approvalToken,
+      }),
+    });
+    expect(revert.status).toBe(200);
+
+    const audit = await fetch(new URL(`/v1/system/audit?dbId=${created.manifest.id}`, baseUrl), { headers });
+    expect(audit.status).toBe(200);
+    const auditBody = (await audit.json()) as { audit: unknown[] };
+    expect(JSON.stringify(auditBody.audit)).toContain('system.schema_revert');
   });
 });

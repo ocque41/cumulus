@@ -126,6 +126,16 @@ The database dashboard at `/dashboard/database` can prove the API surface agains
 
 Click **Seed evidence** to write one sample for every supported record type, including `note`, `run`, `message`, `event`, `tool_call`, `artifact`, `task`, `observation`, `secret`, and `kv`.
 
+The v1 database foundation also includes:
+
+- Nimbus `.nimbus` source compilation to canonical JSON IR,
+- hard `/v1/system` scopes for agents, schema plans, approvals, snapshots, audit, apply, and revert,
+- local JSONL plan/apply/revert execution for development and deterministic tests,
+- classed opaque machine tokens stored with keyed HMAC verification,
+- a hosted PostgreSQL system schema contract at `apps/cumulus-db/postgres/system-v1.sql`.
+
+See `docs/cumulus-db-v1.md` for the system flow, hard scopes, Nimbus rules, and hosted/local engine split.
+
 License note: `apps/cumulus-db` is AGPL-3.0-only. App-side integration code remains Apache-2.0 and talks to it over HTTP/token APIs.
 
 ## Commands

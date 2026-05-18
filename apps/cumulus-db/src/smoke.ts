@@ -79,6 +79,65 @@ try {
   });
   const payload = (await search.json()) as { hits?: unknown[] };
   if (!search.ok || !payload.hits?.length) throw new Error('search did not return the smoke record');
+
+  const operator = await engine.createToken(signup.credentials.database_id, 'smoke schema operator', [
+    'system:read',
+    'audit:read',
+    'member:approve',
+    'schema:plan',
+    'schema:apply_safe',
+    'schema:apply_destructive',
+    'schema:revert_local',
+    'backup:create',
+  ]);
+  const systemHeaders = {
+    Authorization: `Bearer ${operator.token}`,
+    'Content-Type': 'application/json',
+  };
+  const plan = await fetch(new URL('/v1/system/schema/plan', address), {
+    method: 'POST',
+    headers: systemHeaders,
+    body: JSON.stringify({
+      dbId: signup.credentials.database_id,
+      source: 'namespace smoke { collection notes { fields: { id: { type: "ulid" }, body: { type: "string" } } } }',
+    }),
+  });
+  if (!plan.ok) throw new Error(`schema plan failed: ${plan.status}`);
+  const planBody = (await plan.json()) as { plan: { id: string } };
+  const apply = await fetch(new URL('/v1/system/schema/apply', address), {
+    method: 'POST',
+    headers: systemHeaders,
+    body: JSON.stringify({ dbId: signup.credentials.database_id, planId: planBody.plan.id }),
+  });
+  if (!apply.ok) throw new Error(`schema apply failed: ${apply.status}`);
+
+  const destructivePlan = await fetch(new URL('/v1/system/schema/plan', address), {
+    method: 'POST',
+    headers: systemHeaders,
+    body: JSON.stringify({
+      dbId: signup.credentials.database_id,
+      source: 'namespace smoke { collection notes { fields: { id: { type: "ulid" } } } }',
+    }),
+  });
+  if (!destructivePlan.ok) throw new Error(`destructive schema plan failed: ${destructivePlan.status}`);
+  const destructivePlanBody = (await destructivePlan.json()) as { plan: { id: string } };
+  const approval = await fetch(new URL('/v1/system/schema/approvals', address), {
+    method: 'POST',
+    headers: systemHeaders,
+    body: JSON.stringify({ dbId: signup.credentials.database_id, planId: destructivePlanBody.plan.id }),
+  });
+  if (!approval.ok) throw new Error(`approval failed: ${approval.status}`);
+  const approvalBody = (await approval.json()) as { approval: { approvalToken: string } };
+  const destructiveApply = await fetch(new URL('/v1/system/schema/apply', address), {
+    method: 'POST',
+    headers: systemHeaders,
+    body: JSON.stringify({
+      dbId: signup.credentials.database_id,
+      planId: destructivePlanBody.plan.id,
+      approvalToken: approvalBody.approval.approvalToken,
+    }),
+  });
+  if (!destructiveApply.ok) throw new Error(`destructive schema apply failed: ${destructiveApply.status}`);
   console.log('cumulus-db smoke passed');
 } finally {
   server.close();

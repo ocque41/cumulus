@@ -24,6 +24,16 @@ describe('loadConfig', () => {
     expect(config.port).toBe(12000);
   });
 
+  it('keeps public agent bootstrap disabled unless explicitly enabled', () => {
+    expect(loadConfig({ CUMULUS_DB_MASTER_KEY: masterKey }).publicAgentBootstrapEnabled).toBe(false);
+    expect(
+      loadConfig({
+        CUMULUS_DB_MASTER_KEY: masterKey,
+        CUMULUS_DB_PUBLIC_AGENT_BOOTSTRAP_ENABLED: 'true',
+      }).publicAgentBootstrapEnabled,
+    ).toBe(true);
+  });
+
   it('treats empty env values as unset', () => {
     const config = loadConfig({
       CUMULUS_DB_MASTER_KEY: '',

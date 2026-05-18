@@ -8,6 +8,7 @@ export interface CumulusDbConfig {
   adminSecret: string | null;
   masterKey: Buffer;
   relayWebhookSecret: string | null;
+  publicAgentBootstrapEnabled: boolean;
   port: number;
   embeddings: {
     baseUrl: string | null;
@@ -60,6 +61,7 @@ export function loadConfig(env: CumulusDbConfigEnv = process.env): CumulusDbConf
     adminSecret: masterKey ?? null,
     masterKey: parseMasterKey(masterKey, isProduction),
     relayWebhookSecret: envValue(env, 'CUMULUS_DB_RELAY_WEBHOOK_SECRET') ?? null,
+    publicAgentBootstrapEnabled: envValue(env, 'CUMULUS_DB_PUBLIC_AGENT_BOOTSTRAP_ENABLED') === 'true',
     port,
     embeddings: {
       baseUrl: envValue(env, 'OPENAI_COMPAT_EMBEDDINGS_BASE_URL') ?? null,
