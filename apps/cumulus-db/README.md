@@ -121,10 +121,13 @@ npm run db:cli -- login --db-id db_example --scope "openid email system:read"
 npm run db:cli -- login --device-code dev_code_from_previous_step
 npm run db:cli -- agent init --admin-key replace-with-strong-secret
 npm run db:cli -- db plan --db-id db_example --token cu_pat_v1_public_secret --file schema.nimbus
+npm run db:cli -- db approve --db-id db_example --token cu_pat_v1_public_secret --plan-id plan_example
 npm run db:cli -- db apply --db-id db_example --token cu_pat_v1_public_secret --plan-id plan_example
 npm run db:cli -- db snapshot --db-id db_example --token cu_pat_v1_public_secret
+npm run db:cli -- db approve --db-id db_example --token cu_pat_v1_public_secret --kind revert --version-id ver_example
 npm run db:cli -- db revert --db-id db_example --token cu_pat_v1_public_secret --version-id ver_example --approval-token apv_secret
-npm run db:cli -- system grants --db-id db_example --token cu_pat_v1_public_secret --principal-id agt_example --grant system:read
+npm run db:cli -- system grants ls --db-id db_example --token cu_pat_v1_public_secret
+npm run db:cli -- system grants set --db-id db_example --token cu_pat_v1_public_secret --principal-id agt_example --grant system:read
 npm run db:cli -- audit tail --db-id db_example --token cu_pat_v1_public_secret
 npm run db:cli -- nimbus check schema.nimbus
 ```

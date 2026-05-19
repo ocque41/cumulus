@@ -325,6 +325,14 @@ describe('OAuth and system policy HTTP API', () => {
       principal: { grants: ['system:read', 'org:read'] },
     });
 
+    const grantsList = await fetch(new URL(`/v1/system/grants?dbId=${encodeURIComponent(created.manifest.id)}&principalId=agent-1`, baseUrl), {
+      headers,
+    });
+    expect(grantsList.status).toBe(200);
+    expect((await grantsList.json()) as { principals: Array<{ id: string; grants: string[] }> }).toMatchObject({
+      principals: [{ id: 'agent-1', grants: ['system:read', 'org:read'] }],
+    });
+
     const disabled = await fetch(new URL('/v1/system/agents/agent-1/disable', baseUrl), {
       method: 'POST',
       headers,

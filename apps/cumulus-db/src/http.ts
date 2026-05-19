@@ -544,6 +544,27 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
           return;
         }
 
+        if (parts[2] === 'grants' && req.method === 'GET') {
+          const dbId = stringValue(url.searchParams.get('dbId'));
+          await requireDbToken(engine, req, dbId, ['system:read']);
+          const principalId = stringValue(url.searchParams.get('principalId'));
+          const state = await engine.getSystemState(dbId);
+          const principals = principalId
+            ? state.principals.filter((principal) => principal.id === principalId)
+            : state.principals;
+          if (principalId && !principals.length) throw new Error('principal not found');
+          send(res, 200, {
+            principals: principals.map((principal) => ({
+              id: principal.id,
+              type: principal.type,
+              displayName: principal.displayName,
+              status: principal.status,
+              grants: principal.grants,
+            })),
+          });
+          return;
+        }
+
         if (
           ((parts[2] === 'principals' && parts[3] && parts[4] === 'grants') || parts[2] === 'grants') &&
           (req.method === 'PATCH' || req.method === 'POST')

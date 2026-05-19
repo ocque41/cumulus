@@ -84,21 +84,43 @@ describe('Cumulus CLI', () => {
     expect(String(calls[0]?.init?.body)).toContain('namespace acme');
   });
 
-  it('updates grants and bootstraps agents through the public system API', async () => {
+  it('lists and updates grants through the public system API', async () => {
     const calls: FetchCall[] = [];
     const fetchMock: typeof fetch = async (input, init) => {
       const url = new URL(String(input));
       calls.push({ url, init });
+      if (url.pathname === '/v1/system/grants' && init?.method === 'GET') {
+        return jsonResponse({ principals: [{ id: 'agt_1', grants: ['system:read'] }] });
+      }
       if (url.pathname === '/v1/system/grants') {
         return jsonResponse({ principal: { id: 'agt_1', grants: ['system:read'] } });
       }
-      return jsonResponse({ databaseId: 'db_1', agentId: 'agt_2' }, 201);
+      return jsonResponse({});
     };
 
-    const grants = await runCumulusCli(
+    const listed = await runCumulusCli(
       [
         'system',
         'grants',
+        'ls',
+        '--url',
+        'http://db.test',
+        '--db-id',
+        'db_1',
+        '--token',
+        'cu_pat_v1_x_y',
+        '--principal-id',
+        'agt_1',
+      ],
+      { fetch: fetchMock, stdout: () => undefined },
+    );
+    expect(listed).toBe(0);
+
+    const updated = await runCumulusCli(
+      [
+        'system',
+        'grants',
+        'set',
         '--url',
         'http://db.test',
         '--db-id',
@@ -112,7 +134,25 @@ describe('Cumulus CLI', () => {
       ],
       { fetch: fetchMock, stdout: () => undefined },
     );
-    expect(grants).toBe(0);
+    expect(updated).toBe(0);
+
+    expect(calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url.pathname}`)).toEqual([
+      'GET /v1/system/grants',
+      'POST /v1/system/grants',
+    ]);
+    expect(calls[0]?.url.searchParams.get('dbId')).toBe('db_1');
+    expect(calls[0]?.url.searchParams.get('principalId')).toBe('agt_1');
+    expect(headerValue(calls[0]?.init, 'Authorization')).toBe('Bearer cu_pat_v1_x_y');
+    expect(headerValue(calls[1]?.init, 'Authorization')).toBe('Bearer cu_pat_v1_x_y');
+  });
+
+  it('bootstraps agents through the admin system API', async () => {
+    const calls: FetchCall[] = [];
+    const fetchMock: typeof fetch = async (input, init) => {
+      const url = new URL(String(input));
+      calls.push({ url, init });
+      return jsonResponse({ databaseId: 'db_1', agentId: 'agt_2' }, 201);
+    };
 
     const init = await runCumulusCli(['agent', 'init', '--url', 'http://db.test', '--admin-key', 'admin-secret', '--display-name', 'builder'], {
       fetch: fetchMock,
@@ -120,8 +160,27 @@ describe('Cumulus CLI', () => {
     });
     expect(init).toBe(0);
 
-    expect(calls.map((call) => call.url.pathname)).toEqual(['/v1/system/grants', '/v1/system/agents/bootstrap']);
-    expect(headerValue(calls[1]?.init, 'X-Cumulus-Admin-Key')).toBe('admin-secret');
+    expect(calls.map((call) => call.url.pathname)).toEqual(['/v1/system/agents/bootstrap']);
+    expect(headerValue(calls[0]?.init, 'X-Cumulus-Admin-Key')).toBe('admin-secret');
+  });
+
+  it('requests schema approvals over the system API', async () => {
+    const calls: FetchCall[] = [];
+    const fetchMock: typeof fetch = async (input, init) => {
+      const url = new URL(String(input));
+      calls.push({ url, init });
+      return jsonResponse({ approval: { approvalToken: 'apv_secret' } }, 201);
+    };
+
+    const code = await runCumulusCli(
+      ['db', 'approve', '--url', 'http://db.test', '--db-id', 'db_1', '--token', 'cu_pat_v1_x_y', '--plan-id', 'plan_1'],
+      { fetch: fetchMock, stdout: () => undefined },
+    );
+
+    expect(code).toBe(0);
+    expect(calls[0]?.url.pathname).toBe('/v1/system/schema/approvals');
+    expect(headerValue(calls[0]?.init, 'Authorization')).toBe('Bearer cu_pat_v1_x_y');
+    expect(String(calls[0]?.init?.body)).toContain('"planId":"plan_1"');
   });
 
   it('rotates tokens through the database token route', async () => {

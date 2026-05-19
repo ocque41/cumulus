@@ -127,8 +127,9 @@ session storage, production OIDC signing keys, and client-controlled KEK custody
 stay in the private production overlay.
 
 After `npm run db:build`, use `npm run db:cli -- help` to see the Cumulus DB CLI.
-It covers device login, agent bootstrap, `whoami`, schema plan/apply, snapshots,
-revert, grants, audit tail, token rotation, and Nimbus passthrough commands.
+It covers device login, agent bootstrap, `whoami`, schema plan/approval/apply,
+snapshots, revert approval/revert, grants list/set, audit tail, token rotation,
+and Nimbus passthrough commands.
 
 The Apache-side `/api/cumulus-db/system/*` proxy requires a signed-in app user
 and a Cumulus DB bearer token. It forwards the bearer token only. It does not

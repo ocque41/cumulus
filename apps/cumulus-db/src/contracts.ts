@@ -254,6 +254,41 @@ export const systemOpenApiContract = {
       },
     },
     '/v1/system/grants': {
+      get: {
+        tags: ['principals'],
+        operationId: 'listPrincipalGrants',
+        security: bearerSecurity,
+        parameters: [
+          { $ref: '#/components/parameters/DbId' },
+          {
+            name: 'principalId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', minLength: 1 },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Principal grants visible to the current system reader',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['principals'],
+                  properties: {
+                    principals: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/PrincipalGrants' },
+                    },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
       post: {
         tags: ['principals'],
         operationId: 'updatePrincipalGrants',
@@ -872,6 +907,18 @@ export const systemOpenApiContract = {
           label: { type: 'string' },
           dangerous: { type: 'boolean' },
           approvalRequired: { type: 'boolean' },
+        },
+        additionalProperties: false,
+      },
+      PrincipalGrants: {
+        type: 'object',
+        required: ['id', 'type', 'displayName', 'status', 'grants'],
+        properties: {
+          id: { type: 'string' },
+          type: { enum: ['human', 'agent', 'app', 'system'] },
+          displayName: { type: 'string' },
+          status: { enum: ['active', 'disabled', 'pending_claim'] },
+          grants: { type: 'array', items: { $ref: '#/components/schemas/SystemScope' } },
         },
         additionalProperties: false,
       },

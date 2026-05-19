@@ -85,6 +85,24 @@ export async function runCumulusCli(argv = process.argv.slice(2), io: CumulusCli
       return 0;
     }
 
+    if (area === 'db' && (action === 'approve' || action === 'approval')) {
+      const result = await requestJson(context, '/v1/system/schema/approvals', {
+        method: 'POST',
+        auth: true,
+        body: {
+          dbId: requireDbId(context),
+          kind: option(parsed.options, 'kind'),
+          planId: option(parsed.options, 'plan-id'),
+          versionId: option(parsed.options, 'version-id'),
+          snapshotId: option(parsed.options, 'snapshot-id'),
+          stepUpToken: option(parsed.options, 'step-up-token'),
+          actorId: option(parsed.options, 'actor-id') ?? 'cli',
+        },
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
     if (area === 'db' && action === 'apply') {
       const result = await requestJson(context, '/v1/system/schema/apply', {
         method: 'POST',
@@ -127,7 +145,19 @@ export async function runCumulusCli(argv = process.argv.slice(2), io: CumulusCli
       return 0;
     }
 
-    if (area === 'system' && action === 'grants') {
+    if (area === 'system' && action === 'grants' && (subaction === 'ls' || subaction === 'list')) {
+      const principalId = option(parsed.options, 'principal-id');
+      const search = new URLSearchParams({ dbId: requireDbId(context) });
+      if (principalId) search.set('principalId', principalId);
+      const result = await requestJson(context, `/v1/system/grants?${search.toString()}`, {
+        method: 'GET',
+        auth: true,
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
+    if (area === 'system' && action === 'grants' && (!subaction || subaction === 'set')) {
       const result = await requestJson(context, '/v1/system/grants', {
         method: 'POST',
         auth: true,
@@ -322,10 +352,13 @@ function usage(): string {
   cumulus agent init --admin-key <key> [--display-name <name>]
   cumulus whoami --token <token>
   cumulus db plan --db-id <id> --token <token> --file schema.nimbus
+  cumulus db approve --db-id <id> --token <token> --plan-id <id>
+  cumulus db approve --db-id <id> --token <token> --kind revert (--version-id <id> | --snapshot-id <id>)
   cumulus db apply --db-id <id> --token <token> --plan-id <id> [--approval-token <token>]
   cumulus db snapshot --db-id <id> --token <token> [--kind manual]
   cumulus db revert --db-id <id> --token <token> (--version-id <id> | --snapshot-id <id>) --approval-token <token>
-  cumulus system grants --db-id <id> --token <token> --principal-id <id> --grant system:read
+  cumulus system grants ls --db-id <id> --token <token> [--principal-id <id>]
+  cumulus system grants set --db-id <id> --token <token> --principal-id <id> --grant system:read
   cumulus audit tail --db-id <id> --token <token> [--limit 50]
   cumulus nimbus <compile|check|fmt> ...
 `;
