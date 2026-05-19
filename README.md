@@ -156,6 +156,8 @@ npm run build
 
 Public releases are tracked in `CHANGELOG.md` and tagged as `vX.Y.Z`. See `docs/releasing.md`.
 
+- **v0.4.0** (2026-05-19) - Cumulus DB v1 and Nimbus foundation with Postgres runtime, system console, OIDC/device auth, CLI, MCP schemas, and machine contracts.
+
 ## Project Structure
 
 ```text

@@ -4,6 +4,20 @@ All notable changes to Cumulus are documented here.
 
 This project follows semantic versioning. The root app is licensed under Apache-2.0, and the Cumulus Database provider in `apps/cumulus-db` is licensed under AGPL-3.0-only.
 
+## [0.4.0] - 2026-05-19
+
+Cumulus 0.4.0 is the first complete public foundation for Cumulus DB v1 and Nimbus. It keeps the Apache app boundary clean, moves provider logic into the AGPL service, and makes the local developer path prove identity, system grants, schema planning, snapshots, revert, JSONL, PostgreSQL, CLI, OpenAPI, and browser console behavior.
+
+### Added
+
+- **PostgreSQL hosted engine** - Added the runtime Postgres storage engine, `cumulus_data` schema, auto-migration wiring, advisory locking, and JSONL/Postgres conformance tests.
+- **Nimbus language tooling** - Added local imports, structured diagnostics, formatter/check/compile CLI commands, canonical JSON Schema, and OpenAPI 3.1 system contracts.
+- **Cumulus-native auth and system API** - Added OIDC discovery, auth code + PKCE, device flow, restricted token exchange, org claim, passkey step-up, grants, agent lifecycle, approval, audit, and rate-limit endpoints.
+- **System console and safe proxy** - Rebuilt `/dashboard/system` around Cumulus DB operations and added an Apache-side `/api/cumulus-db/system/*` proxy that forwards only user bearer tokens.
+- **CLI and MCP surface** - Added Cumulus CLI commands for login, agent init, whoami, schema plan/approval/apply/revert, snapshots, grants list/set, audit tail, token rotation, and Nimbus passthrough, plus structured MCP tool schemas.
+- **Encrypted snapshot foundation** - Added per-snapshot DEK encryption with AES-256-GCM metadata authentication and provider-side wrapped DEK storage for local development.
+- **Release-ready docs** - Documented Postgres setup, auth mode selection, private overlay boundaries, snapshot KEK handling, system UI, CLI, machine contracts, and public release checks.
+
 ## [cumulush@0.1.2] - 2026-05-14
 
 ### Changed
