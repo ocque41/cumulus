@@ -290,7 +290,9 @@ export default function SystemPage() {
   const [actionResult, setActionResult] = useState<ActionResult | null>(null);
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace("/login");
+    if (!isLoading && !user) {
+      router.replace(`/login?redirectTo=${encodeURIComponent(window.location.href)}`);
+    }
   }, [isLoading, router, user]);
 
   useEffect(() => {

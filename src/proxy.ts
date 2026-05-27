@@ -13,6 +13,8 @@ import {
   type TelemetryEvent,
 } from '@cumulus/auth/middleware'
 
+import { isAuthProtectedPath } from '@/lib/auth/protected-paths'
+
 function parseAttempt(value: string | null): number {
   const parsed = Number.parseInt(value ?? '0', 10)
   if (Number.isNaN(parsed) || parsed < 0) return 0
@@ -75,7 +77,7 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
     return redirectWithSupabaseCookies({ response, url: signupUrl })
   }
 
-  if (request.nextUrl.pathname.startsWith('/settings') && !userResult.user) {
+  if (isAuthProtectedPath(request.nextUrl.pathname) && !userResult.user) {
     const loginUrl = new URL('/login', siteUrl)
     const authContext = buildAuthContext({
       app: 'cumulus',
@@ -95,7 +97,7 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
       requestId,
       appKey: 'cumulus',
       eventType: 'auth_guard',
-      decision: 'settings_redirect_login',
+      decision: 'protected_path_redirect_login',
       statusCode: 302,
       userValid: false,
       staleSession,
