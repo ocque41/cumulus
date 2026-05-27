@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function UpdatePasswordForm() {
@@ -61,8 +60,7 @@ export function UpdatePasswordForm() {
             <Input id="confirm" name="confirm" type="password" required />
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Update password
+            {isLoading ? 'Working...' : 'Update password'}
           </Button>
         </form>
       </CardContent>

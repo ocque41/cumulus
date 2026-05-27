@@ -52,7 +52,7 @@ export function ProcessorsTable() {
                     href={processor.docsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-sm text-[color:var(--glass-text-body)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]"
+                    className="rounded-sm text-[color:var(--glass-text-body)] underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]"
                   >
                     Security docs
                   </Link>
@@ -60,7 +60,7 @@ export function ProcessorsTable() {
                     href={processor.privacyUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-sm text-[color:var(--glass-text-body)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]"
+                    className="rounded-sm text-[color:var(--glass-text-body)] underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]"
                   >
                     Privacy notice
                   </Link>

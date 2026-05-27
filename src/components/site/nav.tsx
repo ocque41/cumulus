@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CopyCommand } from "@/components/create/copy-command";
 import { CREATE_SHORT_COMMAND } from "@/lib/cumulus-create";
 
 const links = [
@@ -10,12 +11,12 @@ const links = [
 export function DesktopNav() {
   return (
     <div className="flex flex-col gap-5 rounded-[5.5px] border border-[color:var(--hairline)] p-4">
-      <code className="font-mono text-xs leading-6 text-[color:var(--subtitle)]">{CREATE_SHORT_COMMAND}</code>
+      <CopyCommand command={CREATE_SHORT_COMMAND} />
       <nav aria-label="Primary">
         <ul className="flex flex-col gap-3">
           {links.map((link) => (
             <li key={link.href}>
-              <Link href={link.href} className="text-sm text-[color:var(--muted)] hover:text-[color:var(--title)]">
+              <Link href={link.href} className="text-sm text-[color:var(--muted)]">
                 {link.label}
               </Link>
             </li>
@@ -44,7 +45,7 @@ export function NavSheetContent() {
       <ul className="flex flex-col gap-4 text-lg">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="hover:text-[color:var(--title)]">
+            <Link href={link.href}>
               {link.label}
             </Link>
           </li>

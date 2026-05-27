@@ -54,30 +54,13 @@ export function buildMetadata({
       url,
       siteName: siteConfig.name,
       locale: "en_US",
-      images: [
-        {
-          url: "/opengraph-image",
-          width: 1200,
-          height: 630,
-          alt: `${siteConfig.name} — ${siteConfig.tagline}`,
-          type: "image/png",
-        },
-      ],
     },
     twitter: {
-      card: "summary_large_image",
+      card: "summary",
       title: ogTitle,
       description: desc,
       creator: siteConfig.twitterHandle,
       site: siteConfig.twitterHandle,
-      images: [
-        {
-          url: "/twitter-image",
-          width: 1200,
-          height: 630,
-          alt: `${siteConfig.name} — ${siteConfig.tagline}`,
-        },
-      ],
     },
     robots: noIndex
       ? { index: false, follow: false }

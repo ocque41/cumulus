@@ -57,7 +57,7 @@ export function LegalLayout({
                 <li>
                   <Link
                     href="/"
-                    className="rounded-sm hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]"
+                    className="rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]"
                   >
                     Cumulus
                   </Link>
@@ -73,7 +73,7 @@ export function LegalLayout({
           <div className="text-sm text-[color:var(--muted)]">
             <Link
               href="/cookies"
-              className="rounded-sm hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]"
+              className="rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]"
             >
               {cookiesLabel[locale]}
             </Link>

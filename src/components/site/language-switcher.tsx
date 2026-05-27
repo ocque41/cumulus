@@ -77,10 +77,10 @@ export function LanguageSwitcher({ defaultLocale = 'en', className }: LanguageSw
               disabled={isActive || isPending}
               aria-pressed={isActive}
               className={cn(
-                'rounded-full px-3 py-1 transition-colors',
+                'rounded-full px-3 py-1',
                 isActive
                   ? 'bg-white/10 text-white'
-                  : 'text-[color:var(--muted)] hover:text-white'
+                  : 'text-[color:var(--muted)]'
               )}
             >
               {option.label}

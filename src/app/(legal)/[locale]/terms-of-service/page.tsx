@@ -54,13 +54,11 @@ export async function generateMetadata({
       url: `${legalMeta.company.website}${path}`,
       locale,
       siteName: legalMeta.company.displayName,
-      images: ["/opengraph-image"],
     },
     twitter: {
-      card: "summary_large_image",
+      card: "summary",
       title: frontMatter.title,
       description: frontMatter.description,
-      images: ["/twitter-image"],
     },
     robots: {
       index: !noindex,

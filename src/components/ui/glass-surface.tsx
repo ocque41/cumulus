@@ -2,7 +2,6 @@
 
 import * as React from "react";
 
-import { useLiquidInteraction } from "@/hooks/use-liquid-interaction";
 import { cn } from "@/lib/utils";
 import type { GlassElevation, GlassMaterial } from "@/types/ui-preferences";
 
@@ -32,8 +31,6 @@ export const GlassSurface = React.forwardRef<HTMLDivElement, GlassSurfaceProps>(
     { className, material = "standard", elevation = "e2", noisy = false, interactive = false, children, ...props },
     ref
   ) => {
-    const liquidHandlers = useLiquidInteraction({ disabled: !interactive });
-
     return (
       <div
         ref={ref}
@@ -44,7 +41,7 @@ export const GlassSurface = React.forwardRef<HTMLDivElement, GlassSurfaceProps>(
           noisy && "glass-noise",
           className
         )}
-        {...(interactive ? liquidHandlers : {})}
+        data-interactive={interactive ? "true" : undefined}
         {...props}
       >
         {children}

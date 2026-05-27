@@ -1,7 +1,6 @@
 import type { Viewport } from "next";
 import type { ReactNode } from "react";
 
-import { ViewTunnelProvider, ExperienceShell } from "@/components/core";
 import { MarketingLayoutShell } from "@/components/site/marketing-layout-shell";
 import { buildMetadata } from "@/lib/metadata";
 
@@ -13,11 +12,5 @@ export const viewport: Viewport = {
 };
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
-  return (
-    <ViewTunnelProvider>
-      <ExperienceShell>
-        <MarketingLayoutShell>{children}</MarketingLayoutShell>
-      </ExperienceShell>
-    </ViewTunnelProvider>
-  );
+  return <MarketingLayoutShell>{children}</MarketingLayoutShell>;
 }

@@ -1,3 +1,6 @@
+import { CopyCommand } from "@/components/create/copy-command";
+import { CREATE_SHORT_COMMAND } from "@/lib/cumulus-create";
+
 export function TerminalSiteCallout() {
   return (
     <section
@@ -21,13 +24,11 @@ export function TerminalSiteCallout() {
           </p>
         </div>
 
-        <div className='rounded-[5.5px] border border-[color:var(--hairline)] bg-[color:var(--color-ink)] p-4 text-[color:var(--color-paper)]'>
+        <div className='rounded-[5.5px] border border-[color:var(--hairline)] p-4 text-[color:var(--color-paper)]'>
           <p className='font-mono text-[0.68rem] uppercase text-[color:var(--color-paper-4)]'>
             Run
           </p>
-          <pre className='mt-3 overflow-x-auto font-mono text-sm leading-7 text-[color:var(--color-paper)]'>
-            <code>{'npm create @cmls@latest my-acme'}</code>
-          </pre>
+          <CopyCommand command={CREATE_SHORT_COMMAND} className="mt-3 w-full px-4 py-3 text-sm" />
         </div>
       </div>
     </section>

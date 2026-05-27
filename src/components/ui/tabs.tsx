@@ -46,7 +46,7 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-lg border border-transparent px-3 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow,transform]",
+        "inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-lg border border-transparent px-3 py-1 text-sm font-medium whitespace-nowrap",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--glass-text-body)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--bg)] disabled:pointer-events-none disabled:opacity-50",
         variant === "glass" &&
           "text-[color:var(--glass-text-muted)] data-[state=active]:glass-surface data-[state=active]:glass-standard data-[state=active]:glass-e1 data-[state=active]:text-[color:var(--glass-text-body)]",

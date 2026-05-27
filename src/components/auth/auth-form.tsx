@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 type AuthTab = 'login' | 'signup' | 'forgot-password'
@@ -148,7 +147,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
 
   return (
     <div className="mx-auto w-full max-w-md space-y-4">
-      <div className="rounded-[5.5px] border border-[color:var(--muted)]/40 bg-[color:var(--glass-bg-standard)] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[color:var(--muted)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur">
+      <div className="rounded-[5.5px] border border-[color:var(--muted)]/40 bg-[color:var(--glass-bg-standard)] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[color:var(--muted)]">
         <div className="flex items-center justify-between gap-3 text-[11px]">
           <span className="text-[color:var(--title)] [font-family:var(--type-heading-family)] [font-weight:var(--font-weight-semibold)]">Cumulus account access</span>
           <span className="rounded-md bg-[color:var(--accent-soft)] px-2 py-1 text-[10px] text-[color:var(--title)] [font-family:var(--type-label-family)] [font-weight:var(--type-label-weight)]">Shared auth</span>
@@ -159,7 +158,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AuthTab)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 rounded-[5.5px] border border-[color:var(--muted)]/40 bg-[color:var(--bg)] p-1 shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
+        <TabsList className="grid w-full grid-cols-2 rounded-[5.5px] border border-[color:var(--muted)]/40 bg-[color:var(--bg)] p-1">
           <TabsTrigger
             value="login"
             className="text-[color:var(--fg)] data-[state=active]:bg-[color:var(--bg)] data-[state=active]:text-[color:var(--title)]"
@@ -175,7 +174,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
         </TabsList>
 
         <TabsContent value="login">
-          <Card className="border-[color:var(--muted)]/40 bg-[color:var(--bg)] backdrop-blur-xl">
+          <Card className="border-[color:var(--muted)]/40 bg-[color:var(--bg)]">
             <CardHeader>
               <CardTitle className="text-[color:var(--title)]">Sign In</CardTitle>
               <CardDescription className="text-[color:var(--muted)]">Use your Cumulus account credentials.</CardDescription>
@@ -210,8 +209,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
                   <Input id="password" name="password" type="password" autoComplete="current-password" required />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
+                  {isLoading ? 'Working...' : 'Sign In'}
                 </Button>
               </form>
 
@@ -228,7 +226,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
         </TabsContent>
 
         <TabsContent value="signup">
-          <Card className="border-[color:var(--muted)]/40 bg-[color:var(--bg)] backdrop-blur-xl">
+          <Card className="border-[color:var(--muted)]/40 bg-[color:var(--bg)]">
             <CardHeader>
               <CardTitle className="text-[color:var(--title)]">Create Account</CardTitle>
               <CardDescription className="text-[color:var(--muted)]">Set up a Cumulus account and continue.</CardDescription>
@@ -257,8 +255,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account
+                  {isLoading ? 'Working...' : 'Create Account'}
                 </Button>
               </form>
 
@@ -275,7 +272,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
         </TabsContent>
 
         <TabsContent value="forgot-password">
-          <Card className="border-[color:var(--muted)]/40 bg-[color:var(--bg)] backdrop-blur-xl">
+          <Card className="border-[color:var(--muted)]/40 bg-[color:var(--bg)]">
             <CardHeader>
               <CardTitle className="text-[color:var(--title)]">Forgot Password</CardTitle>
               <CardDescription className="text-[color:var(--muted)]">Enter your email and we will send a reset link.</CardDescription>
@@ -294,8 +291,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send Reset Link
+                  {isLoading ? 'Working...' : 'Send Reset Link'}
                 </Button>
                 <Button variant="link" className="w-full" onClick={() => setActiveTab('login')}>
                   Back to Sign In

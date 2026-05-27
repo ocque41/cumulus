@@ -33,7 +33,7 @@ export function LegalToc({ headings, locale }: LegalTocProps) {
             <a
               href={`#${item.id}`}
               className={clsx(
-                "block rounded px-2 py-1 transition hover:bg-[color:var(--glass-bg-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]",
+                "block rounded px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--glass-text-body)]",
                 item.level === 3 && "pl-4 text-xs"
               )}
             >

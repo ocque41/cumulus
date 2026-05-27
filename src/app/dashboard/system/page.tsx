@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -603,19 +602,13 @@ export default function SystemPage() {
     <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-8 px-4 pb-20 pt-4 md:px-8">
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rounded-[5.5px] border border-white/10 bg-[color:var(--glass-bg-standard)] p-6">
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="mb-6">
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.2em] text-[color:var(--muted)]">Cumulus DB System</p>
               <h1 className="mt-2 max-w-[15ch] text-4xl leading-none tracking-[-0.03em] text-[color:var(--title)] sm:text-5xl">
                 System console
               </h1>
             </div>
-            <Link
-              href="/settings"
-              className="inline-flex h-10 items-center justify-center rounded-[5.5px] border border-white/10 px-3 text-xs uppercase tracking-[0.14em] text-[color:var(--muted)] hover:text-[color:var(--title)]"
-            >
-              Personal settings
-            </Link>
           </div>
 
           {error ? (
@@ -756,7 +749,7 @@ export default function SystemPage() {
                           setGrantScopes(principal.grants.join(", "));
                           setAgentId(principal.type === "agent" ? principal.id : agentId);
                         }}
-                        className="break-all font-mono text-[color:var(--subtitle)] hover:text-[color:var(--title)]"
+                        className="break-all font-mono text-[color:var(--subtitle)]"
                       >
                         {principal.displayName || principal.id}
                       </button>
@@ -882,7 +875,7 @@ export default function SystemPage() {
                   key={plan.id}
                   type="button"
                   onClick={() => setSelectedPlanId(plan.id)}
-                  className="rounded-[5.5px] border border-white/10 px-2 py-1 font-mono text-[11px] text-[color:var(--muted)] hover:text-[color:var(--title)]"
+                  className="rounded-[5.5px] border border-white/10 px-2 py-1 font-mono text-[11px] text-[color:var(--muted)]"
                 >
                   {shortId(plan.id, 12)}
                 </button>

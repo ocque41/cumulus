@@ -15,8 +15,7 @@
     "components": "@/components",
     "utils": "@/lib/utils",
     "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "lib": "@/lib"
   },
   "registries": {
     "@cumulus": "https://ui.cumulush.com/r/{name}.json"

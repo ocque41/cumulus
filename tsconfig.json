@@ -34,9 +34,6 @@
       ],
       "@/lib": [
         "./src/lib"
-      ],
-      "@/hooks": [
-        "./src/hooks"
       ]
     }
   },

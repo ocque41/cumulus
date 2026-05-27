@@ -7,7 +7,7 @@ import {
 } from "@/lib/profile";
 
 describe("profile helpers", () => {
-  it("falls back to the default Tado profile when no row exists", () => {
+  it("falls back to the default Cumulus profile when no row exists", () => {
     expect(resolveDomeProfile(null)).toEqual(defaultDomeProfile);
   });
 

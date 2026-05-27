@@ -1,4 +1,5 @@
 export const CREATE_SHORT_COMMAND = "npm create @cmls@latest my-acme";
+export const CREATE_NPM_SHORTHAND = "npm create @cmls@latest";
 export const CREATE_PACKAGE_NAME = "@cmls/create@latest";
 
 export const CREATE_FEATURES = ["auth", "db", "knowledge"] as const;

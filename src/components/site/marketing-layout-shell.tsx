@@ -1,10 +1,7 @@
-'use client';
+import type { ReactNode } from "react";
 
-import type { ReactNode } from 'react';
-
-import { Header } from '@/components/site/header';
-import { Footer } from '@/components/site/footer';
-import { Toaster } from '@/components/ui/toaster';
+import { Header } from "@/components/site/header";
+import { Footer } from "@/components/site/footer";
 
 type MarketingLayoutShellProps = {
   children: ReactNode;
@@ -12,15 +9,12 @@ type MarketingLayoutShellProps = {
 
 export function MarketingLayoutShell({ children }: MarketingLayoutShellProps) {
   return (
-    <div className='min-h-screen flex flex-col'>
+    <div className="flex min-h-screen flex-col">
       <Header />
-      <div className='flex flex-1 flex-col'>
-        <div className='flex flex-1 flex-col min-w-0'>
-          {children}
-        </div>
+      <div className="flex flex-1 flex-col">
+        {children}
         <Footer />
       </div>
-      <Toaster />
     </div>
   );
 }

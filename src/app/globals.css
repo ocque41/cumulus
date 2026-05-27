@@ -32,15 +32,6 @@
   --color-paper-hair-soft: rgba(245, 245, 245, 0.08);
   --color-paper-wash:      rgba(245, 245, 245, 0.04);
 
-  /* The one shadow */
-  --shadow-modal: 0 18px 40px rgba(26, 26, 26, 0.18);
-
-  /* Motion */
-  --ease-std:   cubic-bezier(0.42, 0, 0.58, 1);
-  --dur-fast:   150ms;
-  --dur-normal: 200ms;
-  --dur-slow:   280ms;
-
   /* Radius — one number for the whole system */
   --radius-card: 5.5px;
 
@@ -121,13 +112,6 @@
 
   --glass-border-specular: var(--color-paper-hair);
   --glass-border-base:     var(--color-paper-hair);
-  --glass-border-shadow:   var(--color-paper-hair);
-
-  --glass-shadow-e1: none;
-  --glass-shadow-e2: none;
-  --glass-shadow-e3: none;
-  --glass-shadow-e4: none;
-
   --glass-text-title:    var(--color-paper);
   --glass-text-subtitle: var(--color-paper-2);
   --glass-text-body:     var(--color-paper);
@@ -160,8 +144,6 @@
 
   --glass-border-specular: var(--color-ink-hair);
   --glass-border-base:     var(--color-ink-hair);
-  --glass-border-shadow:   var(--color-ink-hair);
-
   --glass-text-title:    var(--color-ink);
   --glass-text-subtitle: var(--color-ink-2);
   --glass-text-body:     var(--color-ink);
@@ -324,114 +306,16 @@ button a {
   padding-inline: 1rem;
 }
 
-@keyframes ambientGradient {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  25% {
-    background-position: 50% 100%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  75% {
-    background-position: 50% 0%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes ambientGradientReverse {
-  0% {
-    background-position: 100% 50%;
-  }
-
-  25% {
-    background-position: 50% 0%;
-  }
-
-  50% {
-    background-position: 0% 50%;
-  }
-
-  75% {
-    background-position: 50% 100%;
-  }
-
-  100% {
-    background-position: 100% 50%;
-  }
-}
-
-@keyframes ambientGradientTilt {
-  0% {
-    background-position: 30% 0%;
-  }
-
-  20% {
-    background-position: 70% 40%;
-  }
-
-  50% {
-    background-position: 100% 80%;
-  }
-
-  80% {
-    background-position: 40% 100%;
-  }
-
-  100% {
-    background-position: 0% 60%;
-  }
-}
-
-@keyframes ambientGradientWave {
-  0% {
-    background-position: 50% 100%;
-  }
-
-  30% {
-    background-position: 70% 30%;
-  }
-
-  60% {
-    background-position: 30% 0%;
-  }
-
-  85% {
-    background-position: 0% 70%;
-  }
-
-  100% {
-    background-position: 50% 100%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
 }
 
 /* ============================================================
-   Glass utilities — RETIRED.
-   Per the master brand spec (no glass morphism, no backdrop blur,
-   no specular border, one shadow only) every former glass class
-   collapses to the EditorialCard treatment: 5.5px radius, 1px
-   hairline border, no shadow. Consumer components keep compiling
-   without rewrite; replace `glass-*` classes inline as we touch
-   the components.
+   Flat compatibility utilities.
    ============================================================ */
 
 .glass-surface,
@@ -444,9 +328,6 @@ button a {
   color: var(--text);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 .glass-surface::before,
@@ -459,34 +340,13 @@ button a {
 .glass-surface[data-state="press"],
 .glass-surface:active {
   transform: none;
-  box-shadow: none;
-}
-
-.glass-e1,
-.glass-e2,
-.glass-e3,
-.glass-e4 {
-  box-shadow: none;
 }
 
 .glass-noise::before {
   content: none;
-  background-image: none;
 }
 
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass-surface {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-}
-
-[data-reduce-transparency="true"] .glass-surface {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-/* Backward-compatible aliases — also collapsed to the EditorialCard. */
+/* Backward-compatible aliases. */
 .glass-card,
 .glass-card-highlight {
   position: relative;
@@ -494,26 +354,18 @@ button a {
   color: var(--text);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 .glass-badge {
   border-radius: var(--radius-card);
   background: var(--bg);
   border: 1px solid var(--hairline);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 .glass-button,
 .glass-button-primary {
   border-radius: var(--radius-card);
   border: 1px solid var(--hairline);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  transition: background-color var(--dur-fast) var(--ease-std), border-color var(--dur-fast) var(--ease-std), transform var(--dur-fast) var(--ease-std);
 }
 
 .glass-button {

@@ -4,8 +4,6 @@ import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
-import { KonamiEasterEgg, GlitchModeProvider } from "@/components/effects";
-import { TransitionCurtain } from "@/components/motion/TransitionCurtain";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { UiPreferencesProvider } from "@/components/providers/ui-preferences-provider";
 import { AppShell } from "@/components/shell/AppShell";
@@ -53,8 +51,7 @@ const SITE_URL = "https://cumulush.com";
 const SITE_NAME = "Cumulus";
 const SITE_DESCRIPTION =
   "Run npm create @cmls@latest my-acme to create a ready Cumulus app.";
-const SITE_TAGLINE =
-  "npm create @cmls@latest my-acme";
+const SITE_TAGLINE = "npm create @cmls@latest my-acme";
 const UI_PREFERENCES_STORAGE_KEY = "cumulus_ui_preferences:hub";
 const initialThemeScript = `
 (() => {
@@ -106,30 +103,13 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     locale: "en_US",
     alternateLocale: ["es_ES"],
-    images: [
-      {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
-        alt: `${SITE_NAME} — ${SITE_TAGLINE}`,
-        type: "image/png",
-      },
-    ],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: `${SITE_NAME} — ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
     creator: "@cumulus",
     site: "@cumulus",
-    images: [
-      {
-        url: "/twitter-image",
-        width: 1200,
-        height: 630,
-        alt: `${SITE_NAME} — ${SITE_TAGLINE}`,
-      },
-    ],
   },
   robots: {
     index: true,
@@ -137,7 +117,7 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      "max-image-preview": "large",
+      "max-image-preview": "none",
       "max-snippet": -1,
       "max-video-preview": -1,
     },
@@ -169,25 +149,16 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: initialThemeScript }} />
       </head>
-      <body className="bg-[color:var(--color-ink)] text-[color:var(--color-paper)] min-h-screen" suppressHydrationWarning>
+      <body className="min-h-screen bg-[color:var(--color-ink)] text-[color:var(--color-paper)]" suppressHydrationWarning>
         <AuthProvider>
           <UiPreferencesProvider productKey="hub">
-            <GlitchModeProvider>
-              <KonamiEasterEgg>
-                {/* The Curtain is the global overlay for page transitions */}
-                <TransitionCurtain />
-
-                {/* Main Content Area */}
-                <AppShell>
-                  <AutoLocaleDetect />
-                  <main className="min-h-screen w-full relative z-0">
-                    {children}
-                  </main>
-                </AppShell>
-
-                <Toaster />
-              </KonamiEasterEgg>
-            </GlitchModeProvider>
+            <AppShell>
+              <AutoLocaleDetect />
+              <main className="relative z-0 min-h-screen w-full">
+                {children}
+              </main>
+            </AppShell>
+            <Toaster />
           </UiPreferencesProvider>
         </AuthProvider>
         <SpeedInsights />
