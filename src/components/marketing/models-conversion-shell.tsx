@@ -23,7 +23,7 @@ import { formatAmount, MARKET_CURRENCY_COOKIE } from '@/lib/marketing/currency';
 import { trackMarketingEvent } from '@/lib/marketing/events';
 import { MARKET_LOCALE_COOKIE } from '@/lib/marketing/i18n';
 import { getPlansForModels } from '@/lib/marketing/pricing';
-import type { CurrencyCode, MarketLocale, PlanDefinition, PlanKey } from '@/lib/marketing/schema';
+import type { CurrencyCode, MarketLocale, PlanDefinition } from '@/lib/marketing/schema';
 
 type ModelsConversionShellProps = {
   locale: MarketLocale;
@@ -32,33 +32,37 @@ type ModelsConversionShellProps = {
 
 const heroHighlights: Record<MarketLocale, string[]> = {
   en: [
-    'Each plan is explained in plain language.',
-    'Status labels show what is active today.',
-    'Checkout supports USD and EUR flows.',
+    'The local database path is free.',
+    'Scoped tokens keep agents away from master keys.',
+    'Managed team setup starts with a conversation.',
   ],
   es: [
-    'Cada plan se explica en lenguaje simple.',
-    'Las etiquetas muestran lo activo hoy.',
-    'Checkout disponible en USD y EUR.',
+    'El camino local de base de datos es gratis.',
+    'Los tokens con scope alejan a agentes de master keys.',
+    'El setup gestionado para equipos empieza con una conversacion.',
   ],
 };
 
 const jumpLinks: Record<MarketLocale, Array<{ href: string; label: string }>> = {
   en: [
-    { href: '#plans', label: 'Compare plans' },
-    { href: '#snapshot', label: 'Plan snapshot' },
-    { href: '#steps', label: 'After purchase' },
+    { href: '#plans', label: 'Free plan' },
+    { href: '#snapshot', label: 'Snapshot' },
+    { href: '#steps', label: 'Setup steps' },
   ],
   es: [
-    { href: '#plans', label: 'Comparar planes' },
+    { href: '#plans', label: 'Plan gratis' },
     { href: '#snapshot', label: 'Resumen' },
-    { href: '#steps', label: 'Despues de compra' },
+    { href: '#steps', label: 'Pasos de setup' },
   ],
 };
 
 function getPriceLine(plan: PlanDefinition, locale: MarketLocale, currency: CurrencyCode): string {
   if (plan.amount === null) {
-    return '--';
+    return locale === 'en' ? 'Contact' : 'Contacto';
+  }
+
+  if (plan.amount === 0) {
+    return locale === 'en' ? 'Free' : 'Gratis';
   }
 
   const amount = formatAmount(plan.amount, currency, locale);
@@ -87,19 +91,21 @@ export function ModelsConversionShell({ locale, currency }: ModelsConversionShel
       source,
     });
 
-    trackMarketingEvent('checkout_intent_created', {
-      locale,
-      currency,
-      planKey: plan.key,
-      source,
-    });
+    if (plan.mode !== 'contact') {
+      trackMarketingEvent('checkout_intent_created', {
+        locale,
+        currency,
+        planKey: plan.key,
+        source,
+      });
 
-    trackMarketingEvent('checkout_redirect_started', {
-      locale,
-      currency,
-      planKey: plan.key,
-      source,
-    });
+      trackMarketingEvent('checkout_redirect_started', {
+        locale,
+        currency,
+        planKey: plan.key,
+        source,
+      });
+    }
   };
 
   return (
@@ -126,7 +132,7 @@ export function ModelsConversionShell({ locale, currency }: ModelsConversionShel
               variant='brand'
               className='min-h-11 w-full justify-center px-6 text-xs uppercase tracking-[0.12em] sm:w-auto sm:text-sm'
             >
-              <Link href='#plans'>{locale === 'en' ? 'Compare Plans' : 'Comparar planes'}</Link>
+              <Link href='#plans'>{locale === 'en' ? 'Start Free' : 'Empezar gratis'}</Link>
             </Button>
             <Button
               asChild
@@ -163,19 +169,22 @@ export function ModelsConversionShell({ locale, currency }: ModelsConversionShel
         <section id='plans' className='glass-surface glass-subtle glass-e2 space-y-6 rounded-[5.5px] p-5 sm:p-7 lg:p-8'>
           <div className='grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-end'>
             <div className='space-y-3'>
-              <TypographyEyebrow>{locale === 'en' ? 'Plan Comparison' : 'Comparacion de planes'}</TypographyEyebrow>
+              <TypographyEyebrow>{locale === 'en' ? 'Free Plan' : 'Plan gratis'}</TypographyEyebrow>
               <TypographyH2 className='border-none pb-0'>{modelsContent.comparisonTitle[locale]}</TypographyH2>
             </div>
             <TypographyMuted className='max-w-none'>{modelsContent.comparisonDescription[locale]}</TypographyMuted>
           </div>
           <div className='grid gap-5 xl:grid-cols-2'>
             {plans.map((plan) => {
-              const href = buildCheckoutStartHref({
-                planKey: plan.key,
-                currency,
-                locale,
-                source: 'models_plan_card',
-              });
+              const href =
+                plan.mode === 'contact'
+                  ? '/docs'
+                  : buildCheckoutStartHref({
+                      planKey: plan.key,
+                      currency,
+                      locale,
+                      source: 'models_plan_card',
+                    });
 
               return (
                 <section key={plan.key} className='glass-surface glass-standard glass-e2 flex h-full flex-col gap-3 rounded-[5.5px] p-5'>
@@ -208,13 +217,13 @@ export function ModelsConversionShell({ locale, currency }: ModelsConversionShel
 
         <section id='snapshot' className='glass-surface glass-subtle glass-e2 space-y-5 rounded-[5.5px] p-5 sm:p-7 lg:p-8'>
           <TypographyEyebrow>{locale === 'en' ? 'Snapshot' : 'Resumen'}</TypographyEyebrow>
-          <TypographyH2 className='border-none pb-0'>{locale === 'en' ? 'Plan snapshot' : 'Resumen de planes'}</TypographyH2>
+          <TypographyH2 className='border-none pb-0'>{locale === 'en' ? 'Setup snapshot' : 'Resumen de setup'}</TypographyH2>
           <TypographyTable>
             <thead>
               <tr className='border-b border-[color:var(--muted)]/30 text-[color:var(--subtitle)]'>
                 <th className='px-4 py-3 font-semibold'>{locale === 'en' ? 'Plan' : 'Plan'}</th>
                 <th className='px-4 py-3 font-semibold'>{locale === 'en' ? 'Price' : 'Precio'}</th>
-                <th className='px-4 py-3 font-semibold'>{locale === 'en' ? 'Best for' : 'Ideal para'}</th>
+                <th className='px-4 py-3 font-semibold'>{locale === 'en' ? 'Includes' : 'Incluye'}</th>
               </tr>
             </thead>
             <tbody>
@@ -232,7 +241,7 @@ export function ModelsConversionShell({ locale, currency }: ModelsConversionShel
         <section id='steps' className='glass-surface glass-subtle glass-e2 space-y-5 rounded-[5.5px] p-5 sm:p-7 lg:p-8'>
           <div className='grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-end'>
             <div className='space-y-3'>
-              <TypographyEyebrow>{locale === 'en' ? 'After Purchase' : 'Despues de compra'}</TypographyEyebrow>
+              <TypographyEyebrow>{locale === 'en' ? 'Setup' : 'Setup'}</TypographyEyebrow>
               <TypographyH2 className='border-none pb-0'>{modelsContent.stepsTitle[locale]}</TypographyH2>
             </div>
             <TypographyMuted className='max-w-none'>{modelsContent.stepsDescription[locale]}</TypographyMuted>

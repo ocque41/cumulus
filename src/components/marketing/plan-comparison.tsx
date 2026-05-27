@@ -8,24 +8,24 @@ type FeatureRow = {
 
 const features: FeatureRow[] = [
   {
-    id: 'full-access',
+    id: 'templates',
     label: {
-      en: 'Full access to Tado',
-      es: 'Acceso completo a Tado',
+      en: 'Template choices',
+      es: 'Opciones de template',
     },
   },
   {
-    id: 'updates',
+    id: 'relay',
     label: {
-      en: 'All updates included',
-      es: 'Todas las actualizaciones incluidas',
+      en: 'Relay auth choices',
+      es: 'Opciones de auth Relay',
     },
   },
   {
-    id: 'support',
+    id: 'db',
     label: {
-      en: 'Priority support',
-      es: 'Soporte prioritario',
+      en: 'Cumulus DB choices',
+      es: 'Opciones Cumulus DB',
     },
   },
 ];
@@ -39,7 +39,7 @@ export function PlanComparison({ locale }: PlanComparisonProps) {
     <Card className='border border-[color:var(--muted)]/30 bg-[color:var(--bg)]/75'>
       <CardHeader>
         <CardTitle className='text-xl text-[color:var(--fg)]'>
-          {locale === 'en' ? 'Pro Plan' : 'Plan Pro'}
+          {locale === 'en' ? 'Cumulus Create' : 'Cumulus Create'}
         </CardTitle>
       </CardHeader>
       <CardContent>

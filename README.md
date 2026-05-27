@@ -1,20 +1,20 @@
 # Cumulus
 
-Cumulus is an open-source Next.js app for AI-first product surfaces, auth, billing hooks, dashboards, and agent workspace storage through Cumulus DB.
+Cumulus is a public Next.js app centered on Cumulus DB, the free database for AI agents.
 
 The main repo is Apache-2.0. The from-scratch Cumulus Database provider in `apps/cumulus-db` is AGPL-3.0-only. The Cumulus name, logos, and hosted-service branding are covered by `TRADEMARKS.md`.
 
 ## Two Ways To Run It
 
-### 1. Cumulus Cloud/API
+### 1. Managed Cumulus DB
 
-This is the easiest path. Cumulus hosts the operational services for you. You configure the app with a cloud API URL and key, then keep building on the public codebase.
+This is the easiest production path. Cumulus hosts or tailors the database operations for you. You keep building on the public codebase.
 
-Use this path if you do not want to run infrastructure.
+Use this path if your team does not want to run the database infrastructure.
 
 ### 2. Self-Hosted
 
-This path gives you control. You run the app, auth/database provider, and Cumulus DB service yourself.
+This path gives you control. You run the app and Cumulus DB service yourself.
 
 Use this path if you want to own the whole stack.
 
@@ -47,25 +47,16 @@ Most improvements should land here first, then be pulled into the private produc
 
 ## Quick Start
 
-Create a new Relay/Cumulus app:
+Run Cumulus DB locally from this repo:
 
 ```bash
-npx create-cumulus@latest my-acme
-npm create cumulus@latest my-acme
+npm install
+cp .env.example .env.local
+npm run db:build
+npm run db:start
 ```
 
-Useful non-interactive examples:
-
-```bash
-npx create-cumulus@latest my-acme --template full --agent-auth hosted
-npx create-cumulus@latest my-acme --template outer --agent-auth hosted
-npx create-cumulus@latest my-acme --template inner --agent-auth self-hosted --cumulus-db both
-npx create-cumulus@latest my-acme --template agent-auth --cumulus-db cloud
-```
-
-The generator supports `full`, `outer`, `inner`, and `agent-auth` templates;
-`hosted` and `self-hosted` agent auth modes; and `cloud`, `local`, or `both`
-Cumulus DB modes. The marketing docs page at `/docs` explains every option.
+The marketing docs page at `/docs` explains the free Cumulus DB setup path.
 
 Run this repo locally:
 
@@ -75,7 +66,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Visit `http://localhost:3000`.
 
 ## Terminal Site
 
@@ -94,15 +85,12 @@ From npm, users can run:
 ```bash
 npx cumulush
 npx cumulush /documents
-npx cumulush /relay
 npx cumulush /contact
 ```
 
-The terminal site includes pages for Cumulus, Documents, Relay, Tado, Rune,
-and Contact. The home and Documents pages advertise `create-cumulus` and show
-how to install and choose templates. The contact page opens a local email draft
-to `hi@cumulush.com`; it does not ship email service secrets in the public
-package.
+The terminal site is a separate public package. Keep its copy public-safe and
+do not include real provider values, customer data, or private service links in
+the package.
 
 ## Cumulus DB
 
@@ -154,9 +142,10 @@ npm run build
 
 ## Releases
 
-Public releases are tracked in `CHANGELOG.md` and tagged as `vX.Y.Z`. See `docs/releasing.md`.
+Public releases are tracked in `CHANGELOG.md` and tagged as bare versions like `0.0.7`. See `docs/releasing.md`.
 
-- **v0.4.0** (2026-05-19) - Cumulus DB v1 and Nimbus foundation with Postgres runtime, system console, OIDC/device auth, CLI, MCP schemas, and machine contracts.
+- **0.0.7** (2026-05-27) - Cumulus Create refocus with the command-first public site, dashboard command playground, Cumulus DB contract updates, terminal-site updates, and release cleanup.
+- **0.0.6** (2026-05-19) - Cumulus DB v1 and Nimbus foundation with Postgres runtime, system console, OIDC/device auth, CLI, MCP schemas, and machine contracts.
 
 ## Project Structure
 

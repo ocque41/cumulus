@@ -1,43 +1,43 @@
 import type { CurrencyCode, MarketLocale, PlanDefinition, PlanKey } from './schema';
 
 const basePlans: Record<PlanKey, Omit<PlanDefinition, 'amount'>> = {
-  pro_monthly: {
-    key: 'pro_monthly',
+  cumulus_db_free: {
+    key: 'cumulus_db_free',
     title: {
-      en: 'Pro',
-      es: 'Pro',
+      en: 'Cumulus Create',
+      es: 'Cumulus Create',
     },
     summary: {
-      en: 'Full Tado access. Download and run locally.',
-      es: 'Acceso completo a Tado. Descarga y ejecuta localmente.',
+      en: 'Run npm create @cmls@latest my-acme.',
+      es: 'Ejecuta npm create @cmls@latest my-acme.',
     },
-    cadence: 'monthly',
-    mode: 'subscription',
+    cadence: 'one-time',
+    mode: 'contact',
     benefits: {
       en: [
-        'Full access to Tado',
-        'All updates included',
-        'Priority support',
+        'Template choices',
+        'Relay auth choices',
+        'Cumulus DB choices',
       ],
       es: [
-        'Acceso completo a Tado',
-        'Todas las actualizaciones incluidas',
-        'Soporte prioritario',
+        'Opciones de template',
+        'Opciones de auth Relay',
+        'Opciones Cumulus DB',
       ],
     },
     ctaLabel: {
-      en: 'Start Pro',
-      es: 'Comenzar Pro',
+      en: 'Build command',
+      es: 'Crear comando',
     },
     status: 'active',
   },
 };
 
 const priceMatrix: Record<PlanKey, Record<CurrencyCode, number>> = {
-  pro_monthly: {
-    USD: 9.99,
-    EUR: 9.99,
-    GBP: 9.99,
+  cumulus_db_free: {
+    USD: 0,
+    EUR: 0,
+    GBP: 0,
   },
 };
 
@@ -49,7 +49,7 @@ export function getPlanDefinition(planKey: PlanKey, currency: CurrencyCode): Pla
 }
 
 export function getPlansForModels(currency: CurrencyCode): PlanDefinition[] {
-  return [getPlanDefinition('pro_monthly', currency)];
+  return [getPlanDefinition('cumulus_db_free', currency)];
 }
 
 export function parsePlanKey(value: string | null | undefined): PlanKey | undefined {
@@ -58,7 +58,7 @@ export function parsePlanKey(value: string | null | undefined): PlanKey | undefi
   }
 
   const normalized = value.trim();
-  if (normalized === 'pro_monthly') {
+  if (normalized === 'cumulus_db_free') {
     return normalized;
   }
 

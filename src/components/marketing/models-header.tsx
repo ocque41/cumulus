@@ -10,17 +10,17 @@ export function ModelsHeader() {
                     <div className="flex items-center justify-center gap-3 text-[color:var(--subtitle)]">
                         <span className="h-px w-12 bg-white/20" />
                         <span className="font-mono text-sm uppercase tracking-[0.3em]">
-                            Pricing
+                            Cumulus Create
                         </span>
                         <span className="h-px w-12 bg-white/20" />
                     </div>
                     <h1 className="display text-[color:var(--title)]">
                         <ScrambleText scrambleDuration={1500}>
-                            Choose Your Altitude
+                            Build the command
                         </ScrambleText>
                     </h1>
                     <p className="lead max-w-xl mx-auto text-[color:var(--subtitle)]">
-                        Tado Pro for teams and power users.
+                        npm create @cmls@latest my-acme
                     </p>
                 </div>
             </ScrollReveal>

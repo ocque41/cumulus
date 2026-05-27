@@ -1,72 +1,361 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Terminal, MessageSquare, Cpu } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, Copy } from "lucide-react";
 
-import { useAuth } from "@/components/providers/auth-provider";
+import { CumulusCreateMotion } from "@/components/marketing/cumulus-create-motion";
+import {
+  agentAuthRows,
+  buildCreateCommand,
+  CREATE_AGENT_AUTH_MODES,
+  CREATE_CUMULUS_DB_MODES,
+  CREATE_FEATURES,
+  CREATE_PACKAGE_MANAGERS,
+  CREATE_PACKAGE_NAME,
+  CREATE_TEMPLATES,
+  createDefaults,
+  createExamples,
+  cumulusDbRows,
+  defaultCumulusDbForTemplate,
+  templateRows,
+  type CreateAgentAuthMode,
+  type CreateCumulusDbMode,
+  type CreateFeature,
+  type CreatePackageManager,
+  type CreateTemplate,
+} from "@/lib/cumulus-create";
+
+function SegmentButton<T extends string>({
+  active,
+  label,
+  onSelect,
+  value,
+}: {
+  active: boolean;
+  label: string;
+  onSelect: (value: T) => void;
+  value: T;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      data-create-reveal
+      className={[
+        "rounded-[5.5px] border px-3 py-2 font-mono text-xs uppercase transition",
+        active
+          ? "border-[color:var(--title)] bg-[color:var(--title)] text-[color:var(--bg)]"
+          : "border-[color:var(--hairline)] text-[color:var(--muted)] hover:text-[color:var(--title)]",
+      ].join(" ")}
+    >
+      {label}
+    </button>
+  );
+}
+
+function FieldLabel({ children }: { children: string }) {
+  return (
+    <span className="font-mono text-[0.72rem] uppercase text-[color:var(--muted)]">
+      {children}
+    </span>
+  );
+}
 
 export default function DashboardPage() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
+  const [projectName, setProjectName] = useState(createDefaults.projectName);
+  const [company, setCompany] = useState(createDefaults.company);
+  const [template, setTemplate] = useState<CreateTemplate>(createDefaults.template);
+  const [agentAuth, setAgentAuth] = useState<CreateAgentAuthMode>(createDefaults.agentAuth);
+  const [cumulusDb, setCumulusDb] = useState<CreateCumulusDbMode>(createDefaults.cumulusDb);
+  const [features, setFeatures] = useState<CreateFeature[]>(createDefaults.features);
+  const [packageManager, setPackageManager] = useState<CreatePackageManager>(createDefaults.packageManager);
+  const [install, setInstall] = useState(createDefaults.install);
+  const [git, setGit] = useState(createDefaults.git);
+  const [dryRun, setDryRun] = useState(createDefaults.dryRun);
+  const [installRuntimes, setInstallRuntimes] = useState(createDefaults.installRuntimes);
+  const [dbTouched, setDbTouched] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace("/login");
+  const hasKnowledge = features.includes("knowledge");
+
+  const command = useMemo(
+    () =>
+      buildCreateCommand({
+        projectName,
+        company,
+        template,
+        agentAuth,
+        cumulusDb,
+        features,
+        packageManager,
+        install,
+        git,
+        dryRun,
+        installRuntimes,
+      }),
+    [agentAuth, company, cumulusDb, dryRun, features, git, install, installRuntimes, packageManager, projectName, template],
+  );
+  const runChoices: Array<{ label: string; checked: boolean; setter: (value: boolean) => void }> = [
+    { label: "Install deps", checked: install, setter: setInstall },
+    { label: "Git init", checked: git, setter: setGit },
+    { label: "Dry run", checked: dryRun, setter: setDryRun },
+  ];
+
+  function updateTemplate(nextTemplate: CreateTemplate) {
+    setTemplate(nextTemplate);
+    if (!dbTouched) {
+      setCumulusDb(defaultCumulusDbForTemplate(nextTemplate));
     }
-  }, [isLoading, router, user]);
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center text-[color:var(--muted)]">
-        Loading Tado...
-      </div>
-    );
   }
 
-  if (!user) {
-    return null;
+  function updateFeature(feature: CreateFeature) {
+    setFeatures((current) => {
+      const next = current.includes(feature)
+        ? current.filter((item) => item !== feature)
+        : [...current, feature].sort((a, b) => CREATE_FEATURES.indexOf(a) - CREATE_FEATURES.indexOf(b));
+
+      if (!next.includes("knowledge")) {
+        setInstallRuntimes(false);
+      }
+
+      return next;
+    });
+  }
+
+  async function copyCommand() {
+    await navigator.clipboard.writeText(command);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-10 px-4 pb-20 pt-4 md:px-8">
-      <section className="rounded-[5.5px] border border-white/10 bg-[color:var(--glass-bg-standard)] p-6 shadow-[var(--glass-shadow-e3)] backdrop-blur-[18px] sm:p-8">
-        <div className="space-y-5">
-          <p className="text-[0.72rem] uppercase tracking-[0.2em] text-[color:var(--muted)]">
-            Agent workspace
-          </p>
-          <h1 className="max-w-[14ch] text-[clamp(2.2rem,4.8vw,4.2rem)] leading-[0.96] tracking-[-0.06em] text-[color:var(--title)] [font-family:var(--type-heading-family)] [font-weight:var(--type-heading-weight)]">
-            Tado
-          </h1>
-          <p className="max-w-[64ch] text-[1rem] leading-[1.75] text-[color:var(--subtitle)] sm:text-[1.05rem]">
-            Agent-to-agent IPC for multi-terminal workflows. Spawn, message, and orchestrate agents across sessions from a single canvas.
-          </p>
+    <CumulusCreateMotion>
+    <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-8 px-4 pb-20 pt-10 sm:px-6 lg:px-8">
+      <section data-create-section className="rounded-[5.5px] border border-[color:var(--hairline)] p-5 sm:p-8">
+        <p data-create-logo className="font-mono text-[0.72rem] uppercase text-[color:var(--muted)]">
+          Cumulus Create
+        </p>
+        <h1 data-create-title className="mt-4 max-w-[12ch] text-[clamp(3rem,8vw,7rem)] leading-[0.86] text-[color:var(--title)]">
+          Build the command.
+        </h1>
+        <p data-create-reveal className="mt-5 max-w-2xl text-base leading-8 text-[color:var(--subtitle)]">
+          Choose the app parts. Copy the command. Run it in your terminal.
+        </p>
+      </section>
+
+      <section data-create-section className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.75fr)]">
+        <div data-create-reveal className="space-y-6 rounded-[5.5px] border border-[color:var(--hairline)] p-5 sm:p-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label data-create-reveal className="space-y-2">
+              <FieldLabel>Project name</FieldLabel>
+              <input
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+                className="h-11 w-full rounded-[5.5px] border border-[color:var(--hairline)] bg-transparent px-3 text-sm text-[color:var(--title)] outline-none focus:border-[color:var(--title)]"
+              />
+            </label>
+            <label data-create-reveal className="space-y-2">
+              <FieldLabel>Company</FieldLabel>
+              <input
+                value={company}
+                onChange={(event) => setCompany(event.target.value)}
+                placeholder="Acme Inc"
+                className="h-11 w-full rounded-[5.5px] border border-[color:var(--hairline)] bg-transparent px-3 text-sm text-[color:var(--title)] outline-none focus:border-[color:var(--title)]"
+              />
+            </label>
+          </div>
+
+          <div className="space-y-3">
+            <FieldLabel>Template</FieldLabel>
+            <div className="flex flex-wrap gap-2">
+              {CREATE_TEMPLATES.map((value) => (
+                <SegmentButton
+                  key={value}
+                  value={value}
+                  label={value}
+                  active={template === value}
+                  onSelect={updateTemplate}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <FieldLabel>Agent auth</FieldLabel>
+            <div className="flex flex-wrap gap-2">
+              {CREATE_AGENT_AUTH_MODES.map((value) => (
+                <SegmentButton
+                  key={value}
+                  value={value}
+                  label={value}
+                  active={agentAuth === value}
+                  onSelect={setAgentAuth}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <FieldLabel>Cumulus DB</FieldLabel>
+            <div className="flex flex-wrap gap-2">
+              {CREATE_CUMULUS_DB_MODES.map((value) => (
+                <SegmentButton
+                  key={value}
+                  value={value}
+                  label={value}
+                  active={cumulusDb === value}
+                  onSelect={(next) => {
+                    setDbTouched(true);
+                    setCumulusDb(next);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <FieldLabel>Parts</FieldLabel>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {CREATE_FEATURES.map((feature) => (
+                <label
+                  key={feature}
+                  data-create-reveal
+                  className="flex items-center gap-3 rounded-[5.5px] border border-[color:var(--hairline)] px-3 py-3 text-sm text-[color:var(--subtitle)]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={features.includes(feature)}
+                    onChange={() => updateFeature(feature)}
+                    className="h-4 w-4 accent-[color:var(--title)]"
+                  />
+                  <span>{feature}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label data-create-reveal className="space-y-2">
+              <FieldLabel>Package manager</FieldLabel>
+              <select
+                value={packageManager}
+                onChange={(event) => setPackageManager(event.target.value as CreatePackageManager)}
+                className="h-11 w-full rounded-[5.5px] border border-[color:var(--hairline)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--title)] outline-none focus:border-[color:var(--title)]"
+              >
+                {CREATE_PACKAGE_MANAGERS.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="space-y-2">
+              <FieldLabel>Run choices</FieldLabel>
+              <div className="grid gap-2">
+                {runChoices.map((choice) => (
+                  <label key={choice.label} data-create-reveal className="flex items-center justify-between rounded-[5.5px] border border-[color:var(--hairline)] px-3 py-2 text-sm">
+                    <span>{choice.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={choice.checked}
+                      onChange={(event) => choice.setter(event.target.checked)}
+                      className="h-4 w-4 accent-[color:var(--title)]"
+                    />
+                  </label>
+                ))}
+                <label data-create-reveal className="flex items-center justify-between rounded-[5.5px] border border-[color:var(--hairline)] px-3 py-2 text-sm">
+                  <span>Install Knowledge runtimes</span>
+                  <input
+                    type="checkbox"
+                    checked={installRuntimes && hasKnowledge}
+                    disabled={!hasKnowledge}
+                    onChange={(event) => setInstallRuntimes(event.target.checked)}
+                    className="h-4 w-4 accent-[color:var(--title)] disabled:opacity-40"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside className="space-y-6">
+          <div data-create-section className="sticky top-24 rounded-[5.5px] border border-[color:var(--hairline)] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <FieldLabel>Command</FieldLabel>
+              <button
+                type="button"
+                onClick={copyCommand}
+                className="inline-flex items-center gap-2 rounded-[5.5px] bg-[color:var(--title)] px-3 py-2 text-sm font-semibold text-[color:var(--bg)]"
+              >
+                {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <code data-create-command className="mt-4 block max-h-[260px] overflow-auto rounded-[5.5px] border border-[color:var(--hairline)] bg-black p-4 font-mono text-sm leading-7 text-[color:var(--color-paper)]">
+              {command}
+            </code>
+            <p data-create-reveal className="mt-4 text-sm leading-7 text-[color:var(--subtitle)]">
+              <code className="font-mono text-[color:var(--title)]">npm create @cmls@latest</code> is shorthand for{" "}
+              <code className="font-mono text-[color:var(--title)]">{CREATE_PACKAGE_NAME}</code>. Both commands download the same package
+              and run the same create binary after it has been published.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section data-create-section className="grid gap-6 lg:grid-cols-3">
+        <div data-create-reveal className="rounded-[5.5px] border border-[color:var(--hairline)] p-5">
+          <FieldLabel>Templates</FieldLabel>
+          <div className="mt-4 space-y-4">
+            {templateRows.map((row) => (
+              <p key={row.value} className="text-sm leading-7 text-[color:var(--subtitle)]">
+                <code className="font-mono text-[color:var(--title)]">{row.value}</code> {row.includes}
+              </p>
+            ))}
+          </div>
+        </div>
+        <div data-create-reveal className="rounded-[5.5px] border border-[color:var(--hairline)] p-5">
+          <FieldLabel>Agent auth</FieldLabel>
+          <div className="mt-4 space-y-4">
+            {agentAuthRows.map((row) => (
+              <p key={row.value} className="text-sm leading-7 text-[color:var(--subtitle)]">
+                <code className="font-mono text-[color:var(--title)]">{row.value}</code> {row.useWhen}
+              </p>
+            ))}
+          </div>
+        </div>
+        <div data-create-reveal className="rounded-[5.5px] border border-[color:var(--hairline)] p-5">
+          <FieldLabel>Cumulus DB</FieldLabel>
+          <div className="mt-4 space-y-4">
+            {cumulusDbRows.map((row) => (
+              <p key={row.value} className="text-sm leading-7 text-[color:var(--subtitle)]">
+                <code className="font-mono text-[color:var(--title)]">{row.value}</code> {row.meaning}
+              </p>
+            ))}
+          </div>
         </div>
       </section>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-[5.5px] border border-white/10 bg-[color:var(--glass-bg-subtle)] p-6 shadow-[var(--glass-shadow-e1)] backdrop-blur-[12px]">
-          <Terminal className="mb-3 size-5 text-[color:var(--neon-green)]" />
-          <h2 className="mb-2 text-sm font-medium tracking-tight text-[color:var(--title)]">Sessions</h2>
-          <p className="text-sm leading-relaxed text-[color:var(--muted)]">
-            Each terminal session exposes an inbox and log. Use <code className="text-[color:var(--subtitle)]">tado-list</code> to discover active sessions on the canvas.
-          </p>
+      <section data-create-section className="rounded-[5.5px] border border-[color:var(--hairline)] p-5">
+        <FieldLabel>Examples</FieldLabel>
+        <div className="mt-4 grid gap-3">
+          {createExamples.map((example) => (
+            <code
+              key={example}
+              data-create-command
+              data-create-reveal
+              className="block overflow-x-auto rounded-[5.5px] border border-[color:var(--hairline)] bg-black px-4 py-3 font-mono text-sm leading-7 text-[color:var(--color-paper)]"
+            >
+              {example}
+            </code>
+          ))}
         </div>
-        <div className="rounded-[5.5px] border border-white/10 bg-[color:var(--glass-bg-subtle)] p-6 shadow-[var(--glass-shadow-e1)] backdrop-blur-[12px]">
-          <MessageSquare className="mb-3 size-5 text-[color:var(--neon-green)]" />
-          <h2 className="mb-2 text-sm font-medium tracking-tight text-[color:var(--title)]">Messaging</h2>
-          <p className="text-sm leading-relaxed text-[color:var(--muted)]">
-            Send typed input to any session with <code className="text-[color:var(--subtitle)]">tado-send</code>. Target by UUID, grid coordinates, or name substring.
-          </p>
-        </div>
-        <div className="rounded-[5.5px] border border-white/10 bg-[color:var(--glass-bg-subtle)] p-6 shadow-[var(--glass-shadow-e1)] backdrop-blur-[12px]">
-          <Cpu className="mb-3 size-5 text-[color:var(--neon-green)]" />
-          <h2 className="mb-2 text-sm font-medium tracking-tight text-[color:var(--title)]">Orchestration</h2>
-          <p className="text-sm leading-relaxed text-[color:var(--muted)]">
-            Spawn specialized agents with <code className="text-[color:var(--subtitle)]">tado-spawn</code> and read their output with <code className="text-[color:var(--subtitle)]">tado-read</code>. File-based IPC keeps it simple.
-          </p>
-        </div>
-      </div>
-    </div>
+        <p className="mt-5 text-sm leading-7 text-[color:var(--subtitle)]">
+          Defaults: full template, hosted auth, npm, no install, and no git init.
+        </p>
+      </section>
+    </main>
+    </CumulusCreateMotion>
   );
 }

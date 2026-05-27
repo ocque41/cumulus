@@ -1,32 +1,29 @@
 # Terminal Site
 
 The terminal site is a small public npm package in `packages/terminal-site`.
-It gives Cumulus a website people can open from a terminal.
+It gives Cumulus a terminal view focused on Cumulus DB.
+
 The interactive frame uses ASCII Cumulus branding, a horizontal page link row,
-and a Tado mark on the `/tado` page.
+and plain setup copy for the local database path.
 
-The TUI also advertises `create-cumulus`, the public package for creating a new
-Relay/Cumulus app. The Documents page is the terminal version of the package
-guide.
+## Cumulus DB From The TUI
 
-## create-cumulus From The TUI
-
-The TUI home page shows the fastest project-start commands:
+The TUI home page shows the fastest local commands:
 
 ```bash
-npx create-cumulus@latest my-acme
-npm create cumulus@latest my-acme
-npx create-cumulus@latest my-acme --template full --agent-auth hosted
+npm run db:build
+npm run db:start
+npm run db:cli -- help
 ```
 
 The Documents page covers:
 
-- templates: `full`, `outer`, `inner`, and `agent-auth`,
-- agent auth modes: `hosted` and `self-hosted`,
-- Cumulus DB modes: `cloud`, `local`, and `both`,
-- non-interactive flags,
-- local Cumulus DB scripts,
-- license boundaries for generated projects.
+- Cumulus DB records, key-value state, events, and system workflows,
+- local JSONL and PostgreSQL runtime paths,
+- dashboard connection values,
+- environment variables,
+- license boundaries,
+- public safety checks.
 
 ## User Command
 
@@ -36,25 +33,18 @@ From npm, users can run:
 npx cumulush
 ```
 
-They can open a specific page:
+They can view a specific page:
 
 ```bash
 npx cumulush /documents
-npx cumulush /relay
-npx cumulush /tado
-npx cumulush /rune
-npx cumulush /cumulus/rune
 npx cumulush /contact
 ```
 
 ## Pages
 
-- `/` is the detailed Cumulus home page.
-- `/documents` explains how to install and use `create-cumulus`.
-- `/relay` explains agent-safe SaaS onboarding.
-- `/tado` explains the AI agent terminal canvas.
-- `/rune` explains the automation engine story.
-- `/contact` accepts a message and opens a local email draft to
+- `/` is the Cumulus DB home page.
+- `/documents` explains how to run and connect Cumulus DB.
+- `/contact` accepts a message and creates a local email draft to
   `hi@cumulush.com`.
 
 ## Contact Behavior
@@ -82,7 +72,7 @@ npm run terminal
 Run a plain non-interactive render:
 
 ```bash
-npm run terminal -- /relay --plain
+npm run terminal -- /documents --plain
 ```
 
 Run tests:

@@ -2,9 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { AuthForm } from "@/components/auth/auth-form";
+import { CREATE_SHORT_COMMAND } from "@/lib/cumulus-create";
 
 type AuthMode = "login" | "signup" | "forgot-password";
 type SearchParamValue = string | string[] | undefined;
+const darkLogo = "/create/darkmode.png";
 
 function resolveInitialTab(mode: string | null): AuthMode {
   if (mode === "signup" || mode === "forgot-password") {
@@ -27,9 +29,9 @@ function getSingleSearchParam(value: SearchParamValue): string | null {
 }
 
 const experimentalApps = [
-  "Rune for autonomous workflows",
-  "Notes for lightweight capture",
-  "Hub for switching across surfaces",
+  "Choose a template",
+  "Pick hosted or self-hosted Relay",
+  "Add Cumulus DB and Knowledge",
 ];
 
 export default async function LoginPage({
@@ -46,31 +48,33 @@ export default async function LoginPage({
       <section className="flex min-h-[40vh] flex-col justify-between rounded-[5.5px] border border-white/10 bg-[color:var(--glass-bg-standard)] p-6 shadow-[var(--glass-shadow-e3)] backdrop-blur-[18px] sm:p-8 lg:min-h-[calc(100vh-7rem)] lg:p-10">
         <div className="space-y-8">
           <div className="space-y-5">
-            <Link href="/" className="inline-flex items-center gap-3" aria-label="Tado home">
+            <Link href="/" className="inline-flex items-center gap-3" aria-label="Cumulus home">
               <Image
-                src="/Logo-256.png"
-                alt="Tado logo"
-                width={72}
-                height={72}
-                className="h-14 w-14 object-contain brightness-110 contrast-125"
+                src={darkLogo}
+                alt="Cumulus"
+                width={1122}
+                height={1402}
+                className="h-14 w-14 rounded-[5.5px] object-cover"
                 priority
               />
-              <span className="[font-family:var(--type-brand-family)] text-xl tracking-[0.2em] text-[color:var(--title)]">
-                Tado
+              <span className="[font-family:var(--type-brand-family)] text-xl text-[color:var(--title)]">
+                Cumulus
               </span>
             </Link>
 
             <div className="space-y-4">
-              <p className="w-fit rounded-full border border-white/10 px-3 py-1 text-[0.68rem] uppercase tracking-[0.2em] text-[color:var(--muted)]">
+              <p className="w-fit rounded-full border border-white/10 px-3 py-1 text-[0.68rem] uppercase text-[color:var(--muted)]">
                 Account Access
               </p>
-              <h1 className="max-w-[10ch] text-[clamp(3.5rem,8vw,7.5rem)] leading-[0.86] tracking-[-0.1em] text-[color:var(--title)] [font-family:var(--type-title-family)] [font-weight:var(--type-title-weight)]">
-                Sign in to Tado.
+              <h1 className="max-w-[10ch] text-[clamp(3.5rem,8vw,7.5rem)] leading-[0.86] text-[color:var(--title)] [font-family:var(--type-title-family)] [font-weight:var(--type-title-weight)]">
+                Sign in to Cumulus.
               </h1>
               <p className="max-w-[58ch] text-[1.05rem] leading-[1.7] text-[color:var(--subtitle)]">
-                Tado is the agent workspace. Spawn, message, and orchestrate agents across terminal sessions from a single canvas.
-                Use one account to access the dashboard and manage your multi-agent workflows.
+                Cumulus Create builds a ready app from one command.
               </p>
+              <code className="block w-fit max-w-full overflow-x-auto rounded-[5.5px] border border-white/10 bg-black px-3 py-2 font-mono text-sm text-[color:var(--color-paper)]">
+                {CREATE_SHORT_COMMAND}
+              </code>
             </div>
           </div>
 
@@ -88,19 +92,15 @@ export default async function LoginPage({
 
         <div className="grid gap-4 border-t border-white/10 pt-6 sm:grid-cols-2">
           <div>
-            <p className="text-[0.7rem] uppercase tracking-[0.2em] text-[color:var(--muted)]">Local-first model</p>
+            <p className="text-[0.7rem] uppercase text-[color:var(--muted)]">Create command</p>
             <p className="mt-2 text-sm leading-[1.7] text-[color:var(--text)]">
-              Human notes, agent notes, runs, and calendar state stay readable and explicit.
+              Build the command from the dashboard, then run it in your terminal.
             </p>
           </div>
           <div>
-            <p className="text-[0.7rem] uppercase tracking-[0.2em] text-[color:var(--muted)]">Need product help?</p>
+            <p className="text-[0.7rem] uppercase text-[color:var(--muted)]">Start fast</p>
             <p className="mt-2 text-sm leading-[1.7] text-[color:var(--text)]">
-              Cumulus still ships the product. If you need custom work, use{" "}
-              <Link href="/contact" className="text-[color:var(--title)] underline underline-offset-4">
-                contact
-              </Link>
-              .
+              Use defaults for full, hosted, npm, no install, and no git init.
             </p>
           </div>
         </div>

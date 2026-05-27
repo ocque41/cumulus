@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { createServer } from 'node:http';
+import { createRequire } from 'node:module';
 import { createServer as createNetServer } from 'node:net';
 import { access, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -11,11 +12,30 @@ import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../config.js';
 import { createHandler } from '../http.js';
 import { PostgresCumulusDbEngine } from '../postgres-engine.js';
+import {
+  compileDatabaseManifest,
+  createDatabaseApproval,
+  createDatabasePlan,
+  databaseStateToIr,
+  normalizeDatabaseState,
+  type DatabaseTarget,
+  type NimbusDatabaseManifest,
+} from '../database-transaction.js';
 
 interface TemporaryPostgres {
   url: string;
   stop(): Promise<void>;
 }
+
+interface TestPgPool {
+  query<T = Record<string, unknown>>(text: string, values?: unknown[]): Promise<{ rows: T[] }>;
+  end(): Promise<void>;
+}
+
+const require = createRequire(import.meta.url);
+const { Pool: TestPgPoolCtor } = require('pg') as {
+  Pool: new (config: { connectionString: string }) => TestPgPool;
+};
 
 const initialSource = `
 namespace pgtest {
@@ -137,6 +157,15 @@ async function withTemporaryPostgres(fn: (postgres: TemporaryPostgres) => Promis
   }
 }
 
+async function withPostgresQuery<T>(url: string, fn: (pool: TestPgPool) => Promise<T>): Promise<T> {
+  const pool = new TestPgPoolCtor({ connectionString: url });
+  try {
+    return await fn(pool);
+  } finally {
+    await pool.end();
+  }
+}
+
 describe('PostgresCumulusDbEngine', () => {
   it('passes core storage and system conformance', async () => {
     await withTemporaryPostgres(async (postgres) => {
@@ -202,6 +231,125 @@ describe('PostgresCumulusDbEngine', () => {
         });
         expect((await engine.getSystemState(created.manifest.id)).schema.live?.spec.collections[0]?.fields.status).toBeTruthy();
         expect((await engine.listAudit(created.manifest.id)).some((event) => JSON.stringify(event).includes('system.schema_revert'))).toBe(true);
+      } finally {
+        await engine.destroyAllForTests().catch(() => undefined);
+      }
+    });
+  }, 120_000);
+
+  it('applies a Nimbus database plan against live Postgres', async () => {
+    await withTemporaryPostgres(async (postgres) => {
+      const engine = new PostgresCumulusDbEngine({
+        connectionString: postgres.url,
+        autoMigrate: true,
+        masterKey: Buffer.alloc(32, 13),
+      });
+      try {
+        await engine.ensureRoot();
+        const target: DatabaseTarget = { engine: 'postgres', database: 'app', environment: 'dev' };
+        const currentState = await engine.inspectDatabaseState(target, { schemas: ['public'] });
+        const manifest: NimbusDatabaseManifest = {
+          apiVersion: 'nimbus.db/v0.1',
+          kind: 'DatabaseManifest',
+          metadata: { name: 'live-postgres-plan' },
+          target,
+          resources: {
+            schemas: [{ name: 'public' }],
+            tables: [
+              {
+                schema: 'public',
+                name: 'nimbus_users',
+                columns: [
+                  { name: 'id', type: 'uuid', primaryKey: true },
+                  { name: 'email', type: 'text', nullable: true },
+                ],
+                indexes: [{ name: 'nimbus_users_email_idx', columns: ['email'] }],
+              },
+            ],
+          },
+        };
+        const plan = createDatabasePlan({ ir: compileDatabaseManifest(manifest), currentState });
+        const applied = await engine.applyDatabasePlan({ plan, currentState });
+        const liveState = await engine.inspectDatabaseState(target, { schemas: ['public'] });
+
+        expect(plan.steps.map((step) => step.op)).toEqual(['create_table', 'add_index']);
+        expect(applied.state.fingerprint).toBe(liveState.fingerprint);
+        expect(liveState.tables.find((table) => table.name === 'nimbus_users')?.indexes[0]?.name).toBe('nimbus_users_email_idx');
+
+        const destructiveManifest: NimbusDatabaseManifest = {
+          ...manifest,
+          resources: {
+            schemas: [{ name: 'public' }],
+            tables: [
+              {
+                schema: 'public',
+                name: 'nimbus_users',
+                columns: [
+                  { name: 'id', type: 'uuid', primaryKey: true },
+                ],
+              },
+            ],
+          },
+        };
+        const destructivePlan = createDatabasePlan({ ir: compileDatabaseManifest(destructiveManifest), currentState: liveState });
+        const destructiveApproval = createDatabaseApproval(destructivePlan, {
+          principalId: 'postgres-test',
+          reason: 'Drop email column for restore fixture',
+        });
+        const destructiveApply = await engine.applyDatabasePlan({
+          plan: destructivePlan,
+          currentState: liveState,
+          approval: destructiveApproval,
+          actor: { principalId: 'postgres-test', kind: 'system' },
+        });
+        expect(destructiveApply.snapshot?.stateFingerprint).toBe(liveState.fingerprint);
+        const restore = await engine.restoreDatabaseSnapshot({
+          snapshot: destructiveApply.snapshot!,
+          actor: { principalId: 'postgres-test', kind: 'system' },
+        });
+        const restoredLiveState = await engine.inspectDatabaseState(target, { schemas: ['public'] });
+        expect(restore.apply.state.fingerprint).toBe(destructiveApply.snapshot!.stateFingerprint);
+        expect(restoredLiveState.fingerprint).toBe(destructiveApply.snapshot!.stateFingerprint);
+        expect(restore.apply.audit.map((event) => event.eventType)).toContain('revert.completed');
+
+        await withPostgresQuery(postgres.url, async (pool) => {
+          await pool.query('create table public.dirty_users (id integer, email text)');
+          await pool.query("insert into public.dirty_users (id, email) values (1, 'dupe@example.com'), (2, 'dupe@example.com')");
+        });
+        const dirtyState = await engine.inspectDatabaseState(target, { schemas: ['public'] });
+        const desiredUniqueState = normalizeDatabaseState({
+          ...dirtyState,
+          tables: dirtyState.tables.map((table) =>
+            table.name === 'dirty_users'
+              ? {
+                  ...table,
+                  columns: table.columns.map((column) =>
+                    column.name === 'email'
+                      ? { ...column, unique: true }
+                      : column,
+                  ),
+                }
+              : table,
+          ),
+        });
+        const uniquePlan = createDatabasePlan({
+          ir: databaseStateToIr(desiredUniqueState, { name: 'dirty-unique-preflight' }),
+          currentState: dirtyState,
+        });
+        const uniqueApproval = createDatabaseApproval(uniquePlan, {
+          principalId: 'postgres-test',
+          reason: 'Validate dirty unique preflight',
+        });
+        expect(uniquePlan.summary.highestRisk).toBe('R3_DATA_DEPENDENT');
+        expect(uniquePlan.steps.map((step) => step.op)).toContain('add_unique_constraint');
+        await expect(
+          engine.applyDatabasePlan({
+            plan: uniquePlan,
+            currentState: dirtyState,
+            approval: uniqueApproval,
+            actor: { principalId: 'postgres-test', kind: 'system' },
+          }),
+        ).rejects.toThrow('PREFLIGHT_UNIQUE_VIOLATION');
       } finally {
         await engine.destroyAllForTests().catch(() => undefined);
       }

@@ -2,7 +2,7 @@ export type MarketLocale = 'en' | 'es';
 
 export type CurrencyCode = 'USD' | 'EUR' | 'GBP';
 
-export type PlanKey = 'pro_monthly';
+export type PlanKey = 'cumulus_db_free';
 
 export type CheckoutMode = 'payment' | 'subscription' | 'contact';
 
@@ -21,7 +21,7 @@ export type PlanDefinition = {
 };
 
 export type MarketingProductBrief = {
-  product: 'rune' | 'enterprise' | 'blocks' | 'hub' | 'notes';
+  product: 'cumulus-db';
   status: 'active' | 'building' | 'coming-soon';
   title: LocalizedText;
   oneLiner: LocalizedText;
@@ -42,8 +42,8 @@ export type MarketingHomeContent = {
   federationDescription: LocalizedText;
   flowTitle: LocalizedText;
   flowDescription: LocalizedText;
-  trustTitle: LocalizedText;
-  trustDescription: LocalizedText;
+  accessTitle: LocalizedText;
+  accessDescription: LocalizedText;
   pricingBridgeTitle: LocalizedText;
   pricingBridgeDescription: LocalizedText;
   pricingBridgeCta: LocalizedText;
@@ -66,7 +66,7 @@ export type SelectorPersona = {
   id: 'operator' | 'client-services' | 'field-admin' | 'founder';
   label: LocalizedText;
   description: LocalizedText;
-  recommendedProducts: Array<'rune' | 'enterprise' | 'blocks' | 'hub' | 'notes'>;
+  recommendedProducts: Array<'cumulus-db'>;
 };
 
 export type DailyFlowStep = {

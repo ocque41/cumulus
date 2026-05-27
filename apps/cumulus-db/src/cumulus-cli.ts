@@ -145,6 +145,121 @@ export async function runCumulusCli(argv = process.argv.slice(2), io: CumulusCli
       return 0;
     }
 
+    if ((area === 'database' || area === 'dbtx') && action === 'compile') {
+      const result = await requestJson(context, '/v1/database/manifests:compile', {
+        method: 'POST',
+        auth: true,
+        body: {
+          dbId: requireDbId(context),
+          manifest: readRequiredJson(context, option(parsed.options, 'manifest') ?? option(parsed.options, 'file'), 'manifest'),
+        },
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
+    if ((area === 'database' || area === 'dbtx') && action === 'plan') {
+      const result = await requestJson(context, '/v1/database/plans', {
+        method: 'POST',
+        auth: true,
+        body: {
+          dbId: requireDbId(context),
+          manifest: option(parsed.options, 'manifest') || option(parsed.options, 'file')
+            ? readRequiredJson(context, option(parsed.options, 'manifest') ?? option(parsed.options, 'file'), 'manifest')
+            : undefined,
+          ir: option(parsed.options, 'ir')
+            ? readRequiredJson(context, option(parsed.options, 'ir'), 'ir')
+            : undefined,
+          currentState: readOptionalJson(context, option(parsed.options, 'state') ?? option(parsed.options, 'current-state'), 'state'),
+        },
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
+    if ((area === 'database' || area === 'dbtx') && (action === 'get-plan' || action === 'show-plan')) {
+      const planId = requiredOption(parsed.options, 'plan-id');
+      const search = new URLSearchParams({ dbId: requireDbId(context) });
+      const result = await requestJson(context, `/v1/database/plans/${encodeURIComponent(planId)}?${search.toString()}`, {
+        method: 'GET',
+        auth: true,
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
+    if ((area === 'database' || area === 'dbtx') && (action === 'approve' || action === 'approval')) {
+      const result = await requestJson(context, '/v1/database/plans:approve', {
+        method: 'POST',
+        auth: true,
+        body: {
+          dbId: requireDbId(context),
+          planId: requiredOption(parsed.options, 'plan-id'),
+          reason: requiredOption(parsed.options, 'reason'),
+          principalId: option(parsed.options, 'principal-id'),
+        },
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
+    if ((area === 'database' || area === 'dbtx') && action === 'apply') {
+      const result = await requestJson(context, '/v1/database/plans:apply', {
+        method: 'POST',
+        auth: true,
+        body: {
+          dbId: requireDbId(context),
+          planId: requiredOption(parsed.options, 'plan-id'),
+          currentState: readOptionalJson(context, option(parsed.options, 'state') ?? option(parsed.options, 'current-state'), 'state'),
+          approvalId: option(parsed.options, 'approval-id'),
+        },
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
+    if ((area === 'database' || area === 'dbtx') && (action === 'restore' || action === 'restore-snapshot')) {
+      const result = await requestJson(context, '/v1/database/snapshots:restore', {
+        method: 'POST',
+        auth: true,
+        body: {
+          dbId: requireDbId(context),
+          snapshot: readRequiredJson(context, option(parsed.options, 'snapshot'), 'snapshot'),
+        },
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
+    if ((area === 'database' || area === 'dbtx') && (action === 'audit' || action === 'audit-events')) {
+      const search = new URLSearchParams({ dbId: requireDbId(context) });
+      const planId = option(parsed.options, 'plan-id');
+      const eventType = option(parsed.options, 'event-type');
+      const limit = option(parsed.options, 'limit');
+      if (planId) search.set('planId', planId);
+      if (eventType) search.set('eventType', eventType);
+      if (limit) search.set('limit', limit);
+      const result = await requestJson(context, `/v1/database/audit?${search.toString()}`, {
+        method: 'GET',
+        auth: true,
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
+    if ((area === 'database' || area === 'dbtx') && (action === 'audit-verify' || action === 'verify-audit')) {
+      const result = await requestJson(context, '/v1/database/audit:verify', {
+        method: 'POST',
+        auth: true,
+        body: {
+          dbId: requireDbId(context),
+          audit: readRequiredJson(context, option(parsed.options, 'audit'), 'audit'),
+        },
+      });
+      writeJson(stdout, result);
+      return 0;
+    }
+
     if (area === 'system' && action === 'grants' && (subaction === 'ls' || subaction === 'list')) {
       const principalId = option(parsed.options, 'principal-id');
       const search = new URLSearchParams({ dbId: requireDbId(context) });
@@ -341,6 +456,21 @@ function readRequiredFile(context: CliContext, file: string | undefined): string
   return context.readFile(absolute);
 }
 
+function readRequiredJson(context: CliContext, file: string | undefined, label: string): unknown {
+  if (!file) throw new Error(`--${label} is required`);
+  const absolute = isAbsolute(file) ? resolve(file) : resolve(context.cwd, file);
+  try {
+    return JSON.parse(context.readFile(absolute)) as unknown;
+  } catch (error) {
+    throw new Error(`unable to read ${label} JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function readOptionalJson(context: CliContext, file: string | undefined, label: string): unknown | undefined {
+  if (!file) return undefined;
+  return readRequiredJson(context, file, label);
+}
+
 function writeJson(stdout: (text: string) => void, body: unknown): void {
   stdout(`${JSON.stringify(body, null, 2)}\n`);
 }
@@ -357,6 +487,14 @@ function usage(): string {
   cumulus db apply --db-id <id> --token <token> --plan-id <id> [--approval-token <token>]
   cumulus db snapshot --db-id <id> --token <token> [--kind manual]
   cumulus db revert --db-id <id> --token <token> (--version-id <id> | --snapshot-id <id>) --approval-token <token>
+  cumulus database compile --db-id <id> --token <token> --manifest manifest.json
+  cumulus database plan --db-id <id> --token <token> (--manifest manifest.json | --ir ir.json) [--state state.json]
+  cumulus database get-plan --db-id <id> --token <token> --plan-id <id>
+  cumulus database approve --db-id <id> --token <token> --plan-id <id> --reason <text>
+  cumulus database apply --db-id <id> --token <token> --plan-id <id> [--state state.json] [--approval-id <id>]
+  cumulus database restore --db-id <id> --token <token> --snapshot snapshot.json
+  cumulus database audit --db-id <id> --token <token> [--plan-id <id>] [--event-type apply.completed]
+  cumulus database audit-verify --db-id <id> --token <token> --audit audit.json
   cumulus system grants ls --db-id <id> --token <token> [--principal-id <id>]
   cumulus system grants set --db-id <id> --token <token> --principal-id <id> --grant system:read
   cumulus audit tail --db-id <id> --token <token> [--limit 50]

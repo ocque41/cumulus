@@ -21,6 +21,7 @@ import {
 import {
   DEFAULT_AGENT_SYSTEM_SCOPES,
   buildSchemaPlan,
+  ensureDatabaseTransactionState,
   isHardSystemScope,
   newSystemState,
   normalizeTokenScopes,
@@ -974,7 +975,10 @@ export class CumulusDbEngine {
 
   private async readSystemState(dbId: string): Promise<SystemState> {
     const existing = await readJson<SystemState | null>(this.systemStatePath(dbId), null);
-    if (existing) return existing;
+    if (existing) {
+      ensureDatabaseTransactionState(existing);
+      return existing;
+    }
     const manifest = await this.getManifest(dbId);
     const state = newSystemState({
       dbId,

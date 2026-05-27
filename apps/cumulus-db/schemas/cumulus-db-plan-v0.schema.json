@@ -1,0 +1,413 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cumulus.sh/cumulus-db-plan/v0.schema.json",
+  "type": "object",
+  "required": [
+    "planId",
+    "planVersion",
+    "manifestHash",
+    "irHash",
+    "target",
+    "currentStateFingerprint",
+    "riskPolicyVersion",
+    "steps",
+    "summary",
+    "planHash"
+  ],
+  "properties": {
+    "planId": {
+      "type": "string",
+      "pattern": "^plan_[A-Za-z0-9]+$"
+    },
+    "planVersion": {
+      "const": "cumulus.plan/v0.1"
+    },
+    "manifestHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "irHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "engine",
+        "database"
+      ],
+      "properties": {
+        "engine": {
+          "const": "postgres"
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "currentStateFingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "riskPolicyVersion": {
+      "const": "risk.policy/v0.1"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stepId",
+          "op",
+          "object",
+          "sql",
+          "risk"
+        ],
+        "properties": {
+          "stepId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "op": {
+            "enum": [
+              "noop",
+              "create_schema",
+              "create_table",
+              "add_column",
+              "alter_column_nullable",
+              "alter_column_type",
+              "add_index",
+              "add_unique_constraint",
+              "drop_index",
+              "drop_column",
+              "drop_table",
+              "rename_column",
+              "rename_table",
+              "raw_sql_blocked_by_default"
+            ]
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sql": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "risk": {
+            "type": "object",
+            "required": [
+              "level",
+              "categories",
+              "requiresApproval",
+              "snapshotRequired",
+              "reason"
+            ],
+            "properties": {
+              "level": {
+                "enum": [
+                  "R0_NOOP",
+                  "R1_SAFE_ADDITIVE",
+                  "R2_OPERATIONAL",
+                  "R3_DATA_DEPENDENT",
+                  "R4_BACKWARD_INCOMPATIBLE",
+                  "R5_DESTRUCTIVE",
+                  "R6_IRREVERSIBLE_OR_UNKNOWN"
+                ]
+              },
+              "categories": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "requiresApproval": {
+                "type": "boolean"
+              },
+              "snapshotRequired": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "details": {
+            "type": "object",
+            "properties": {
+              "table": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "schema",
+                  "name",
+                  "columns",
+                  "indexes"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "schema": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "renameFrom": {
+                    "type": "object",
+                    "required": [
+                      "schema",
+                      "name"
+                    ],
+                    "properties": {
+                      "schema": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "type",
+                        "nullable",
+                        "primaryKey",
+                        "unique",
+                        "default"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "renameFrom": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "type": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "nullable": {
+                          "type": "boolean"
+                        },
+                        "primaryKey": {
+                          "type": "boolean"
+                        },
+                        "unique": {
+                          "type": "boolean"
+                        },
+                        "default": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "indexes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "columns",
+                        "unique"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "columns": {
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "unique": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "column": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "name",
+                  "type",
+                  "nullable",
+                  "primaryKey",
+                  "unique",
+                  "default"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "renameFrom": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "type": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "nullable": {
+                    "type": "boolean"
+                  },
+                  "primaryKey": {
+                    "type": "boolean"
+                  },
+                  "unique": {
+                    "type": "boolean"
+                  },
+                  "default": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "index": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "name",
+                  "columns",
+                  "unique"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "columns": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "unique": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "creates",
+        "updates",
+        "drops",
+        "destructive",
+        "highestRisk",
+        "approvalRequired",
+        "snapshotRequired"
+      ],
+      "properties": {
+        "creates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "drops": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "destructive": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "highestRisk": {
+          "enum": [
+            "R0_NOOP",
+            "R1_SAFE_ADDITIVE",
+            "R2_OPERATIONAL",
+            "R3_DATA_DEPENDENT",
+            "R4_BACKWARD_INCOMPATIBLE",
+            "R5_DESTRUCTIVE",
+            "R6_IRREVERSIBLE_OR_UNKNOWN"
+          ]
+        },
+        "approvalRequired": {
+          "type": "boolean"
+        },
+        "snapshotRequired": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "planHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "additionalProperties": false
+}

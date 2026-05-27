@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createHash, randomUUID } from 'node:crypto';
+import type {
+  CumulusDatabaseState,
+  CumulusDatabasePlan,
+  DatabaseApplyRun,
+  DatabaseApprovalRecord,
+  DatabaseAuditEvent,
+  DatabaseSnapshot,
+} from './database-transaction.js';
 import { canonicalStringify, type NimbusIr } from './nimbus.js';
 import type { TokenScope } from './types.js';
 
@@ -100,6 +108,26 @@ export interface SystemSnapshotRecord {
   metadata: Record<string, unknown>;
 }
 
+export interface DatabaseTransactionPlanRecord {
+  plan: CumulusDatabasePlan;
+  currentState: CumulusDatabaseState;
+  status: 'planned' | 'applied' | 'rejected';
+  createdAt: string;
+  appliedAt: string | null;
+  snapshotId: string | null;
+  applyRunId: string | null;
+}
+
+export interface DatabaseTransactionState {
+  currentState: CumulusDatabaseState | null;
+  currentStateFingerprint: string | null;
+  plans: DatabaseTransactionPlanRecord[];
+  approvals: Array<DatabaseApprovalRecord & { usedAt: string | null }>;
+  snapshots: DatabaseSnapshot[];
+  applyRuns: DatabaseApplyRun[];
+  audit: DatabaseAuditEvent[];
+}
+
 export interface SystemState {
   version: 1;
   org: {
@@ -122,6 +150,7 @@ export interface SystemState {
     versions: SchemaVersionRecord[];
     snapshots: SystemSnapshotRecord[];
   };
+  databaseTransactions: DatabaseTransactionState;
 }
 
 export const LEGACY_TOKEN_SCOPES: TokenScope[] = [
@@ -275,7 +304,36 @@ export function newSystemState(input: {
       versions: [],
       snapshots: [],
     },
+    databaseTransactions: emptyDatabaseTransactionState(),
   };
+}
+
+export function emptyDatabaseTransactionState(): DatabaseTransactionState {
+  return {
+    currentState: null,
+    currentStateFingerprint: null,
+    plans: [],
+    approvals: [],
+    snapshots: [],
+    applyRuns: [],
+    audit: [],
+  };
+}
+
+export function ensureDatabaseTransactionState(state: SystemState): DatabaseTransactionState {
+  const current = (state as SystemState & { databaseTransactions?: DatabaseTransactionState }).databaseTransactions;
+  if (current) {
+    current.plans ??= [];
+    current.approvals ??= [];
+    current.snapshots ??= [];
+    current.applyRuns ??= [];
+    current.audit ??= [];
+    current.currentState ??= null;
+    current.currentStateFingerprint ??= current.currentState?.fingerprint ?? null;
+    return current;
+  }
+  state.databaseTransactions = emptyDatabaseTransactionState();
+  return state.databaseTransactions;
 }
 
 export function humanPrincipalId(email: string): string {

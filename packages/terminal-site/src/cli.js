@@ -42,10 +42,9 @@ function helpText() {
     "Routes:",
     ...pages.map((page) => `  ${page.route.padEnd(12)} ${page.title}`),
     "  /docs        alias for /documents",
-    "  /cumulus/rune alias for /rune",
     "",
     "Controls:",
-    "  1-6, left/right, [ ]  change page",
+    "  1-3, left/right, [ ]  change page",
     "  up/down, j/k          scroll",
     "  g / G                 top / bottom",
     "  r                     redraw",
@@ -127,7 +126,7 @@ export async function runCli(args, streams = {}) {
     }
 
     const result = openMailDraft(message, { dryRun: options.dryRunEmail });
-    state.status = result.command === "dry-run" ? "Email draft ready (dry run)." : "Email draft opened.";
+    state.status = result.command === "dry-run" ? "Email draft ready (dry run)." : "Email draft ready.";
     state.contactInput = "";
     draw();
   };
@@ -163,7 +162,7 @@ export async function runCli(args, streams = {}) {
       return;
     }
 
-    if (/^[1-6]$/.test(character ?? "")) {
+    if (/^[1-3]$/.test(character ?? "")) {
       select(Number(character) - 1);
       return;
     }

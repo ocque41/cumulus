@@ -6,6 +6,22 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createHandler } from '../http.js';
 import { CumulusDbEngine } from '../storage.js';
+import {
+  appendDatabaseAuditEvent,
+  createDatabaseApproval,
+  createDatabaseRestorePlan,
+  executeDatabasePlan,
+  normalizeDatabaseState,
+  verifyDatabaseAuditChain,
+  type CumulusDatabasePlan,
+  type CumulusDatabaseState,
+  type DatabaseApplyResult,
+  type DatabaseAuditEvent,
+  type DatabaseApprovalRecord,
+  type DatabaseRestoreResult,
+  type DatabaseSnapshot,
+  type DatabaseTarget,
+} from '../database-transaction.js';
 import type { CumulusDbConfig } from '../config.js';
 import type { RecordType } from '../types.js';
 
@@ -15,7 +31,7 @@ afterEach(async () => {
   for (const fn of cleanup.splice(0)) await fn();
 });
 
-async function testServer() {
+async function testServer(createEngine?: (dataDir: string, masterKey: Buffer) => CumulusDbEngine) {
   const dataDir = await mkdtemp(join(tmpdir(), 'cumulus-db-http-'));
   const config: CumulusDbConfig = {
     engine: 'jsonl',
@@ -29,7 +45,7 @@ async function testServer() {
     postgres: { url: null, ssl: false, autoMigrate: false },
     embeddings: { baseUrl: null, apiKey: null, model: null },
   };
-  const engine = new CumulusDbEngine(dataDir, config.masterKey);
+  const engine = createEngine ? createEngine(dataDir, config.masterKey) : new CumulusDbEngine(dataDir, config.masterKey);
   const server = createServer(createHandler(engine, config));
   const baseUrl = await new Promise<URL>((resolve) => {
     server.listen(0, '127.0.0.1', () => {
@@ -41,6 +57,85 @@ async function testServer() {
   cleanup.push(() => new Promise<void>((resolve) => server.close(() => resolve())));
   cleanup.push(() => engine.destroyAllForTests());
   return { baseUrl, engine };
+}
+
+class InspectingCumulusDbEngine extends CumulusDbEngine {
+  inspectCalls: Array<{ target: DatabaseTarget; schemas?: string[] }> = [];
+
+  constructor(
+    dataDir: string,
+    masterKey: Buffer,
+    private readonly inspectedState: CumulusDatabaseState,
+  ) {
+    super(dataDir, masterKey);
+  }
+
+  async inspectDatabaseState(target: DatabaseTarget, options: { schemas?: string[] } = {}): Promise<CumulusDatabaseState> {
+    this.inspectCalls.push({ target, schemas: options.schemas });
+    return this.inspectedState;
+  }
+}
+
+class ApplyingCumulusDbEngine extends InspectingCumulusDbEngine {
+  applyCalls = 0;
+
+  async applyDatabasePlan(input: {
+    plan: CumulusDatabasePlan;
+    currentState: CumulusDatabaseState;
+    approval?: DatabaseApprovalRecord;
+    actor?: { principalId: string; kind: 'human' | 'agent' | 'system' };
+    snapshotReason?: DatabaseSnapshot['reason'];
+    initialAudit?: DatabaseRestoreResult['apply']['audit'];
+  }): Promise<DatabaseApplyResult> {
+    this.applyCalls += 1;
+    return executeDatabasePlan(input);
+  }
+}
+
+class RestoringCumulusDbEngine extends ApplyingCumulusDbEngine {
+  restoreCalls = 0;
+
+  async restoreDatabaseSnapshot(input: {
+    snapshot: DatabaseSnapshot;
+    actor?: { principalId: string; kind: 'human' | 'agent' | 'system' };
+  }): Promise<DatabaseRestoreResult> {
+    this.restoreCalls += 1;
+    const currentState = await this.inspectDatabaseState(input.snapshot.target, {
+      schemas: input.snapshot.state.schemas.map((schema) => schema.name),
+    });
+    const plan = createDatabaseRestorePlan({ snapshot: input.snapshot, currentState });
+    const actor = input.actor ?? { principalId: 'system', kind: 'system' };
+    const approval = createDatabaseApproval(plan, {
+      principalId: actor.principalId,
+      type: actor.kind,
+      scopes: ['cumulus.plan.read', 'cumulus.apply', 'cumulus.approve.destructive'],
+      reason: 'Restore fixture snapshot',
+    });
+    const initialAudit: DatabaseRestoreResult['apply']['audit'] = [];
+    appendDatabaseAuditEvent(initialAudit, {
+      eventType: 'revert.requested',
+      actor,
+      target: input.snapshot.target,
+      subject: { snapshotId: input.snapshot.snapshotId, restorePlanId: plan.planId },
+      timestamp: '2026-05-23T12:00:00.000Z',
+    });
+    const apply = await this.applyDatabasePlan({
+      plan,
+      currentState,
+      approval,
+      actor,
+      initialAudit,
+      snapshotReason: 'revert_point',
+    });
+    appendDatabaseAuditEvent(apply.audit, {
+      eventType: 'revert.completed',
+      actor,
+      target: input.snapshot.target,
+      subject: { snapshotId: input.snapshot.snapshotId, restorePlanId: plan.planId },
+      timestamp: apply.applyRun.completedAt,
+    });
+    return { snapshot: input.snapshot, currentState, plan, approval, apply };
+  }
 }
 
 describe('HTTP API', () => {
@@ -169,14 +264,26 @@ describe('HTTP API', () => {
     expect(manifest.status).toBe(200);
     const manifestBody = (await manifest.json()) as {
       tools: string[];
-      toolSchemas: Array<{ name: string; inputSchema: { required: string[] }; dryRunFirst?: boolean }>;
+      toolSchemas: Array<{
+        name: string;
+        inputSchema: { required: string[] };
+        dryRunFirst?: boolean;
+        annotations: { readOnlyHint: boolean; destructiveHint: boolean; idempotentHint: boolean };
+      }>;
     };
     expect(manifestBody.tools).toContain('cumulus_db_put_kv');
     expect(manifestBody.tools).toContain('cumulus_db_get_kv');
     expect(manifestBody.tools).toContain('cumulus_db_reveal_secret');
     expect(manifestBody.tools).toContain('cumulus.plan_schema');
+    expect(manifestBody.tools).toContain('cumulus.compile_manifest');
+    expect(manifestBody.tools).toContain('cumulus.get_plan');
+    expect(manifestBody.tools).toContain('cumulus.apply_plan');
+    expect(manifestBody.tools).toContain('cumulus.get_audit_events');
     expect(manifestBody.tools).toContain('cumulus.rotate_self_token');
     expect(manifestBody.toolSchemas.find((tool) => tool.name === 'cumulus.apply_schema')?.dryRunFirst).toBe(true);
+    expect(manifestBody.toolSchemas.find((tool) => tool.name === 'cumulus.apply_plan')?.dryRunFirst).toBe(true);
+    expect(manifestBody.toolSchemas.find((tool) => tool.name === 'cumulus.get_audit_events')?.annotations.readOnlyHint).toBe(true);
+    expect(manifestBody.toolSchemas.find((tool) => tool.name === 'cumulus.apply_plan')?.annotations.destructiveHint).toBe(true);
     expect(manifestBody.toolSchemas.find((tool) => tool.name === 'cumulus_db_put_kv')?.inputSchema.required).toEqual([
       'database_id',
       'token',
@@ -232,6 +339,156 @@ describe('HTTP API', () => {
     const revealBody = (await reveal.json()) as { result: { value: string } };
     expect(revealBody.result.value).toBe('demo-secret-not-real');
 
+    const nimbusManifest = {
+      apiVersion: 'nimbus.db/v0.1',
+      kind: 'DatabaseManifest',
+      metadata: { name: 'mcp-audit-fixture' },
+      target: { engine: 'postgres', database: 'app', environment: 'dev' },
+      resources: {
+        schemas: [{ name: 'public' }],
+        tables: [
+          {
+            schema: 'public',
+            name: 'events',
+            columns: [{ name: 'id', type: 'uuid', primaryKey: true }],
+          },
+        ],
+      },
+    };
+    const currentState = normalizeDatabaseState({
+      target: { engine: 'postgres', database: 'app', environment: 'dev' },
+      schemas: [{ id: 'schema.public', name: 'public' }],
+      tables: [],
+    });
+    const createSnapshot = await fetch(new URL('/mcp', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: 'cumulus.create_snapshot',
+        arguments: {
+          database_id: created.manifest.id,
+          token: created.adminToken.token,
+          target: currentState.target,
+          current_state: currentState,
+          reason: 'manual',
+        },
+      }),
+    });
+    expect(createSnapshot.status).toBe(200);
+    const createSnapshotBody = (await createSnapshot.json()) as { result: { snapshotId: string; stateFingerprint: string } };
+    expect(createSnapshotBody.result.snapshotId).toMatch(/^snap_/);
+    expect(createSnapshotBody.result.stateFingerprint).toBe(currentState.fingerprint);
+
+    const compile = await fetch(new URL('/mcp', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: 'cumulus.compile_manifest',
+        arguments: {
+          database_id: created.manifest.id,
+          token: created.adminToken.token,
+          manifest: nimbusManifest,
+        },
+      }),
+    });
+    expect(compile.status).toBe(200);
+    const compileBody = (await compile.json()) as { result: { hash: string } };
+
+    const createPlan = await fetch(new URL('/mcp', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: 'cumulus.create_plan',
+        arguments: {
+          database_id: created.manifest.id,
+          token: created.adminToken.token,
+          ir: compileBody.result,
+          current_state: currentState,
+        },
+      }),
+    });
+    expect(createPlan.status).toBe(200);
+    const createPlanBody = (await createPlan.json()) as { result: { planId: string; planHash: string } };
+
+    const getPlan = await fetch(new URL('/mcp', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: 'cumulus.get_plan',
+        arguments: {
+          database_id: created.manifest.id,
+          token: created.adminToken.token,
+          plan_id: createPlanBody.result.planId,
+        },
+      }),
+    });
+    expect(getPlan.status).toBe(200);
+    const getPlanBody = (await getPlan.json()) as { result: { plan: { planHash: string } } };
+    expect(getPlanBody.result.plan.planHash).toBe(createPlanBody.result.planHash);
+
+    const classify = await fetch(new URL('/mcp', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: 'cumulus.classify_risk',
+        arguments: {
+          database_id: created.manifest.id,
+          token: created.adminToken.token,
+          plan_id: createPlanBody.result.planId,
+        },
+      }),
+    });
+    expect(classify.status).toBe(200);
+
+    const approve = await fetch(new URL('/mcp', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: 'cumulus.request_approval',
+        arguments: {
+          database_id: created.manifest.id,
+          token: created.adminToken.token,
+          plan_id: createPlanBody.result.planId,
+          reason: 'MCP approval audit fixture',
+        },
+      }),
+    });
+    expect(approve.status).toBe(200);
+
+    const auditEvents = await fetch(new URL('/mcp', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: 'cumulus.get_audit_events',
+        arguments: {
+          database_id: created.manifest.id,
+          token: created.adminToken.token,
+          plan_id: createPlanBody.result.planId,
+        },
+      }),
+    });
+    expect(auditEvents.status).toBe(200);
+    const auditEventsBody = (await auditEvents.json()) as { result: { audit: DatabaseAuditEvent[]; ok: boolean } };
+    expect(auditEventsBody.result.ok).toBe(true);
+    expect(auditEventsBody.result.audit.map((event) => event.eventType)).toContain('plan.approved');
+
+    const stateResponse = await fetch(new URL(`/v1/system/state?dbId=${created.manifest.id}`, baseUrl), {
+      headers: { Authorization: `Bearer ${created.adminToken.token}` },
+    });
+    expect(stateResponse.status).toBe(200);
+    const stateBody = (await stateResponse.json()) as { system: { databaseTransactions: { audit: DatabaseAuditEvent[] } } };
+    const mcpEventTypes = stateBody.system.databaseTransactions.audit.map((event) => event.eventType);
+    expect(mcpEventTypes).toEqual(expect.arrayContaining([
+      'manifest.submitted',
+      'manifest.compiled',
+      'state.inspected',
+      'plan.created',
+      'risk.classified',
+      'approval.requested',
+      'plan.approved',
+    ]));
+    expect(verifyDatabaseAuditChain(stateBody.system.databaseTransactions.audit)).toBe(true);
+
     const missing = await fetch(new URL('/mcp', baseUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -278,6 +535,365 @@ describe('HTTP API', () => {
     expect(allowed.status).toBe(201);
     const allowedBody = (await allowed.json()) as { token: { token: string } };
     expect(allowedBody.token.token).toMatch(/^cu_pat_v1_/);
+  });
+
+  it('exposes the Nimbus database transaction lifecycle over HTTP', async () => {
+    const { baseUrl, engine } = await testServer();
+    const created = await engine.createWorkspace({ ownerAgentId: 'agent-1', humanOwnerEmail: 'owner@example.com' });
+    const operator = await engine.createToken(created.manifest.id, 'database transaction operator', [
+      'schema:plan',
+      'member:approve',
+      'schema:apply_safe',
+      'schema:apply_destructive',
+      'schema:revert_local',
+      'audit:read',
+      'backup:create',
+      'system:read',
+    ]);
+    const headers = {
+      Authorization: `Bearer ${operator.token}`,
+      'Content-Type': 'application/json',
+    };
+    const manifest = {
+      apiVersion: 'nimbus.db/v0.1',
+      kind: 'DatabaseManifest',
+      metadata: { name: 'customer-core', workspace: 'demo' },
+      target: { engine: 'postgres', database: 'app', environment: 'dev' },
+      resources: {
+        schemas: [{ name: 'public' }],
+        tables: [
+          {
+            schema: 'public',
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'uuid', primaryKey: true },
+              { name: 'email', type: 'text', nullable: false, unique: true },
+              { name: 'display_name', type: 'text', nullable: true },
+            ],
+          },
+        ],
+      },
+      policies: { destructiveChanges: 'require_approval', snapshotBefore: ['destructive', 'irreversible', 'high'] },
+    };
+    const currentState = normalizeDatabaseState({
+      target: { engine: 'postgres', database: 'app', environment: 'dev' },
+      schemas: [{ id: 'schema.public', name: 'public' }],
+      tables: [
+        {
+          id: 'table.public.users',
+          schema: 'public',
+          name: 'users',
+          columns: [
+            { id: 'column.public.users.id', name: 'id', type: 'uuid', nullable: false, primaryKey: true, unique: false, default: null },
+            { id: 'column.public.users.email', name: 'email', type: 'text', nullable: false, primaryKey: false, unique: true, default: null },
+            { id: 'column.public.users.legacy_code', name: 'legacy_code', type: 'text', nullable: true, primaryKey: false, unique: false, default: null },
+          ],
+          indexes: [],
+        },
+      ],
+    });
+
+    const manualSnapshot = await fetch(new URL('/v1/database/snapshots', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        dbId: created.manifest.id,
+        target: currentState.target,
+        currentState,
+        reason: 'manual',
+      }),
+    });
+    expect(manualSnapshot.status).toBe(201);
+    const manualSnapshotBody = (await manualSnapshot.json()) as { snapshot: { snapshotId: string; stateFingerprint: string } };
+    expect(manualSnapshotBody.snapshot.snapshotId).toMatch(/^snap_/);
+    expect(manualSnapshotBody.snapshot.stateFingerprint).toBe(currentState.fingerprint);
+
+    const compile = await fetch(new URL('/v1/database/manifests:compile', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, manifest }),
+    });
+    expect(compile.status).toBe(200);
+    const compileBody = (await compile.json()) as { ir: { hash: string } };
+    expect(compileBody.ir.hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+
+    const planResponse = await fetch(new URL('/v1/database/plans', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, ir: compileBody.ir, currentState }),
+    });
+    expect(planResponse.status).toBe(200);
+    const planBody = (await planResponse.json()) as { plan: { planId: string; summary: { highestRisk: string }; steps: Array<{ op: string }>; planHash: string } };
+    expect(planBody.plan.summary.highestRisk).toBe('R5_DESTRUCTIVE');
+    expect(planBody.plan.steps.map((step) => step.op)).toEqual(['add_column', 'drop_column']);
+
+    const getPlanResponse = await fetch(new URL(`/v1/database/plans/${planBody.plan.planId}?dbId=${created.manifest.id}`, baseUrl), { headers });
+    expect(getPlanResponse.status).toBe(200);
+    const getPlanBody = (await getPlanResponse.json()) as { plan: { planHash: string }; status: string };
+    expect(getPlanBody.plan.planHash).toBe(planBody.plan.planHash);
+    expect(getPlanBody.status).toBe('planned');
+
+    const classified = await fetch(new URL('/mcp', baseUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tool: 'cumulus.classify_risk',
+        arguments: {
+          database_id: created.manifest.id,
+          token: operator.token,
+          plan_id: planBody.plan.planId,
+        },
+      }),
+    });
+    expect(classified.status).toBe(200);
+
+    const rejectedApply = await fetch(new URL('/v1/database/plans:apply', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, planId: planBody.plan.planId, currentState }),
+    });
+    expect(rejectedApply.status).toBe(400);
+    expect(((await rejectedApply.json()) as { error: string }).error).toContain('APPROVAL_REQUIRED');
+
+    const approval = await fetch(new URL('/v1/database/plans:approve', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, planId: planBody.plan.planId, reason: 'Approved for dev fixture reset' }),
+    });
+    expect(approval.status).toBe(201);
+    const approvalBody = (await approval.json()) as { approval: { approvalId: string; planHash: string } };
+    expect(approvalBody.approval.planHash).toBe(planBody.plan.planHash);
+
+    const applied = await fetch(new URL('/v1/database/plans:apply', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        dbId: created.manifest.id,
+        planId: planBody.plan.planId,
+        currentState,
+        approvalId: approvalBody.approval.approvalId,
+      }),
+    });
+    expect(applied.status).toBe(200);
+    const appliedBody = (await applied.json()) as {
+      apply: {
+        state: { tables: Array<{ columns: Array<{ name: string }> }> };
+        snapshot: { stateFingerprint: string };
+        audit: unknown[];
+      };
+    };
+    expect(appliedBody.apply.state.tables[0]?.columns.map((column) => column.name).sort()).toEqual(['display_name', 'email', 'id']);
+    expect(appliedBody.apply.snapshot.stateFingerprint).toBe(currentState.fingerprint);
+
+    const stateResponse = await fetch(new URL(`/v1/system/state?dbId=${created.manifest.id}`, baseUrl), { headers });
+    const stateBody = (await stateResponse.json()) as {
+      system: {
+        databaseTransactions: {
+          plans: Array<{ status: string; plan: { planId: string } }>;
+          approvals: Array<{ approvalId: string; usedAt: string | null }>;
+          applyRuns: Array<{ status: string; error?: { code: string } }>;
+          audit: DatabaseAuditEvent[];
+        };
+      };
+    };
+    expect(stateBody.system.databaseTransactions.plans.find((item) => item.plan.planId === planBody.plan.planId)?.status).toBe('applied');
+    expect(stateBody.system.databaseTransactions.approvals.find((item) => item.approvalId === approvalBody.approval.approvalId)?.usedAt).toBeTruthy();
+    expect(stateBody.system.databaseTransactions.applyRuns.some((run) => run.status === 'failed' && run.error?.code === 'APPROVAL_REQUIRED')).toBe(true);
+    const eventTypes = stateBody.system.databaseTransactions.audit.map((event) => event.eventType);
+    expect(eventTypes).toEqual(expect.arrayContaining([
+      'manifest.submitted',
+      'manifest.compiled',
+      'state.inspected',
+      'plan.created',
+      'risk.classified',
+      'approval.requested',
+      'plan.approved',
+      'apply.failed',
+      'snapshot.created',
+      'apply.completed',
+    ]));
+    expect(verifyDatabaseAuditChain(stateBody.system.databaseTransactions.audit)).toBe(true);
+
+    const auditResponse = await fetch(new URL(`/v1/database/audit?dbId=${created.manifest.id}&planId=${planBody.plan.planId}`, baseUrl), { headers });
+    expect(auditResponse.status).toBe(200);
+    const auditBody = (await auditResponse.json()) as { audit: DatabaseAuditEvent[]; ok: boolean };
+    expect(auditBody.ok).toBe(true);
+    expect(auditBody.audit.map((event) => event.eventType)).toEqual(expect.arrayContaining(['plan.created', 'plan.approved', 'apply.completed']));
+
+    const restore = await fetch(new URL('/v1/database/snapshots:restore', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, snapshot: appliedBody.apply.snapshot }),
+    });
+    expect(restore.status).toBe(200);
+    const restoreBody = (await restore.json()) as { state: { tables: Array<{ columns: Array<{ name: string }> }> } };
+    expect(restoreBody.state.tables[0]?.columns.map((column) => column.name).sort()).toEqual(['email', 'id', 'legacy_code']);
+
+    const auditVerify = await fetch(new URL('/v1/database/audit:verify', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, audit: appliedBody.apply.audit }),
+    });
+    expect(auditVerify.status).toBe(200);
+    expect(await auditVerify.json()).toEqual({ ok: true });
+  });
+
+  it('uses live database inspection when currentState is omitted', async () => {
+    const inspectedState = normalizeDatabaseState({
+      target: { engine: 'postgres', database: 'app', environment: 'dev' },
+      schemas: [{ id: 'schema.public', name: 'public' }],
+      tables: [
+        {
+          id: 'table.public.users',
+          schema: 'public',
+          name: 'users',
+          columns: [
+            { id: 'column.public.users.id', name: 'id', type: 'uuid', nullable: false, primaryKey: true, unique: false, default: null },
+          ],
+          indexes: [],
+        },
+      ],
+    });
+    const { baseUrl, engine } = await testServer((dataDir, masterKey) => new ApplyingCumulusDbEngine(dataDir, masterKey, inspectedState));
+    const inspectingEngine = engine as ApplyingCumulusDbEngine;
+    const created = await engine.createWorkspace({ ownerAgentId: 'agent-1' });
+    const operator = await engine.createToken(created.manifest.id, 'database transaction operator', [
+      'schema:plan',
+      'schema:apply_safe',
+      'system:read',
+    ]);
+    const headers = {
+      Authorization: `Bearer ${operator.token}`,
+      'Content-Type': 'application/json',
+    };
+    const manifest = {
+      apiVersion: 'nimbus.db/v0.1',
+      kind: 'DatabaseManifest',
+      metadata: { name: 'customer-core' },
+      target: { engine: 'postgres', database: 'app', environment: 'dev' },
+      resources: {
+        schemas: [{ name: 'public' }],
+        tables: [
+          {
+            schema: 'public',
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'uuid', primaryKey: true },
+              { name: 'display_name', type: 'text', nullable: true },
+            ],
+          },
+        ],
+      },
+    };
+
+    const planResponse = await fetch(new URL('/v1/database/plans', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, manifest }),
+    });
+    expect(planResponse.status).toBe(200);
+    const planBody = (await planResponse.json()) as { plan: { planId: string; steps: Array<{ op: string }> } };
+    expect(planBody.plan.steps.map((step) => step.op)).toEqual(['add_column']);
+    expect(inspectingEngine.inspectCalls[0]).toMatchObject({
+      target: { engine: 'postgres', database: 'app', environment: 'dev' },
+      schemas: ['public'],
+    });
+
+    const applied = await fetch(new URL('/v1/database/plans:apply', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, planId: planBody.plan.planId }),
+    });
+    expect(applied.status).toBe(200);
+    const appliedBody = (await applied.json()) as { apply: { state: { tables: Array<{ columns: Array<{ name: string }> }> } } };
+    expect(appliedBody.apply.state.tables[0]?.columns.map((column) => column.name).sort()).toEqual(['display_name', 'id']);
+    expect(inspectingEngine.inspectCalls).toHaveLength(2);
+    expect(inspectingEngine.applyCalls).toBe(1);
+  });
+
+  it('persists engine-backed database snapshot restores', async () => {
+    const currentState = normalizeDatabaseState({
+      target: { engine: 'postgres', database: 'app', environment: 'dev' },
+      schemas: [{ id: 'schema.public', name: 'public' }],
+      tables: [
+        {
+          id: 'table.public.users',
+          schema: 'public',
+          name: 'users',
+          columns: [
+            { id: 'column.public.users.id', name: 'id', type: 'uuid', nullable: false, primaryKey: true, unique: false, default: null },
+            { id: 'column.public.users.display_name', name: 'display_name', type: 'text', nullable: true, primaryKey: false, unique: false, default: null },
+          ],
+          indexes: [],
+        },
+      ],
+    });
+    const snapshotState = normalizeDatabaseState({
+      target: { engine: 'postgres', database: 'app', environment: 'dev' },
+      schemas: [{ id: 'schema.public', name: 'public' }],
+      tables: [
+        {
+          id: 'table.public.users',
+          schema: 'public',
+          name: 'users',
+          columns: [
+            { id: 'column.public.users.id', name: 'id', type: 'uuid', nullable: false, primaryKey: true, unique: false, default: null },
+          ],
+          indexes: [],
+        },
+      ],
+    });
+    const snapshot: DatabaseSnapshot = {
+      snapshotId: 'snap_restorefixture',
+      target: snapshotState.target,
+      provider: 'postgres.logical_state.v0',
+      reason: 'pre_destructive_apply',
+      planId: 'plan_original',
+      createdAt: '2026-05-23T12:00:00.000Z',
+      verified: true,
+      stateFingerprint: snapshotState.fingerprint,
+      state: snapshotState,
+    };
+    const { baseUrl, engine } = await testServer((dataDir, masterKey) => new RestoringCumulusDbEngine(dataDir, masterKey, currentState));
+    const restoringEngine = engine as RestoringCumulusDbEngine;
+    const created = await engine.createWorkspace({ ownerAgentId: 'agent-1' });
+    const operator = await engine.createToken(created.manifest.id, 'database restore operator', [
+      'schema:revert_local',
+      'system:read',
+    ]);
+    const headers = {
+      Authorization: `Bearer ${operator.token}`,
+      'Content-Type': 'application/json',
+    };
+
+    const restore = await fetch(new URL('/v1/database/snapshots:restore', baseUrl), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ dbId: created.manifest.id, snapshot }),
+    });
+
+    expect(restore.status).toBe(200);
+    const restoreBody = (await restore.json()) as { state: { fingerprint: string; tables: Array<{ columns: Array<{ name: string }> }> } };
+    expect(restoreBody.state.fingerprint).toBe(snapshotState.fingerprint);
+    expect(restoreBody.state.tables[0]?.columns.map((column) => column.name)).toEqual(['id']);
+    expect(restoringEngine.restoreCalls).toBe(1);
+
+    const stateResponse = await fetch(new URL(`/v1/system/state?dbId=${created.manifest.id}`, baseUrl), { headers });
+    const stateBody = (await stateResponse.json()) as {
+      system: {
+        databaseTransactions: {
+          currentStateFingerprint: string;
+          plans: Array<{ status: string }>;
+          approvals: Array<{ usedAt: string | null }>;
+          audit: DatabaseAuditEvent[];
+        };
+      };
+    };
+    expect(stateBody.system.databaseTransactions.currentStateFingerprint).toBe(snapshotState.fingerprint);
+    expect(stateBody.system.databaseTransactions.plans.at(-1)?.status).toBe('applied');
+    expect(stateBody.system.databaseTransactions.approvals.at(-1)?.usedAt).toBeTruthy();
+    expect(stateBody.system.databaseTransactions.audit.map((event) => event.eventType)).toContain('revert.completed');
+    expect(verifyDatabaseAuditChain(stateBody.system.databaseTransactions.audit)).toBe(true);
   });
 
   it('exposes system bootstrap and schema lifecycle endpoints with hard scopes', async () => {

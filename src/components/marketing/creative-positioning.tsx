@@ -13,8 +13,8 @@ type CreativePositioningProps = {
 };
 
 const signalChips = {
-  en: ['Plain-language docs', 'Role-based products', 'Daily execution', 'Trust-first status labels'],
-  es: ['Docs en lenguaje claro', 'Productos por rol', 'Ejecucion diaria', 'Etiquetas de estado confiables'],
+  en: ['Plain command', 'Template choices', 'Relay auth', 'Cumulus DB modes'],
+  es: ['Comando claro', 'Opciones template', 'Auth Relay', 'Modos Cumulus DB'],
 };
 
 export function CreativePositioning({ locale, title, body }: CreativePositioningProps) {

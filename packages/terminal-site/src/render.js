@@ -19,19 +19,6 @@ const CUMULUS_MARK = [
   "    . . . . . .",
 ];
 
-const TADO_MARK = [
-  "  +------+",
-  "  |.:.:.|",
-  "  |:.:.:|",
-  "  |.:.:.|",
-  "  |:.:.:|",
-  "  |.:.:.|    +----------+   +----------+   +----------+",
-  "  |:.:.:|    |.:.:.:.:.|   |.:.:.:.:.|   |.:.:.:.:.|",
-  "  |.:.:.|    |:.:.:.:.:|   |:.:.:.:.:|   |:.:.:.:.:|",
-  "  |:.:.:|    |.:.:.:.:.|   |.:.:.:.:.|   |.:.:.:.:.|",
-  "  +------+    +----------+   +----------+   +----------+",
-];
-
 export function stripAnsi(value) {
   return String(value).replace(/\x1b\[[0-9;]*m/g, "");
 }
@@ -51,13 +38,6 @@ function truncate(value, width) {
   const plain = stripAnsi(input);
   if (width <= 1) return plain.slice(0, width);
   return `${plain.slice(0, width - 1)}>`;
-}
-
-function center(value, width) {
-  const length = visibleLength(value);
-  if (length >= width) return value;
-  const left = Math.floor((width - length) / 2);
-  return `${" ".repeat(left)}${value}`;
 }
 
 export function wrapText(text, width) {
@@ -99,15 +79,6 @@ function renderCumulusLogo(width) {
     const mark = colorCumulusMark(padRight(line, markWidth));
     return index === wordLine ? `${mark}    ${word}` : mark;
   });
-}
-
-function renderTadoLogo(width) {
-  const markWidth = Math.max(...TADO_MARK.map((line) => line.length));
-  const lines = [];
-  for (const line of TADO_MARK) {
-    lines.push(`${MUTED}${truncate(center(padRight(line, markWidth), width), width)}${RESET}`);
-  }
-  return lines;
 }
 
 function sectionLines(section, width) {
@@ -155,10 +126,6 @@ export function pageLines(page, width) {
   const contentWidth = Math.max(24, width);
   const lines = [];
 
-  if (page.id === "tado") {
-    lines.push(...renderTadoLogo(contentWidth), "");
-  }
-
   lines.push(
     `${TERRACOTTA}${page.kicker.toUpperCase()}${RESET}`,
     `${BOLD}${page.title}${RESET}`,
@@ -173,7 +140,7 @@ export function pageLines(page, width) {
   }
 
   if (page.contact) {
-    lines.push(`${MUTED}Type your message below. Press Enter to open the email draft.${RESET}`);
+    lines.push(`${MUTED}Type your message below. Press Enter to create the email draft.${RESET}`);
   }
 
   return lines;
@@ -258,7 +225,7 @@ export function renderFrame(state, size) {
     const suffix = state.status ? ` ${MUTED}${state.status}${RESET}` : "";
     output.push(`${INK}|${RESET} ${truncate(prompt, width - 4)}${suffix}${" ".repeat(Math.max(0, width - visibleLength(prompt) - visibleLength(stripAnsi(suffix)) - 4))}${INK}|${RESET}`);
   } else {
-    const help = "left/right or [ ] move links | 1-6 jump | up/down scroll | contact Enter opens draft";
+    const help = "left/right or [ ] move links | 1-3 jump | up/down scroll | contact Enter creates draft";
     output.push(`${INK}|${RESET} ${MUTED}${padRight(truncate(help, width - 4), width - 4)}${RESET} ${INK}|${RESET}`);
   }
 

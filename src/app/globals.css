@@ -73,8 +73,8 @@
   --pure-black:     var(--color-ink);
   --pure-white:     var(--color-paper);
 
-  --font-family-sans:  var(--font-display), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
-  --font-family-ui:    var(--font-display), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+  --font-family-sans:  var(--font-body), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+  --font-family-ui:    var(--font-body), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
   --font-family-brand: var(--font-display), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
   --font-family-mono:  var(--font-mono), "SF Mono", ui-monospace, Menlo, Consolas, monospace;
   --font-weight-thin: 100;
@@ -94,9 +94,9 @@
   --type-label-weight: var(--font-weight-regular);
   --type-eyebrow-family: var(--font-family-mono);
   --type-eyebrow-weight: var(--font-weight-semibold);
-  --type-title-family: var(--font-family-sans);
+  --type-title-family: var(--font-display), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
   --type-title-weight: var(--font-weight-light);
-  --type-heading-family: var(--font-family-sans);
+  --type-heading-family: var(--font-display), -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
   --type-heading-weight: var(--font-weight-light);
   --type-brand-family: var(--font-family-mono);
   --type-brand-weight: var(--font-weight-semibold);

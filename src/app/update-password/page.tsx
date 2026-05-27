@@ -10,7 +10,7 @@ export default function UpdatePasswordPage() {
       <div className="space-y-3">
         <p className="text-[0.7rem] uppercase tracking-[0.2em] text-[color:var(--muted)]">Password Reset</p>
         <h1 className="max-w-[12ch] text-[clamp(2.8rem,7vw,5rem)] leading-[0.9] tracking-[-0.08em] text-[color:var(--title)] [font-family:var(--type-title-family)] [font-weight:var(--type-title-weight)]">
-          Set a new Tado password.
+          Set a new Cumulus password.
         </h1>
         <p className="max-w-[52ch] text-sm leading-[1.7] text-[color:var(--subtitle)] sm:text-base">
           Finish the reset, then continue back into the dashboard.

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cumulus.sh/cumulus-db-approval/v0.schema.json",
+  "type": "object",
+  "required": [
+    "approvalId",
+    "planId",
+    "planHash",
+    "decision",
+    "approvedBy",
+    "requiredScopes",
+    "reason",
+    "expiresAt",
+    "createdAt"
+  ],
+  "properties": {
+    "approvalId": {
+      "type": "string",
+      "pattern": "^appr_[A-Za-z0-9]+$"
+    },
+    "planId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "planHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "decision": {
+      "const": "approved"
+    },
+    "approvedBy": {
+      "type": "object",
+      "required": [
+        "principalId",
+        "type"
+      ],
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "human",
+            "agent",
+            "system"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "requiredScopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

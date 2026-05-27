@@ -3,6 +3,28 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { CumulusDbConfig } from './config.js';
 import { parseEnvFile } from './env-parser.js';
+import {
+  appendDatabaseAuditEvent,
+  compileDatabaseManifest,
+  createDatabaseApplyFailure,
+  createDatabaseApproval,
+  createDatabasePlan,
+  createDatabaseSnapshot,
+  executeDatabasePlan,
+  normalizeDatabaseState,
+  restoreDatabaseSnapshot as restoreLogicalDatabaseSnapshot,
+  verifyDatabaseAuditChain,
+  type CumulusDatabasePlan,
+  type CumulusDatabaseState,
+  type DatabaseApplyResult,
+  type DatabaseAuditEvent,
+  type DatabaseApprovalRecord,
+  type DatabaseRestoreResult,
+  type DatabaseSnapshot,
+  type DatabaseTarget,
+  type NimbusDatabaseIr,
+  type NimbusDatabaseManifest,
+} from './database-transaction.js';
 import type { NimbusIr } from './nimbus.js';
 import { LocalOAuthProvider, type OAuthHttpResult } from './oauth.js';
 import { LocalPasskeyStepUpStore } from './passkeys.js';
@@ -12,6 +34,7 @@ import {
   SYSTEM_SCOPE_REGISTRY,
   claimSystemOrg,
   disableSystemAgent,
+  ensureDatabaseTransactionState,
   isHardSystemScope,
   updateSystemPrincipalGrants,
   type PrincipalType,
@@ -119,6 +142,11 @@ interface McpToolContract {
   mode: 'read' | 'write' | 'dry-run' | 'destructive';
   required: string[];
   dryRunFirst?: boolean;
+  annotations: {
+    readOnlyHint: boolean;
+    destructiveHint: boolean;
+    idempotentHint: boolean;
+  };
   inputSchema: {
     type: 'object';
     required: string[];
@@ -141,6 +169,11 @@ function mcpTool(
     mode,
     required,
     ...options,
+    annotations: {
+      readOnlyHint: mode === 'read',
+      destructiveHint: mode === 'destructive',
+      idempotentHint: mode === 'read',
+    },
     inputSchema: {
       type: 'object',
       required,
@@ -203,10 +236,60 @@ const MCP_TOOL_SCHEMAS = [
     source: { type: 'string' },
     desired: { type: 'object' },
   }),
+  mcpTool('cumulus.compile_manifest', 'Compile a Nimbus DB manifest into normalized database IR.', 'read', ['database_id', 'token', 'manifest'], {
+    ...mcpBaseProperties,
+    manifest: { type: 'object' },
+  }),
+  mcpTool('cumulus.create_plan', 'Create an immutable Cumulus database plan from DB IR and current or inspected live state.', 'dry-run', ['database_id', 'token'], {
+    ...mcpBaseProperties,
+    manifest: { type: 'object' },
+    ir: { type: 'object' },
+    current_state: { type: 'object' },
+  }),
+  mcpTool('cumulus.get_plan', 'Read a saved Cumulus database plan and its transaction status.', 'read', ['database_id', 'token', 'plan_id'], {
+    ...mcpBaseProperties,
+    plan_id: { type: 'string' },
+  }),
+  mcpTool('cumulus.classify_risk', 'Read the risk summary for a saved database plan.', 'read', ['database_id', 'token', 'plan_id'], {
+    ...mcpBaseProperties,
+    plan_id: { type: 'string' },
+  }),
+  mcpTool('cumulus.request_database_approval', 'Create a plan-hash-bound approval record for a saved database plan.', 'write', ['database_id', 'token', 'plan_id', 'reason'], {
+    ...mcpBaseProperties,
+    plan_id: { type: 'string' },
+    reason: { type: 'string' },
+  }),
+  mcpTool('cumulus.apply_plan', 'Apply a saved database plan against the current fingerprinted or inspected live state.', 'destructive', ['database_id', 'token', 'plan_id'], {
+    ...mcpBaseProperties,
+    plan_id: { type: 'string' },
+    current_state: { type: 'object' },
+    approval_id: { type: 'string' },
+  }, { dryRunFirst: true }),
+  mcpTool('cumulus.restore_snapshot', 'Restore a logical database snapshot into state output.', 'destructive', ['database_id', 'token'], {
+    ...mcpBaseProperties,
+    snapshot: { type: 'object' },
+    snapshot_id: { type: 'string' },
+  }, { dryRunFirst: true }),
+  mcpTool('cumulus.revert', 'Restore a saved or supplied logical database snapshot.', 'destructive', ['database_id', 'token'], {
+    ...mcpBaseProperties,
+    snapshot: { type: 'object' },
+    snapshot_id: { type: 'string' },
+  }, { dryRunFirst: true }),
+  mcpTool('cumulus.verify_audit_chain', 'Verify a hash-chained database audit event list.', 'read', ['database_id', 'token', 'audit'], {
+    ...mcpBaseProperties,
+    audit: { type: 'array', items: { type: 'object' } },
+  }),
+  mcpTool('cumulus.get_audit_events', 'Read persisted Cumulus database transaction audit events.', 'read', ['database_id', 'token'], {
+    ...mcpBaseProperties,
+    plan_id: { type: 'string' },
+    event_type: { type: 'string' },
+    limit: { type: 'number' },
+  }),
   mcpTool('cumulus.read_system_state', 'Read public-safe system state.', 'read', ['database_id', 'token'], mcpBaseProperties),
   mcpTool('cumulus.request_approval', 'Request a short-lived approval token.', 'write', ['database_id', 'token'], {
     ...mcpBaseProperties,
     plan_id: { type: 'string' },
+    reason: { type: 'string' },
     kind: { type: 'string' },
     version_id: { type: 'string' },
     snapshot_id: { type: 'string' },
@@ -216,7 +299,14 @@ const MCP_TOOL_SCHEMAS = [
     plan_id: { type: 'string' },
     approval_token: { type: 'string' },
   }, { dryRunFirst: true }),
-  mcpTool('cumulus.create_snapshot', 'Create a provider-managed logical snapshot.', 'write', ['database_id', 'token'], mcpBaseProperties),
+  mcpTool('cumulus.create_snapshot', 'Create a provider-managed or database logical snapshot.', 'write', ['database_id', 'token'], {
+    ...mcpBaseProperties,
+    target: { type: 'object' },
+    current_state: { type: 'object' },
+    schemas: { type: 'array', items: { type: 'string' } },
+    reason: { type: 'string' },
+    plan_id: { type: 'string' },
+  }),
   mcpTool('cumulus.revert_version', 'Revert schema state to a version or snapshot.', 'destructive', ['database_id', 'token', 'approval_token'], {
     ...mcpBaseProperties,
     version_id: { type: 'string' },
@@ -423,6 +513,374 @@ function recordInput(body: Record<string, unknown>) {
   };
 }
 
+function requiredString(value: unknown, name: string): string {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`${name} is required`);
+  return value;
+}
+
+function objectValue<T extends object>(value: unknown, name: string): T {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${name} must be an object`);
+  }
+  return value as T;
+}
+
+function databaseIrFromBody(body: Record<string, unknown>): NimbusDatabaseIr {
+  if (body.ir) return objectValue<NimbusDatabaseIr>(body.ir, 'ir');
+  return compileDatabaseManifest(objectValue<NimbusDatabaseManifest>(body.manifest, 'manifest'));
+}
+
+interface DatabaseStateInspector {
+  inspectDatabaseState(target: DatabaseTarget, options?: { schemas?: string[] }): Promise<CumulusDatabaseState>;
+}
+
+interface DatabasePlanApplyInput {
+  plan: CumulusDatabasePlan;
+  currentState: CumulusDatabaseState;
+  approval?: DatabaseApprovalRecord;
+  actor?: { principalId: string; kind: 'human' | 'agent' | 'system' };
+}
+
+interface DatabasePlanApplier {
+  applyDatabasePlan(input: DatabasePlanApplyInput): Promise<DatabaseApplyResult>;
+}
+
+interface DatabaseSnapshotRestorer {
+  restoreDatabaseSnapshot(input: {
+    snapshot: DatabaseSnapshot;
+    actor?: { principalId: string; kind: 'human' | 'agent' | 'system' };
+  }): Promise<DatabaseRestoreResult>;
+}
+
+function canInspectDatabaseState(engine: CumulusDbEngine): engine is CumulusDbEngine & DatabaseStateInspector {
+  return typeof (engine as unknown as Partial<DatabaseStateInspector>).inspectDatabaseState === 'function';
+}
+
+function canApplyDatabasePlan(engine: CumulusDbEngine): engine is CumulusDbEngine & DatabasePlanApplier {
+  return typeof (engine as unknown as Partial<DatabasePlanApplier>).applyDatabasePlan === 'function';
+}
+
+function canRestoreDatabaseSnapshot(engine: CumulusDbEngine): engine is CumulusDbEngine & DatabaseSnapshotRestorer {
+  return typeof (engine as unknown as Partial<DatabaseSnapshotRestorer>).restoreDatabaseSnapshot === 'function';
+}
+
+function uniqueSchemas(values: string[]): string[] {
+  const schemas = [...new Set(values.filter(Boolean))].sort();
+  return schemas.length ? schemas : ['public'];
+}
+
+function databaseIrSchemas(ir: NimbusDatabaseIr): string[] {
+  return uniqueSchemas([
+    ...ir.resources.schemas.map((schema) => schema.name),
+    ...ir.resources.tables.map((table) => table.schema),
+  ]);
+}
+
+function planRecordSchemas(planRecord: { currentState: CumulusDatabaseState; plan: { steps: Array<{ op: string; object: string }> } }): string[] {
+  const schemas = planRecord.currentState.schemas.map((schema) => schema.name);
+  for (const step of planRecord.plan.steps) {
+    if (step.op === 'create_schema') {
+      schemas.push(step.object);
+      continue;
+    }
+    const schema = step.object.split('.')[0];
+    if (schema && schema !== 'raw_sql') schemas.push(schema);
+  }
+  return uniqueSchemas(schemas);
+}
+
+async function resolveDatabaseCurrentState(
+  engine: CumulusDbEngine,
+  input: unknown,
+  target: DatabaseTarget,
+  schemas: string[],
+  name: string,
+): Promise<CumulusDatabaseState> {
+  if (input !== undefined && input !== null) {
+    return normalizeDatabaseState(objectValue<CumulusDatabaseState>(input, name));
+  }
+  if (!canInspectDatabaseState(engine)) {
+    throw new Error(`${name} is required unless the engine supports live database inspection`);
+  }
+  return normalizeDatabaseState(await engine.inspectDatabaseState(target, { schemas }));
+}
+
+async function applyDatabasePlan(engine: CumulusDbEngine, input: DatabasePlanApplyInput): Promise<DatabaseApplyResult> {
+  if (canApplyDatabasePlan(engine)) return engine.applyDatabasePlan(input);
+  return executeDatabasePlan(input);
+}
+
+async function recordDatabaseApplyFailure(
+  engine: CumulusDbEngine,
+  dbId: string,
+  state: SystemState,
+  input: {
+    planRecord: ReturnType<typeof ensureDatabaseTransactionState>['plans'][number];
+    currentState: CumulusDatabaseState;
+    error: unknown;
+    actor: { principalId: string; kind: 'human' | 'agent' | 'system' };
+  },
+): Promise<DatabaseApplyResult> {
+  const databaseTransactions = ensureDatabaseTransactionState(state);
+  const failure = createDatabaseApplyFailure({
+    plan: input.planRecord.plan,
+    currentState: input.currentState,
+    error: input.error,
+    actor: input.actor,
+  });
+  input.planRecord.applyRunId = failure.applyRun.applyRunId;
+  databaseTransactions.currentState = failure.state;
+  databaseTransactions.currentStateFingerprint = failure.state.fingerprint;
+  databaseTransactions.applyRuns.push(failure.applyRun);
+  appendDatabaseTransactionAuditEvents(databaseTransactions, failure.audit);
+  await persistDatabaseTransactionState(engine, dbId, state);
+  await writeSystemAudit(engine, dbId, {
+    action: 'database.plan_apply_failed',
+    actor: { type: input.actor.kind, id: input.actor.principalId },
+    target: { type: 'database_plan', id: input.planRecord.plan.planId },
+    metadata: {
+      planHash: input.planRecord.plan.planHash,
+      applyRunId: failure.applyRun.applyRunId,
+      errorCode: failure.applyRun.error?.code,
+      errorMessage: failure.applyRun.error?.message,
+    },
+  });
+  return failure;
+}
+
+async function restoreDatabaseSnapshotForRequest(
+  engine: CumulusDbEngine,
+  input: {
+    snapshot: DatabaseSnapshot;
+    actor?: { principalId: string; kind: 'human' | 'agent' | 'system' };
+  },
+): Promise<{ state: CumulusDatabaseState; restore: DatabaseRestoreResult | null }> {
+  if (!canRestoreDatabaseSnapshot(engine)) {
+    return { state: restoreLogicalDatabaseSnapshot(input.snapshot), restore: null };
+  }
+  const restore = await engine.restoreDatabaseSnapshot(input);
+  return { state: restore.apply.state, restore };
+}
+
+function persistDatabaseRestoreResult(databaseTransactions: ReturnType<typeof ensureDatabaseTransactionState>, restore: DatabaseRestoreResult): void {
+  const appliedAt = restore.apply.applyRun.completedAt;
+  if (!databaseTransactions.snapshots.some((snapshot) => snapshot.snapshotId === restore.snapshot.snapshotId)) {
+    databaseTransactions.snapshots.push(restore.snapshot);
+  }
+  databaseTransactions.plans.push({
+    plan: restore.plan,
+    currentState: restore.currentState,
+    status: 'applied',
+    createdAt: restore.apply.applyRun.startedAt,
+    appliedAt,
+    snapshotId: restore.apply.snapshot?.snapshotId ?? null,
+    applyRunId: restore.apply.applyRun.applyRunId,
+  });
+  databaseTransactions.approvals.push({
+    ...restore.approval,
+    usedAt: appliedAt,
+  });
+  databaseTransactions.currentState = restore.apply.state;
+  databaseTransactions.currentStateFingerprint = restore.apply.state.fingerprint;
+  databaseTransactions.applyRuns.push(restore.apply.applyRun);
+  if (restore.apply.snapshot) databaseTransactions.snapshots.push(restore.apply.snapshot);
+  appendDatabaseTransactionAuditEvents(databaseTransactions, restore.apply.audit);
+}
+
+function appendDatabaseTransactionAuditEvent(
+  databaseTransactions: ReturnType<typeof ensureDatabaseTransactionState>,
+  input: Omit<DatabaseAuditEvent, 'auditId' | 'sequence' | 'prevHash' | 'eventHash'>,
+): void {
+  appendDatabaseAuditEvent(databaseTransactions.audit, input);
+}
+
+function appendDatabaseTransactionAuditEvents(
+  databaseTransactions: ReturnType<typeof ensureDatabaseTransactionState>,
+  events: DatabaseAuditEvent[],
+): void {
+  for (const event of events) {
+    appendDatabaseTransactionAuditEvent(databaseTransactions, {
+      eventType: event.eventType,
+      actor: event.actor,
+      target: event.target,
+      subject: event.subject,
+      ...(event.decision ? { decision: event.decision } : {}),
+      timestamp: event.timestamp,
+    });
+  }
+}
+
+function databaseAuditActorFromToken(token: TokenRecord | null): DatabaseAuditEvent['actor'] {
+  return { principalId: principalKey(token), kind: approvalActorType(token) };
+}
+
+function databaseAuditActorFromApproval(actor: { principalId: string; type: 'human' | 'agent' | 'system' }): DatabaseAuditEvent['actor'] {
+  return { principalId: actor.principalId, kind: actor.type };
+}
+
+function appendDatabaseManifestAuditEvents(
+  databaseTransactions: ReturnType<typeof ensureDatabaseTransactionState>,
+  input: {
+    manifest: NimbusDatabaseManifest;
+    ir: NimbusDatabaseIr;
+    actor: DatabaseAuditEvent['actor'];
+  },
+): void {
+  appendDatabaseTransactionAuditEvent(databaseTransactions, {
+    eventType: 'manifest.submitted',
+    actor: input.actor,
+    target: input.ir.target,
+    subject: { metadata: input.manifest.metadata ?? null },
+    timestamp: new Date().toISOString(),
+  });
+  appendDatabaseTransactionAuditEvent(databaseTransactions, {
+    eventType: 'manifest.compiled',
+    actor: input.actor,
+    target: input.ir.target,
+    subject: { manifestHash: input.ir.manifestHash, irHash: input.ir.hash, metadata: input.ir.metadata ?? null },
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function appendDatabasePlanAuditEvents(
+  databaseTransactions: ReturnType<typeof ensureDatabaseTransactionState>,
+  input: {
+    plan: CumulusDatabasePlan;
+    currentState: CumulusDatabaseState;
+    actor?: DatabaseAuditEvent['actor'];
+  },
+): void {
+  const actor = input.actor ?? { principalId: 'database-planner', kind: 'system' };
+  appendDatabaseTransactionAuditEvent(databaseTransactions, {
+    eventType: 'state.inspected',
+    actor,
+    target: input.plan.target,
+    subject: {
+      stateFingerprint: input.currentState.fingerprint,
+      schemas: input.currentState.schemas.map((schema) => schema.name),
+    },
+    timestamp: new Date().toISOString(),
+  });
+  appendDatabaseTransactionAuditEvent(databaseTransactions, {
+    eventType: 'plan.created',
+    actor,
+    target: input.plan.target,
+    subject: {
+      planId: input.plan.planId,
+      planHash: input.plan.planHash,
+      manifestHash: input.plan.manifestHash,
+      irHash: input.plan.irHash,
+    },
+    timestamp: new Date().toISOString(),
+  });
+  appendDatabaseTransactionAuditEvent(databaseTransactions, {
+    eventType: 'risk.classified',
+    actor,
+    target: input.plan.target,
+    subject: { planId: input.plan.planId, planHash: input.plan.planHash },
+    decision: {
+      creates: input.plan.summary.creates,
+      updates: input.plan.summary.updates,
+      drops: input.plan.summary.drops,
+      destructive: input.plan.summary.destructive,
+      highestRisk: input.plan.summary.highestRisk,
+      approvalRequired: input.plan.summary.approvalRequired,
+      snapshotRequired: input.plan.summary.snapshotRequired,
+    },
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function appendDatabaseApprovalAuditEvents(
+  databaseTransactions: ReturnType<typeof ensureDatabaseTransactionState>,
+  input: {
+    plan: CumulusDatabasePlan;
+    approval: DatabaseApprovalRecord;
+    actor: DatabaseAuditEvent['actor'];
+    reason: string;
+  },
+): void {
+  appendDatabaseTransactionAuditEvent(databaseTransactions, {
+    eventType: 'approval.requested',
+    actor: input.actor,
+    target: input.plan.target,
+    subject: { planId: input.plan.planId, planHash: input.plan.planHash, reason: input.reason },
+    decision: { requiredScopes: input.approval.requiredScopes },
+    timestamp: input.approval.createdAt,
+  });
+  appendDatabaseTransactionAuditEvent(databaseTransactions, {
+    eventType: 'plan.approved',
+    actor: input.actor,
+    target: input.plan.target,
+    subject: {
+      planId: input.plan.planId,
+      planHash: input.plan.planHash,
+      approvalId: input.approval.approvalId,
+    },
+    decision: { expiresAt: input.approval.expiresAt, requiredScopes: input.approval.requiredScopes },
+    timestamp: input.approval.createdAt,
+  });
+}
+
+function filterDatabaseAuditEvents(
+  events: DatabaseAuditEvent[],
+  input: { planId?: string; eventType?: string; limit?: unknown },
+): DatabaseAuditEvent[] {
+  let filtered = events;
+  if (input.planId) {
+    filtered = filtered.filter((event) => event.subject.planId === input.planId || event.subject.restorePlanId === input.planId);
+  }
+  if (input.eventType) {
+    filtered = filtered.filter((event) => event.eventType === input.eventType);
+  }
+  const limit = typeof input.limit === 'number' && Number.isFinite(input.limit) && input.limit > 0 ? Math.floor(input.limit) : null;
+  return limit ? filtered.slice(-limit) : filtered;
+}
+
+function databaseSnapshotFromInput(
+  databaseTransactions: ReturnType<typeof ensureDatabaseTransactionState>,
+  input: { snapshot?: unknown; snapshotId?: unknown },
+): DatabaseSnapshot {
+  if (input.snapshot && typeof input.snapshot === 'object' && !Array.isArray(input.snapshot)) {
+    return objectValue<DatabaseSnapshot>(input.snapshot, 'snapshot');
+  }
+  if (typeof input.snapshotId === 'string' && input.snapshotId) {
+    const snapshot = databaseTransactions.snapshots.find((item) => item.snapshotId === input.snapshotId);
+    if (!snapshot) throw new Error('database snapshot not found');
+    return snapshot;
+  }
+  throw new Error('snapshot or snapshot_id is required');
+}
+
+function databaseSnapshotSchemas(input: unknown): string[] {
+  return Array.isArray(input) ? input.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : [];
+}
+
+function databaseApprovalScopesForToken(token: TokenRecord | null): string[] {
+  const tokenScopes = token?.scopes ?? ['schema:apply_safe', 'schema:apply_destructive', 'database:admin'];
+  const scopes = ['cumulus.plan.read', 'cumulus.apply'];
+  if (tokenScopes.includes('schema:apply_destructive')) scopes.push('cumulus.approve.destructive');
+  if (tokenScopes.includes('database:admin')) scopes.push('cumulus.approve.admin_override');
+  return scopes;
+}
+
+function databaseApprovalActor(token: TokenRecord | null, fallbackId?: string): { principalId: string; type: 'human' | 'agent' | 'system' } {
+  const actorType = approvalActorType(token);
+  return {
+    principalId: fallbackId || principalKey(token),
+    type: actorType,
+  };
+}
+
+async function persistDatabaseTransactionState(
+  engine: CumulusDbEngine,
+  dbId: string,
+  state: SystemState,
+): Promise<void> {
+  ensureDatabaseTransactionState(state);
+  await writeSystemState(engine, dbId, state);
+}
+
 export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) {
   const limiter = new InMemoryRateLimiter();
   const passkeys = new LocalPasskeyStepUpStore();
@@ -486,6 +944,282 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
       if (req.method === 'POST' && url.pathname === '/v1/env/parse') {
         const body = await readJson(req);
         send(res, 200, parseEnvFile(stringValue(body.content)));
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/database/manifests:compile') {
+        const body = await readJson(req);
+        const dbId = requiredString(body.dbId, 'dbId');
+        const caller = await requireDbToken(engine, req, dbId, ['schema:plan']);
+        const manifest = objectValue<NimbusDatabaseManifest>(body.manifest, 'manifest');
+        const ir = compileDatabaseManifest(manifest);
+        const state = await engine.getSystemState(dbId);
+        const databaseTransactions = ensureDatabaseTransactionState(state);
+        appendDatabaseManifestAuditEvents(databaseTransactions, {
+          manifest,
+          ir,
+          actor: databaseAuditActorFromToken(caller),
+        });
+        await persistDatabaseTransactionState(engine, dbId, state);
+        send(res, 200, {
+          ir,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/database/plans') {
+        const body = await readJson(req);
+        const dbId = requiredString(body.dbId, 'dbId');
+        await requireDbToken(engine, req, dbId, ['schema:plan']);
+        const ir = databaseIrFromBody(body);
+        const currentState = await resolveDatabaseCurrentState(engine, body.currentState, ir.target, databaseIrSchemas(ir), 'currentState');
+        const plan = createDatabasePlan({
+          ir,
+          currentState,
+        });
+        const state = await engine.getSystemState(dbId);
+        const databaseTransactions = ensureDatabaseTransactionState(state);
+        databaseTransactions.currentState = currentState;
+        databaseTransactions.currentStateFingerprint = currentState.fingerprint;
+        appendDatabasePlanAuditEvents(databaseTransactions, { plan, currentState });
+        databaseTransactions.plans.push({
+          plan,
+          currentState,
+          status: 'planned',
+          createdAt: new Date().toISOString(),
+          appliedAt: null,
+          snapshotId: null,
+          applyRunId: null,
+        });
+        await persistDatabaseTransactionState(engine, dbId, state);
+        await writeSystemAudit(engine, dbId, {
+          action: 'database.plan_create',
+          actor: { type: 'system', id: 'database-planner' },
+          target: { type: 'database_plan', id: plan.planId },
+          metadata: { planHash: plan.planHash, highestRisk: plan.summary.highestRisk },
+        });
+        send(res, 200, {
+          plan,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/database/plans:approve') {
+        const body = await readJson(req);
+        const dbId = requiredString(body.dbId, 'dbId');
+        const caller = await requireDbToken(engine, req, dbId, ['member:approve']);
+        const state = await engine.getSystemState(dbId);
+        const databaseTransactions = ensureDatabaseTransactionState(state);
+        const planId = requiredString(body.planId, 'planId');
+        const planRecord = databaseTransactions.plans.find((item) => item.plan.planId === planId);
+        if (!planRecord) throw new Error('database plan not found');
+        const actor = databaseApprovalActor(caller, typeof body.principalId === 'string' ? body.principalId : undefined);
+        const approval = {
+          ...createDatabaseApproval(planRecord.plan, {
+            principalId: actor.principalId,
+            type: actor.type,
+            scopes: databaseApprovalScopesForToken(caller),
+            reason: requiredString(body.reason, 'reason'),
+          }),
+            usedAt: null,
+        };
+        appendDatabaseApprovalAuditEvents(databaseTransactions, {
+          plan: planRecord.plan,
+          approval,
+          actor: databaseAuditActorFromApproval(actor),
+          reason: requiredString(body.reason, 'reason'),
+        });
+        databaseTransactions.approvals.push(approval);
+        await persistDatabaseTransactionState(engine, dbId, state);
+        await writeSystemAudit(engine, dbId, {
+          action: 'database.plan_approval_create',
+          actor: { type: actor.type, id: actor.principalId },
+          target: { type: 'database_plan', id: planRecord.plan.planId },
+          metadata: { approvalId: approval.approvalId, planHash: approval.planHash, expiresAt: approval.expiresAt },
+        });
+        send(res, 201, {
+          approval,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/database/plans:apply') {
+        const body = await readJson(req);
+        const dbId = requiredString(body.dbId, 'dbId');
+        const state = await engine.getSystemState(dbId);
+        const databaseTransactions = ensureDatabaseTransactionState(state);
+        const planId = requiredString(body.planId, 'planId');
+        const planRecord = databaseTransactions.plans.find((item) => item.plan.planId === planId);
+        if (!planRecord) throw new Error('database plan not found');
+        if (planRecord.status !== 'planned') throw new Error('database plan is not pending');
+        const plan = planRecord.plan;
+        const requiredScope = plan.summary.highestRisk === 'R0_NOOP' || plan.summary.highestRisk === 'R1_SAFE_ADDITIVE'
+          ? 'schema:apply_safe'
+          : 'schema:apply_destructive';
+        const caller = await requireDbToken(engine, req, dbId, [requiredScope]);
+        const approvalId = typeof body.approvalId === 'string' ? body.approvalId : undefined;
+        const approval = approvalId
+          ? databaseTransactions.approvals.find((item) => item.approvalId === approvalId && item.usedAt === null)
+          : databaseTransactions.approvals.find((item) => item.planId === plan.planId && item.planHash === plan.planHash && item.usedAt === null);
+        const currentState = await resolveDatabaseCurrentState(
+          engine,
+          body.currentState,
+          plan.target,
+          planRecordSchemas(planRecord),
+          'currentState',
+        );
+        const actor = { principalId: principalKey(caller), kind: approvalActorType(caller) } as const;
+        let apply: DatabaseApplyResult;
+        try {
+          apply = await applyDatabasePlan(engine, {
+            plan,
+            currentState,
+            approval,
+            actor,
+          });
+        } catch (error) {
+          await recordDatabaseApplyFailure(engine, dbId, state, {
+            planRecord,
+            currentState,
+            error,
+            actor,
+          });
+          throw error;
+        }
+        const appliedAt = apply.applyRun.completedAt;
+        planRecord.status = 'applied';
+        planRecord.appliedAt = appliedAt;
+        planRecord.applyRunId = apply.applyRun.applyRunId;
+        planRecord.snapshotId = apply.snapshot?.snapshotId ?? null;
+        if (approval) approval.usedAt = appliedAt;
+        databaseTransactions.currentState = apply.state;
+        databaseTransactions.currentStateFingerprint = apply.state.fingerprint;
+        databaseTransactions.applyRuns.push(apply.applyRun);
+        if (apply.snapshot) databaseTransactions.snapshots.push(apply.snapshot);
+        appendDatabaseTransactionAuditEvents(databaseTransactions, apply.audit);
+        await persistDatabaseTransactionState(engine, dbId, state);
+        await writeSystemAudit(engine, dbId, {
+          action: 'database.plan_apply',
+          actor: { type: approvalActorType(caller), id: principalKey(caller) },
+          target: { type: 'database_plan', id: plan.planId },
+          metadata: {
+            planHash: plan.planHash,
+            applyRunId: apply.applyRun.applyRunId,
+            snapshotId: apply.snapshot?.snapshotId ?? null,
+            finalStateFingerprint: apply.state.fingerprint,
+          },
+        });
+        send(res, 200, {
+          apply,
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/database/snapshots') {
+        const body = await readJson(req);
+        const dbId = requiredString(body.dbId, 'dbId');
+        const caller = await requireDbToken(engine, req, dbId, ['backup:create']);
+        const target = objectValue<DatabaseTarget>(body.target, 'target');
+        const currentState = await resolveDatabaseCurrentState(
+          engine,
+          body.currentState,
+          target,
+          databaseSnapshotSchemas(body.schemas),
+          'currentState',
+        );
+        const snapshot = createDatabaseSnapshot(currentState, {
+          reason: body.reason === 'revert_point' || body.reason === 'pre_destructive_apply' ? body.reason : 'manual',
+          planId: typeof body.planId === 'string' ? body.planId : null,
+        });
+        const state = await engine.getSystemState(dbId);
+        const databaseTransactions = ensureDatabaseTransactionState(state);
+        databaseTransactions.currentState = currentState;
+        databaseTransactions.currentStateFingerprint = currentState.fingerprint;
+        databaseTransactions.snapshots.push(snapshot);
+        appendDatabaseTransactionAuditEvent(databaseTransactions, {
+          eventType: 'snapshot.created',
+          actor: databaseAuditActorFromToken(caller),
+          target: snapshot.target,
+          subject: { planId: snapshot.planId, snapshotId: snapshot.snapshotId, stateFingerprint: snapshot.stateFingerprint },
+          timestamp: snapshot.createdAt,
+        });
+        await persistDatabaseTransactionState(engine, dbId, state);
+        send(res, 201, { snapshot });
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/database/snapshots:restore') {
+        const body = await readJson(req);
+        const dbId = requiredString(body.dbId, 'dbId');
+        const caller = await requireDbToken(engine, req, dbId, ['schema:revert_local']);
+        const restore = await restoreDatabaseSnapshotForRequest(engine, {
+          snapshot: objectValue<DatabaseSnapshot>(body.snapshot, 'snapshot'),
+          actor: { principalId: principalKey(caller), kind: approvalActorType(caller) },
+        });
+        if (restore.restore) {
+          const state = await engine.getSystemState(dbId);
+          const databaseTransactions = ensureDatabaseTransactionState(state);
+          persistDatabaseRestoreResult(databaseTransactions, restore.restore);
+          await persistDatabaseTransactionState(engine, dbId, state);
+          await writeSystemAudit(engine, dbId, {
+            action: 'database.snapshot_restore',
+            actor: { type: approvalActorType(caller), id: principalKey(caller) },
+            target: { type: 'database_snapshot', id: restore.restore.snapshot.snapshotId },
+            metadata: {
+              restorePlanId: restore.restore.plan.planId,
+              applyRunId: restore.restore.apply.applyRun.applyRunId,
+              finalStateFingerprint: restore.state.fingerprint,
+            },
+          });
+        }
+        send(res, 200, {
+          state: restore.state,
+        });
+        return;
+      }
+
+      if (req.method === 'GET' && url.pathname.startsWith('/v1/database/plans/')) {
+        const dbId = requiredString(url.searchParams.get('dbId'), 'dbId');
+        await requireDbToken(engine, req, dbId, ['schema:plan']);
+        const planId = decodeURIComponent(url.pathname.slice('/v1/database/plans/'.length));
+        const databaseTransactions = ensureDatabaseTransactionState(await engine.getSystemState(dbId));
+        const planRecord = databaseTransactions.plans.find((item) => item.plan.planId === planId);
+        if (!planRecord) throw new Error('database plan not found');
+        send(res, 200, {
+          plan: planRecord.plan,
+          status: planRecord.status,
+          currentState: planRecord.currentState,
+          createdAt: planRecord.createdAt,
+          appliedAt: planRecord.appliedAt,
+          snapshotId: planRecord.snapshotId,
+          applyRunId: planRecord.applyRunId,
+        });
+        return;
+      }
+
+      if (req.method === 'GET' && url.pathname === '/v1/database/audit') {
+        const dbId = requiredString(url.searchParams.get('dbId'), 'dbId');
+        await requireDbToken(engine, req, dbId, ['audit:read']);
+        const databaseTransactions = ensureDatabaseTransactionState(await engine.getSystemState(dbId));
+        const audit = filterDatabaseAuditEvents(databaseTransactions.audit, {
+          planId: url.searchParams.get('planId') ?? undefined,
+          eventType: url.searchParams.get('eventType') ?? undefined,
+          limit: url.searchParams.has('limit') ? Number(url.searchParams.get('limit')) : undefined,
+        });
+        send(res, 200, {
+          audit,
+          ok: verifyDatabaseAuditChain(databaseTransactions.audit),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/v1/database/audit:verify') {
+        const body = await readJson(req);
+        const dbId = requiredString(body.dbId, 'dbId');
+        await requireDbToken(engine, req, dbId, ['audit:read']);
+        send(res, 200, {
+          ok: verifyDatabaseAuditChain(Array.isArray(body.audit) ? (body.audit as DatabaseAuditEvent[]) : []),
+        });
         return;
       }
 
@@ -1075,13 +1809,261 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
           });
           return;
         }
+        if (tool === 'cumulus.compile_manifest') {
+          const caller = await requireDbToken(engine, fakeReq, dbId, ['schema:plan']);
+          const manifest = objectValue<NimbusDatabaseManifest>(args.manifest, 'manifest');
+          const ir = compileDatabaseManifest(manifest);
+          const state = await engine.getSystemState(dbId);
+          const databaseTransactions = ensureDatabaseTransactionState(state);
+          appendDatabaseManifestAuditEvents(databaseTransactions, {
+            manifest,
+            ir,
+            actor: databaseAuditActorFromToken(caller),
+          });
+          await persistDatabaseTransactionState(engine, dbId, state);
+          send(res, 200, {
+            result: ir,
+          });
+          return;
+        }
+        if (tool === 'cumulus.create_plan') {
+          await requireDbToken(engine, fakeReq, dbId, ['schema:plan']);
+          const ir =
+            args.ir && typeof args.ir === 'object' && !Array.isArray(args.ir)
+              ? (args.ir as NimbusDatabaseIr)
+              : compileDatabaseManifest(objectValue<NimbusDatabaseManifest>(args.manifest, 'manifest'));
+          const currentState = await resolveDatabaseCurrentState(
+            engine,
+            args.current_state ?? args.currentState,
+            ir.target,
+            databaseIrSchemas(ir),
+            'current_state',
+          );
+          const plan = createDatabasePlan({
+            ir,
+            currentState,
+          });
+          const state = await engine.getSystemState(dbId);
+          const databaseTransactions = ensureDatabaseTransactionState(state);
+          databaseTransactions.currentState = currentState;
+          databaseTransactions.currentStateFingerprint = currentState.fingerprint;
+          appendDatabasePlanAuditEvents(databaseTransactions, { plan, currentState });
+          databaseTransactions.plans.push({
+            plan,
+            currentState,
+            status: 'planned',
+            createdAt: new Date().toISOString(),
+            appliedAt: null,
+            snapshotId: null,
+            applyRunId: null,
+          });
+          await persistDatabaseTransactionState(engine, dbId, state);
+          send(res, 200, { result: plan });
+          return;
+        }
+        if (tool === 'cumulus.get_plan') {
+          await requireDbToken(engine, fakeReq, dbId, ['schema:plan']);
+          const state = await engine.getSystemState(dbId);
+          const databaseTransactions = ensureDatabaseTransactionState(state);
+          const planId = requiredString(args.plan_id ?? args.planId, 'plan_id');
+          const planRecord = databaseTransactions.plans.find((item) => item.plan.planId === planId);
+          if (!planRecord) throw new Error('database plan not found');
+          send(res, 200, {
+            result: {
+              plan: planRecord.plan,
+              status: planRecord.status,
+              currentState: planRecord.currentState,
+              createdAt: planRecord.createdAt,
+              appliedAt: planRecord.appliedAt,
+              snapshotId: planRecord.snapshotId,
+              applyRunId: planRecord.applyRunId,
+            },
+          });
+          return;
+        }
+        if (tool === 'cumulus.classify_risk') {
+          await requireDbToken(engine, fakeReq, dbId, ['schema:plan']);
+          const state = await engine.getSystemState(dbId);
+          const databaseTransactions = ensureDatabaseTransactionState(state);
+          const planId = requiredString(args.plan_id ?? args.planId, 'plan_id');
+          const plan = databaseTransactions.plans.find((item) => item.plan.planId === planId)?.plan;
+          if (!plan) throw new Error('database plan not found');
+          appendDatabaseTransactionAuditEvent(databaseTransactions, {
+            eventType: 'risk.classified',
+            actor: { principalId: 'database-planner', kind: 'system' },
+            target: plan.target,
+            subject: { planId: plan.planId, planHash: plan.planHash },
+            decision: {
+              creates: plan.summary.creates,
+              updates: plan.summary.updates,
+              drops: plan.summary.drops,
+              destructive: plan.summary.destructive,
+              highestRisk: plan.summary.highestRisk,
+              approvalRequired: plan.summary.approvalRequired,
+              snapshotRequired: plan.summary.snapshotRequired,
+            },
+            timestamp: new Date().toISOString(),
+          });
+          await persistDatabaseTransactionState(engine, dbId, state);
+          send(res, 200, { result: { summary: plan.summary, steps: plan.steps.map((step) => ({ stepId: step.stepId, op: step.op, object: step.object, risk: step.risk })) } });
+          return;
+        }
+        if (tool === 'cumulus.request_database_approval') {
+          const caller = await requireDbToken(engine, fakeReq, dbId, ['member:approve']);
+          const state = await engine.getSystemState(dbId);
+          const databaseTransactions = ensureDatabaseTransactionState(state);
+          const planId = requiredString(args.plan_id ?? args.planId, 'plan_id');
+          const planRecord = databaseTransactions.plans.find((item) => item.plan.planId === planId);
+          if (!planRecord) throw new Error('database plan not found');
+          const actor = databaseApprovalActor(caller);
+          const approval = {
+            ...createDatabaseApproval(planRecord.plan, {
+              principalId: actor.principalId,
+              type: actor.type,
+              scopes: databaseApprovalScopesForToken(caller),
+              reason: requiredString(args.reason, 'reason'),
+            }),
+            usedAt: null,
+          };
+          appendDatabaseApprovalAuditEvents(databaseTransactions, {
+            plan: planRecord.plan,
+            approval,
+            actor: databaseAuditActorFromApproval(actor),
+            reason: requiredString(args.reason, 'reason'),
+          });
+          databaseTransactions.approvals.push(approval);
+          await persistDatabaseTransactionState(engine, dbId, state);
+          send(res, 200, {
+            result: approval,
+          });
+          return;
+        }
+        if (tool === 'cumulus.apply_plan') {
+          const state = await engine.getSystemState(dbId);
+          const databaseTransactions = ensureDatabaseTransactionState(state);
+          const planId = requiredString(args.plan_id ?? args.planId, 'plan_id');
+          const planRecord = databaseTransactions.plans.find((item) => item.plan.planId === planId);
+          if (!planRecord) throw new Error('database plan not found');
+          if (planRecord.status !== 'planned') throw new Error('database plan is not pending');
+          const plan = planRecord.plan;
+          const requiredScope = plan.summary.highestRisk === 'R0_NOOP' || plan.summary.highestRisk === 'R1_SAFE_ADDITIVE'
+            ? 'schema:apply_safe'
+            : 'schema:apply_destructive';
+          const caller = await requireDbToken(engine, fakeReq, dbId, [requiredScope]);
+          const approvalId = typeof args.approval_id === 'string' ? args.approval_id : typeof args.approvalId === 'string' ? args.approvalId : undefined;
+          const approval = approvalId
+            ? databaseTransactions.approvals.find((item) => item.approvalId === approvalId && item.usedAt === null)
+            : databaseTransactions.approvals.find((item) => item.planId === plan.planId && item.planHash === plan.planHash && item.usedAt === null);
+          const currentState = await resolveDatabaseCurrentState(
+            engine,
+            args.current_state ?? args.currentState,
+            plan.target,
+            planRecordSchemas(planRecord),
+            'current_state',
+          );
+          const actor = { principalId: principalKey(caller), kind: approvalActorType(caller) } as const;
+          let apply: DatabaseApplyResult;
+          try {
+            apply = await applyDatabasePlan(engine, {
+              plan,
+              currentState,
+              approval,
+              actor,
+            });
+          } catch (error) {
+            await recordDatabaseApplyFailure(engine, dbId, state, {
+              planRecord,
+              currentState,
+              error,
+              actor,
+            });
+            throw error;
+          }
+          const appliedAt = apply.applyRun.completedAt;
+          planRecord.status = 'applied';
+          planRecord.appliedAt = appliedAt;
+          planRecord.applyRunId = apply.applyRun.applyRunId;
+          planRecord.snapshotId = apply.snapshot?.snapshotId ?? null;
+          if (approval) approval.usedAt = appliedAt;
+          databaseTransactions.currentState = apply.state;
+          databaseTransactions.currentStateFingerprint = apply.state.fingerprint;
+          databaseTransactions.applyRuns.push(apply.applyRun);
+          if (apply.snapshot) databaseTransactions.snapshots.push(apply.snapshot);
+          appendDatabaseTransactionAuditEvents(databaseTransactions, apply.audit);
+          await persistDatabaseTransactionState(engine, dbId, state);
+          send(res, 200, { result: apply });
+          return;
+        }
+        if (tool === 'cumulus.restore_snapshot' || tool === 'cumulus.revert') {
+          const caller = await requireDbToken(engine, fakeReq, dbId, ['schema:revert_local']);
+          const state = await engine.getSystemState(dbId);
+          const databaseTransactions = ensureDatabaseTransactionState(state);
+          const snapshot = databaseSnapshotFromInput(databaseTransactions, {
+            snapshot: args.snapshot,
+            snapshotId: args.snapshot_id ?? args.snapshotId,
+          });
+          const restore = await restoreDatabaseSnapshotForRequest(engine, {
+            snapshot,
+            actor: { principalId: principalKey(caller), kind: approvalActorType(caller) },
+          });
+          if (restore.restore) {
+            const state = await engine.getSystemState(dbId);
+            const databaseTransactions = ensureDatabaseTransactionState(state);
+            persistDatabaseRestoreResult(databaseTransactions, restore.restore);
+            await persistDatabaseTransactionState(engine, dbId, state);
+          }
+          send(res, 200, { result: restore.state });
+          return;
+        }
+        if (tool === 'cumulus.verify_audit_chain') {
+          await requireDbToken(engine, fakeReq, dbId, ['audit:read']);
+          send(res, 200, { result: { ok: verifyDatabaseAuditChain(Array.isArray(args.audit) ? (args.audit as DatabaseAuditEvent[]) : []) } });
+          return;
+        }
+        if (tool === 'cumulus.get_audit_events') {
+          await requireDbToken(engine, fakeReq, dbId, ['audit:read']);
+          const databaseTransactions = ensureDatabaseTransactionState(await engine.getSystemState(dbId));
+          const audit = filterDatabaseAuditEvents(databaseTransactions.audit, {
+            planId: typeof args.plan_id === 'string' ? args.plan_id : typeof args.planId === 'string' ? args.planId : undefined,
+            eventType: typeof args.event_type === 'string' ? args.event_type : typeof args.eventType === 'string' ? args.eventType : undefined,
+            limit: args.limit,
+          });
+          send(res, 200, { result: { audit, ok: verifyDatabaseAuditChain(databaseTransactions.audit) } });
+          return;
+        }
         if (tool === 'cumulus.read_system_state') {
           await requireDbToken(engine, fakeReq, dbId, ['system:read']);
           send(res, 200, { result: publicSystemState(await engine.getSystemState(dbId)) });
           return;
         }
         if (tool === 'cumulus.request_approval') {
-          await requireDbToken(engine, fakeReq, dbId, ['member:approve']);
+          const caller = await requireDbToken(engine, fakeReq, dbId, ['member:approve']);
+          const state = await engine.getSystemState(dbId);
+          const databaseTransactions = ensureDatabaseTransactionState(state);
+          const planId = typeof args.plan_id === 'string' ? args.plan_id : typeof args.planId === 'string' ? args.planId : undefined;
+          const databasePlanRecord = planId ? databaseTransactions.plans.find((item) => item.plan.planId === planId) : undefined;
+          if (databasePlanRecord && typeof args.reason === 'string') {
+            const actor = databaseApprovalActor(caller);
+            const approval = {
+              ...createDatabaseApproval(databasePlanRecord.plan, {
+                principalId: actor.principalId,
+                type: actor.type,
+                scopes: databaseApprovalScopesForToken(caller),
+                reason: args.reason,
+              }),
+              usedAt: null,
+            };
+            appendDatabaseApprovalAuditEvents(databaseTransactions, {
+              plan: databasePlanRecord.plan,
+              approval,
+              actor: databaseAuditActorFromApproval(actor),
+              reason: args.reason,
+            });
+            databaseTransactions.approvals.push(approval);
+            await persistDatabaseTransactionState(engine, dbId, state);
+            send(res, 200, { result: approval });
+            return;
+          }
           if (args.kind === 'revert') {
             send(res, 200, {
               result: await engine.createRevertApproval(dbId, {
@@ -1109,7 +2091,36 @@ export function createHandler(engine: CumulusDbEngine, config: CumulusDbConfig) 
           return;
         }
         if (tool === 'cumulus.create_snapshot') {
-          await requireDbToken(engine, fakeReq, dbId, ['backup:create']);
+          const caller = await requireDbToken(engine, fakeReq, dbId, ['backup:create']);
+          if (args.target && typeof args.target === 'object' && !Array.isArray(args.target)) {
+            const target = objectValue<DatabaseTarget>(args.target, 'target');
+            const currentState = await resolveDatabaseCurrentState(
+              engine,
+              args.current_state ?? args.currentState,
+              target,
+              databaseSnapshotSchemas(args.schemas),
+              'current_state',
+            );
+            const snapshot = createDatabaseSnapshot(currentState, {
+              reason: args.reason === 'revert_point' || args.reason === 'pre_destructive_apply' ? args.reason : 'manual',
+              planId: typeof args.plan_id === 'string' ? args.plan_id : typeof args.planId === 'string' ? args.planId : null,
+            });
+            const state = await engine.getSystemState(dbId);
+            const databaseTransactions = ensureDatabaseTransactionState(state);
+            databaseTransactions.currentState = currentState;
+            databaseTransactions.currentStateFingerprint = currentState.fingerprint;
+            databaseTransactions.snapshots.push(snapshot);
+            appendDatabaseTransactionAuditEvent(databaseTransactions, {
+              eventType: 'snapshot.created',
+              actor: databaseAuditActorFromToken(caller),
+              target: snapshot.target,
+              subject: { planId: snapshot.planId, snapshotId: snapshot.snapshotId, stateFingerprint: snapshot.stateFingerprint },
+              timestamp: snapshot.createdAt,
+            });
+            await persistDatabaseTransactionState(engine, dbId, state);
+            send(res, 200, { result: snapshot });
+            return;
+          }
           send(res, 200, { result: publicSnapshot(await engine.createSystemSnapshot(dbId)) });
           return;
         }

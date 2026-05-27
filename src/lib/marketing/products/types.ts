@@ -2,14 +2,13 @@ import type { ReactNode } from 'react';
 
 import type { LocalizedText } from '../schema';
 
-export type ProductId = 'tado' | 'relay';
+export type ProductId = 'cumulus-db';
 
 export type ProductStatus = 'ga' | 'beta' | 'in_development';
 
 export type ProductMeta = {
   id: ProductId;
   name: string;
-  licenseLabel: LocalizedText;
   status: ProductStatus;
   statusLabel: LocalizedText;
   primaryHref: string;

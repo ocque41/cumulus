@@ -1,6 +1,6 @@
 {
   "name": "cumulush",
-  "version": "0.1.2",
+  "version": "0.0.7",
   "description": "A terminal website for Cumulus.",
   "license": "Apache-2.0",
   "type": "module",

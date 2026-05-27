@@ -8,111 +8,111 @@ import type {
 
 export const homeContent: MarketingHomeContent = {
   heroEyebrow: {
-    en: 'Tado',
-    es: 'Tado',
+    en: 'Cumulus Create',
+    es: 'Cumulus Create',
   },
   heroTitle: {
-    en: 'Orchestrate AI coding agents from one canvas.',
-    es: 'Orquesta agentes de codificacion IA desde un solo canvas.',
+    en: 'Create a Cumulus app.',
+    es: 'Crea una app Cumulus.',
   },
   heroSubtitle: {
-    en: 'Tado is a macOS terminal multiplexer that lets you run Claude Code and Codex sessions in parallel with built-in agent communication.',
-    es: 'Tado es un multiplexor de terminales para macOS que te permite ejecutar sesiones de Claude Code y Codex en paralelo con comunicacion integrada entre agentes.',
+    en: 'Run npm create @cmls@latest my-acme and choose the parts.',
+    es: 'Ejecuta npm create @cmls@latest my-acme y elige las partes.',
   },
   heroPrimaryCta: {
-    en: 'Download Tado',
-    es: 'Descargar Tado',
+    en: 'Build command',
+    es: 'Crear comando',
   },
   heroSecondaryCta: {
-    en: 'View on GitHub',
-    es: 'Ver en GitHub',
+    en: 'Dashboard',
+    es: 'Dashboard',
   },
   selectorTitle: {
-    en: 'What can Tado do for you?',
-    es: 'Que puede hacer Tado por ti?',
+    en: 'What should the command include?',
+    es: 'Que debe incluir el comando?',
   },
   selectorDescription: {
-    en: 'Pick your workflow and see how Tado fits.',
-    es: 'Elige tu flujo de trabajo y mira como encaja Tado.',
+    en: 'Pick the app shape, auth mode, DB mode, and parts.',
+    es: 'Elige forma de app, auth, modo DB y partes.',
   },
   federationTitle: {
-    en: 'All surfaces in one app',
-    es: 'Todas las superficies en una app',
+    en: 'One command',
+    es: 'Un comando',
   },
   federationDescription: {
-    en: 'Each surface handles one part of the multi-agent workflow.',
-    es: 'Cada superficie maneja una parte del flujo multi-agente.',
+    en: 'The command writes app files, env examples, scripts, and selected Cumulus parts.',
+    es: 'El comando escribe archivos, ejemplos de env, scripts y partes Cumulus elegidas.',
   },
   flowTitle: {
-    en: 'How your workflow runs in Tado',
-    es: 'Como funciona tu flujo de trabajo en Tado',
+    en: 'How it starts',
+    es: 'Como empieza',
   },
   flowDescription: {
-    en: 'A simple loop: type a task, agents spawn, they coordinate, you review.',
-    es: 'Un bucle simple: escribe una tarea, los agentes se crean, se coordinan, tu revisas.',
+    en: 'Choose flags, copy the command, run it, then start the generated app.',
+    es: 'Elige flags, copia el comando, ejecutalo y arranca la app generada.',
   },
-  trustTitle: {
-    en: 'What you get today',
-    es: 'Lo que obtienes hoy',
+  accessTitle: {
+    en: 'What you choose',
+    es: 'Que eliges',
   },
-  trustDescription: {
-    en: 'MIT licensed and actively maintained.',
-    es: 'Licencia MIT y mantenido activamente.',
+  accessDescription: {
+    en: 'Templates, Relay auth, Cumulus DB, Knowledge, install, and git.',
+    es: 'Templates, auth de Relay, Cumulus DB, Knowledge, install y git.',
   },
   pricingBridgeTitle: {
-    en: 'Ready to coordinate your agents?',
-    es: 'Listo para coordinar tus agentes?',
+    en: 'Ready to create?',
+    es: 'Listo para crear?',
   },
   pricingBridgeDescription: {
-    en: 'Download Tado free or upgrade to Pro for priority support.',
-    es: 'Descarga Tado gratis o actualiza a Pro para soporte prioritario.',
+    en: 'Start with npm create @cmls@latest my-acme.',
+    es: 'Empieza con npm create @cmls@latest my-acme.',
   },
   pricingBridgeCta: {
-    en: 'Open Models',
-    es: 'Abrir Models',
+    en: 'Build command',
+    es: 'Crear comando',
   },
 };
 
 export const modelsContent: MarketingModelsContent = {
   eyebrow: {
-    en: 'Pricing',
-    es: 'Precios',
+    en: 'Cumulus Create',
+    es: 'Cumulus Create',
   },
   title: {
-    en: 'Choose your plan',
-    es: 'Elige tu plan',
+    en: 'Build the command',
+    es: 'Crea el comando',
   },
   subtitle: {
-    en: 'Tado is free under the MIT license. Pro adds priority support and early access to new features.',
-    es: 'Tado es gratis bajo la licencia MIT. Pro agrega soporte prioritario y acceso anticipado a nuevas funciones.',
+    en: 'Use the dashboard to choose flags for npm create @cmls@latest my-acme.',
+    es: 'Usa el dashboard para elegir flags de npm create @cmls@latest my-acme.',
   },
   comparisonTitle: {
-    en: 'What Pro includes',
-    es: 'Que incluye Pro',
+    en: 'Command choices',
+    es: 'Opciones del comando',
   },
   comparisonDescription: {
-    en: 'General benefits are shown now. Detailed limits publish in a later release.',
-    es: 'Mostramos beneficios generales ahora. Limites detallados se publican despues.',
+    en: 'Choose template, auth, Cumulus DB, parts, package manager, install, and git.',
+    es: 'Elige template, auth, Cumulus DB, partes, gestor, install y git.',
   },
   stepsTitle: {
-    en: 'What happens after purchase',
-    es: 'Que pasa despues de comprar',
+    en: 'Start in three steps',
+    es: 'Empieza en tres pasos',
   },
   stepsDescription: {
-    en: 'From account to running your first agent team in clear steps.',
-    es: 'De cuenta a tu primer equipo de agentes en pasos claros.',
+    en: 'Build the command, copy it, then run it in your terminal.',
+    es: 'Arma el comando, copialo y ejecutalo en la terminal.',
   },
   enterpriseTitle: {
-    en: 'Need team licensing?',
-    es: 'Necesitas licencias para equipos?',
+    en: 'Use the command',
+    es: 'Usa el comando',
   },
   enterpriseDescription: {
-    en: 'For procurement, volume licensing, and custom onboarding.',
-    es: 'Para compras corporativas, licencias por volumen y onboarding personalizado.',
+    en: 'npm create @cmls@latest my-acme',
+    es: 'npm create @cmls@latest my-acme',
   },
   enterpriseCta: {
-    en: 'Contact Sales',
-    es: 'Contactar Ventas',
+    en: 'Build command',
+    es: 'Crear comando',
   },
 };
 
@@ -120,156 +120,156 @@ export const selectorPersonas: SelectorPersona[] = [
   {
     id: 'operator',
     label: {
-      en: 'I run multiple agents in parallel',
-      es: 'Ejecuto multiples agentes en paralelo',
+      en: 'I want the full app',
+      es: 'Quiero la app completa',
     },
     description: {
-      en: 'You need parallel terminal sessions with real-time coordination between agents.',
-      es: 'Necesitas sesiones de terminal en paralelo con coordinacion en tiempo real entre agentes.',
+      en: 'Use full for site, dashboards, API/MCP, docs, auth, signup, and actions.',
+      es: 'Usa full para sitio, dashboards, API/MCP, docs, auth, signup y actions.',
     },
-    recommendedProducts: ['rune', 'hub', 'notes'],
+    recommendedProducts: ['cumulus-db'],
   },
   {
     id: 'client-services',
     label: {
-      en: 'I coordinate agent teams',
-      es: 'Coordino equipos de agentes',
+      en: 'I want the public side',
+      es: 'Quiero el lado publico',
     },
     description: {
-      en: 'You need organized teams with mandatory response rules and project scoping.',
-      es: 'Necesitas equipos organizados con reglas de respuesta obligatoria y alcance por proyecto.',
+      en: 'Use outer for site, docs, discovery, signup, and action start.',
+      es: 'Usa outer para sitio, docs, discovery, signup e inicio de actions.',
     },
-    recommendedProducts: ['enterprise', 'hub', 'notes'],
+    recommendedProducts: ['cumulus-db'],
   },
   {
     id: 'field-admin',
     label: {
-      en: 'I build multi-agent workflows',
-      es: 'Construyo flujos multi-agente',
+      en: 'I want dashboards',
+      es: 'Quiero dashboards',
     },
     description: {
-      en: 'You need IPC tools, pub/sub topics, and agent discovery for complex workflows.',
-      es: 'Necesitas herramientas IPC, topicos pub/sub y descubrimiento de agentes para flujos complejos.',
+      en: 'Use inner for /me, /dev, settings, API/MCP, auth, and actions.',
+      es: 'Usa inner para /me, /dev, settings, API/MCP, auth y actions.',
     },
-    recommendedProducts: ['blocks', 'hub', 'notes'],
+    recommendedProducts: ['cumulus-db'],
   },
   {
     id: 'founder',
     label: {
-      en: 'I manage the whole development pipeline',
-      es: 'Gestiono todo el pipeline de desarrollo',
+      en: 'I want the smallest starter',
+      es: 'Quiero el starter pequeno',
     },
     description: {
-      en: 'You need one canvas with all agents, projects, and coordination visible at once.',
-      es: 'Necesitas un canvas con todos los agentes, proyectos y coordinacion visibles a la vez.',
+      en: 'Use agent-auth for discovery, attestation login, signup, and actions.',
+      es: 'Usa agent-auth para discovery, login por attestation, signup y actions.',
     },
-    recommendedProducts: ['hub', 'rune', 'enterprise', 'blocks'],
+    recommendedProducts: ['cumulus-db'],
   },
 ];
 
 export const dailyFlowSteps: DailyFlowStep[] = [
   {
-    id: 'plan',
+    id: 'choose',
     title: {
-      en: 'Type the task',
-      es: 'Escribe la tarea',
+      en: 'Choose flags',
+      es: 'Elige flags',
     },
     detail: {
-      en: 'Add a task to the todo list. Press Enter to spawn a terminal tile.',
-      es: 'Agrega una tarea a la lista. Presiona Enter para crear un terminal.',
+      en: 'Pick template, auth, DB mode, parts, package manager, install, and git.',
+      es: 'Elige template, auth, modo DB, partes, gestor, install y git.',
     },
   },
   {
-    id: 'execute',
+    id: 'copy',
     title: {
-      en: 'Agent starts working',
-      es: 'El agente empieza a trabajar',
+      en: 'Copy command',
+      es: 'Copia comando',
     },
     detail: {
-      en: 'Claude Code or Codex runs in the spawned tile with your project context.',
-      es: 'Claude Code o Codex ejecuta en el tile creado con el contexto de tu proyecto.',
+      en: 'The dashboard builds the exact command.',
+      es: 'El dashboard arma el comando exacto.',
     },
   },
   {
-    id: 'track',
+    id: 'run',
     title: {
-      en: 'Agents coordinate',
-      es: 'Los agentes se coordinan',
+      en: 'Run command',
+      es: 'Ejecuta comando',
     },
     detail: {
-      en: 'Agents discover peers, read output, and send messages via built-in IPC tools.',
-      es: 'Los agentes descubren pares, leen salida y envian mensajes via herramientas IPC integradas.',
+      en: 'Run it in a terminal to create the app.',
+      es: 'Ejecutalo en terminal para crear la app.',
     },
   },
   {
-    id: 'improve',
+    id: 'start',
     title: {
-      en: 'Review and iterate',
-      es: 'Revisa e itera',
+      en: 'Start app',
+      es: 'Arranca app',
     },
     detail: {
-      en: 'Inspect results, queue follow-up prompts, and mark tasks done.',
-      es: 'Inspecciona resultados, encola prompts de seguimiento y marca tareas completadas.',
+      en: 'Install when selected, then start the generated app.',
+      es: 'Instala si lo elegiste y arranca la app generada.',
     },
   },
 ];
 
 export const purchaseSteps: PurchaseStep[] = [
   {
-    id: 'account',
+    id: 'command',
     title: {
-      en: 'Create or login to your account',
-      es: 'Crea o entra a tu cuenta',
+      en: 'Build the command',
+      es: 'Crea el comando',
     },
     detail: {
-      en: 'Your account secures access to your purchased plan.',
-      es: 'Tu cuenta asegura acceso al plan comprado.',
+      en: 'Use /dashboard or the short command.',
+      es: 'Usa /dashboard o el comando corto.',
     },
   },
   {
-    id: 'checkout',
+    id: 'terminal',
     title: {
-      en: 'Complete secure checkout',
-      es: 'Completa checkout seguro',
+      en: 'Run it',
+      es: 'Ejecutalo',
     },
     detail: {
-      en: 'Choose your plan and finish payment with your selected currency.',
-      es: 'Elige tu plan y termina el pago con la moneda seleccionada.',
+      en: 'npm create @cmls@latest my-acme',
+      es: 'npm create @cmls@latest my-acme',
     },
   },
   {
-    id: 'onboard',
+    id: 'app',
     title: {
-      en: 'Download and start',
-      es: 'Descarga y empieza',
+      en: 'Start the app',
+      es: 'Arranca la app',
     },
     detail: {
-      en: 'Download Tado from GitHub releases and spawn your first agent team.',
-      es: 'Descarga Tado desde GitHub releases y crea tu primer equipo de agentes.',
+      en: 'Use the generated scripts from the project.',
+      es: 'Usa los scripts generados del proyecto.',
     },
   },
 ];
 
-export const trustPoints = {
+export const accessPoints = {
   en: [
-    'MIT licensed — inspect and modify freely.',
-    'Built natively for macOS with SwiftUI and AppKit.',
-    'No cloud dependency — everything runs on your Mac.',
+    'One command creates the app shape.',
+    'Hosted and self-hosted Relay choices.',
+    'Cloud, local, or both Cumulus DB choices.',
   ],
   es: [
-    'Licencia MIT — inspecciona y modifica libremente.',
-    'Construido nativamente para macOS con SwiftUI y AppKit.',
-    'Sin dependencia de nube — todo corre en tu Mac.',
+    'Un comando crea la forma de app.',
+    'Opciones Relay hosted y self-hosted.',
+    'Opciones Cumulus DB cloud, local o both.',
   ],
 };
 
 export const visionLines = {
   en: {
-    title: 'Why Tado exists',
-    body: 'I built Tado because coordinating multiple AI agents should not require writing orchestration code. It should be as simple as typing a task.',
+    title: 'Why Cumulus Create exists',
+    body: 'Starting a Cumulus app should be one command, with clear choices and no setup maze.',
   },
   es: {
-    title: 'Por que existe Tado',
-    body: 'Construi Tado porque coordinar multiples agentes IA no deberia requerir escribir codigo de orquestacion. Deberia ser tan simple como escribir una tarea.',
+    title: 'Por que existe Cumulus Create',
+    body: 'Empezar una app Cumulus debe ser un comando, con opciones claras y sin laberinto de setup.',
   },
 };

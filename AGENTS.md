@@ -105,6 +105,12 @@ npm run db:build
 npm run db:start
 ```
 
+## Release Versions
+
+Release tags use bare versions, not a leading `v`. After `0.0.7`, the next releases must be `0.0.8`, `0.0.9`, `0.1.0`, `0.1.1`, and then continue forward in normal semantic-version order.
+
+When the `release` skill is used, check `CHANGELOG.md`, `README.md`, and `docs/releasing.md`, then keep the release ladder above intact unless the user asks for a different version line.
+
 ## Documentation
 
 Write docs for users who may not know this codebase. Use plain language. Explain what a setting does, when it is required, where it belongs, and whether it is public repo config or private overlay config.

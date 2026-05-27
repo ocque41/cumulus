@@ -103,13 +103,41 @@ must already hold each hard scope being granted.
   Requires `schema:revert_local` and a revert approval token.
 - `GET|POST /v1/system/snapshots` lists or creates encrypted logical snapshots.
 
+The Postgres-first Nimbus database transaction surface is separate from the
+older system schema lifecycle:
+
+- `POST /v1/database/manifests:compile` compiles a `nimbus.db/v0.1` manifest
+  into hashable database IR. Requires `schema:plan`.
+- `POST /v1/database/plans` creates an immutable plan from a manifest or IR and
+  either caller-supplied fixture state or live inspection. Requires
+  `schema:plan`.
+- `GET /v1/database/plans/:planId?dbId=...` reads a saved plan record and
+  current transaction status. Requires `schema:plan`.
+- `POST /v1/database/plans:approve` creates a plan-hash-bound approval.
+  Requires `member:approve`.
+- `POST /v1/database/plans:apply` applies the saved plan after drift, risk, and
+  approval checks. Safe plans require `schema:apply_safe`; destructive or
+  unknown plans require `schema:apply_destructive`.
+- `POST /v1/database/snapshots` creates a manual logical database snapshot from
+  supplied fixture state or live inspection. Requires `backup:create`.
+- `POST /v1/database/snapshots:restore` restores a logical database snapshot in
+  the fixture or provider engine. Requires `schema:revert_local`.
+- `GET /v1/database/audit?dbId=...` reads persisted hash-chained transaction
+  audit events. Requires `audit:read`.
+- `POST /v1/database/audit:verify` verifies a supplied audit chain. Requires
+  `audit:read`.
+
 The MCP manifest returns both the compatibility tool-name list and structured
-`toolSchemas` with required arguments, mode, and dry-run-first metadata for
-system actions:
+`toolSchemas` with required arguments, mode, MCP safety annotations, and
+dry-run-first metadata for system and database actions:
 `cumulus.plan_schema`, `cumulus.read_system_state`,
 `cumulus.request_approval`, `cumulus.apply_schema`,
 `cumulus.create_snapshot`, `cumulus.revert_version`, and
-`cumulus.rotate_self_token`.
+`cumulus.rotate_self_token`, plus `cumulus.compile_manifest`,
+`cumulus.create_plan`, `cumulus.get_plan`, `cumulus.classify_risk`,
+`cumulus.request_database_approval`, `cumulus.apply_plan`,
+`cumulus.restore_snapshot`, `cumulus.revert`, `cumulus.get_audit_events`, and
+`cumulus.verify_audit_chain`.
 
 ## CLI
 
@@ -126,6 +154,14 @@ npm run db:cli -- db apply --db-id db_example --token cu_pat_v1_public_secret --
 npm run db:cli -- db snapshot --db-id db_example --token cu_pat_v1_public_secret
 npm run db:cli -- db approve --db-id db_example --token cu_pat_v1_public_secret --kind revert --version-id ver_example
 npm run db:cli -- db revert --db-id db_example --token cu_pat_v1_public_secret --version-id ver_example --approval-token apv_secret
+npm run db:cli -- database compile --db-id db_example --token cu_pat_v1_public_secret --manifest manifest.json
+npm run db:cli -- database plan --db-id db_example --token cu_pat_v1_public_secret --manifest manifest.json
+npm run db:cli -- database get-plan --db-id db_example --token cu_pat_v1_public_secret --plan-id plan_example
+npm run db:cli -- database approve --db-id db_example --token cu_pat_v1_public_secret --plan-id plan_example --reason "Approved dev change"
+npm run db:cli -- database apply --db-id db_example --token cu_pat_v1_public_secret --plan-id plan_example --approval-id appr_example
+npm run db:cli -- database restore --db-id db_example --token cu_pat_v1_public_secret --snapshot snapshot.json
+npm run db:cli -- database audit --db-id db_example --token cu_pat_v1_public_secret --plan-id plan_example
+npm run db:cli -- database audit-verify --db-id db_example --token cu_pat_v1_public_secret --audit audit.json
 npm run db:cli -- system grants ls --db-id db_example --token cu_pat_v1_public_secret
 npm run db:cli -- system grants set --db-id db_example --token cu_pat_v1_public_secret --principal-id agt_example --grant system:read
 npm run db:cli -- audit tail --db-id db_example --token cu_pat_v1_public_secret
@@ -185,6 +221,24 @@ The schema lifecycle is:
 6. write live and last-applied state,
 7. append audit records,
 8. expose a schema version or snapshot as a revert target.
+
+The database-state transaction MVP adds a narrower Postgres-first boundary for
+Nimbus database manifests:
+
+1. compile `nimbus.db/v0.1` manifests into hashable database IR,
+2. inspect a PostgreSQL current-state graph,
+3. create an immutable Cumulus plan with SQL steps and risk labels,
+4. reject drifted applies,
+5. require plan-hash-bound approval for destructive or unknown risk,
+6. create a logical pre-apply snapshot before destructive apply,
+7. emit a hash-chained audit trail,
+8. restore the logical snapshot for dev fixture revert.
+
+Start from `examples/manifests/customer-core-db.json` for the first demo
+manifest. A typical demo compiles that manifest, creates a plan against an
+inspected or fixture state, reviews the risk summary, records approval if the
+plan is destructive, applies the exact saved plan, reads the audit chain, and
+restores the pre-apply snapshot when testing revert.
 
 Snapshots are product-level logical snapshots. Each snapshot uses a random
 per-snapshot DEK with AES-256-GCM and AAD metadata. The DEK is wrapped by the

@@ -2,19 +2,19 @@ import type { Metadata } from "next";
 
 const siteConfig = {
   name: "Cumulus",
-  title: "Cumulus",
-  tagline: "Tools, products, and games for people who build.",
+  title: "Cumulus Create",
+  tagline: "npm create @cmls@latest my-acme",
   description:
-    "A small studio shipping independent projects — currently Tado and Relay.",
+    "Run npm create @cmls@latest my-acme to create a ready Cumulus app.",
   url: "https://cumulush.com",
   twitterHandle: "@cumulus",
   keywords: [
     "Cumulus",
-    "Tado",
+    "Cumulus Create",
+    "npm create @cmls",
     "Relay",
-    "AI coding agents",
     "developer tools",
-    "indie studio",
+    "Cumulus app",
   ],
 } as const;
 

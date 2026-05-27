@@ -3,17 +3,15 @@
 import React, { useEffect, useRef } from "react";
 import { animate, stagger } from "animejs";
 import {
-    Database,
     LayoutDashboard,
     Settings,
     type LucideIcon
 } from "lucide-react";
 import { useCrossDomainTransition } from "@/hooks/useCrossDomainTransition";
 
-const links: { href: string; label: string; icon: LucideIcon; external: boolean; indent?: boolean }[] = [
-    { href: "/dashboard", label: "Tado", icon: LayoutDashboard, external: false },
-    { href: "/dashboard/database", label: "Database", icon: Database, external: false },
-    { href: "/dashboard/system", label: "System", icon: Settings, external: false },
+const links: { href: string; label: string; icon: LucideIcon; indent?: boolean }[] = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard/system", label: "System", icon: Settings },
 ];
 
 interface DashboardSidebarProps {
@@ -42,7 +40,7 @@ export function DashboardSidebar({ animateEntrance = false, onLinkClick }: Dashb
 
     const handleClick = (e: React.MouseEvent, link: typeof links[0]) => {
         e.preventDefault();
-        if (onLinkClick) onLinkClick(); // Close drawer if needed
+        if (onLinkClick) onLinkClick();
         navigateTo(link.href);
     };
 

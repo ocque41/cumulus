@@ -97,6 +97,16 @@ next-env.d.ts
 Thumbs.db
 *.pem
 
+# ------------------------------------------------------------
+# Local release-prep scratch
+# ------------------------------------------------------------
+# Raw reference/design asset drops can be large and duplicated. Commit only the
+# curated runtime copies that the app imports, such as public/create/ and
+# src/fonts/.
+/assets/
+/GOAL.md
+/.tmp-*
+
 # Cumulus Database local runtime data. This folder may contain user records,
 # encrypted secrets, tokens, segments, and snapshots. Never commit it.
 .cumulus-db-data/

@@ -49,14 +49,14 @@ export function CompanyHero({ hero, products, locale }: CompanyHeroProps) {
           <Button
             asChild
             variant='brand'
-            className='min-h-12 justify-center px-6 text-xs uppercase tracking-[0.16em] sm:w-auto'
+            className='min-h-12 justify-center px-6 text-xs uppercase tracking-[0.16em] transition-none duration-0 hover:opacity-100 sm:w-auto'
           >
             <Link href={hero.primaryHref}>{hero.primaryLabel}</Link>
           </Button>
           <Button
             asChild
             variant='ghost'
-            className='min-h-12 justify-center rounded-full border border-white/25 px-6 text-xs uppercase tracking-[0.16em] text-[color:var(--fg)] hover:border-white/40 hover:text-white sm:w-auto'
+            className='min-h-12 justify-center rounded-full border border-white/25 px-6 text-xs uppercase tracking-[0.16em] text-[color:var(--fg)] transition-none duration-0 hover:text-[color:var(--fg)] sm:w-auto'
           >
             <Link href={hero.secondaryHref}>{hero.secondaryLabel}</Link>
           </Button>
@@ -71,7 +71,7 @@ export function CompanyHero({ hero, products, locale }: CompanyHeroProps) {
               <Link
                 key={product.id}
                 href={`#${product.id}`}
-                className='rounded-full border border-white/20 bg-white/[0.03] px-3 py-1 text-[0.7rem] uppercase tracking-[0.16em] text-[color:var(--fg)] transition-colors hover:border-white/40 hover:text-white'
+                className='rounded-full border border-white/20 bg-white/[0.03] px-3 py-1 text-[0.7rem] uppercase tracking-[0.16em] text-[color:var(--fg)]'
               >
                 {product.meta.name}
               </Link>

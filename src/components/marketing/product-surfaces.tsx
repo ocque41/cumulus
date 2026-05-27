@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Matrix, dna, forcefield, radar, signal, type Frame } from '@/components/ui/matrix';
+import { Matrix, dna, forcefield, radar, signal } from '@/components/ui/matrix';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -17,45 +16,6 @@ const matrixFrames = {
   radar,
   dna,
 } as const;
-
-const TADO_LOGO_ROWS = 13;
-const TADO_LOGO_COLS = 26;
-const TADO_BLOCKS = [
-  { rowStart: 0, rowEnd: 13, colStart: 0, colEnd: 5 },
-  { rowStart: 8, rowEnd: 13, colStart: 7, colEnd: 12 },
-  { rowStart: 8, rowEnd: 13, colStart: 14, colEnd: 19 },
-  { rowStart: 8, rowEnd: 13, colStart: 21, colEnd: 26 },
-];
-
-function createTadoLogoFrame(revealColumn: number, highlightColumn: number): Frame {
-  const frame = Array.from({ length: TADO_LOGO_ROWS }, () => Array(TADO_LOGO_COLS).fill(0));
-
-  for (const block of TADO_BLOCKS) {
-    for (let row = block.rowStart; row < block.rowEnd; row += 1) {
-      for (let col = block.colStart; col < block.colEnd; col += 1) {
-        if (col > revealColumn) {
-          continue;
-        }
-
-        const isEdge =
-          row === block.rowStart ||
-          row === block.rowEnd - 1 ||
-          col === block.colStart ||
-          col === block.colEnd - 1;
-        const isHighlight = col === highlightColumn;
-        frame[row][col] = isHighlight ? 1 : isEdge ? 0.78 : 0.54;
-      }
-    }
-  }
-
-  return frame;
-}
-
-const tadoLogoFrames: Frame[] = Array.from({ length: TADO_LOGO_COLS + 8 }, (_, frameIndex) => {
-  const revealColumn = Math.min(TADO_LOGO_COLS - 1, frameIndex);
-  const highlightColumn = frameIndex % TADO_LOGO_COLS;
-  return createTadoLogoFrame(revealColumn, highlightColumn);
-});
 
 const proseClassName = cn(
   'space-y-4 text-[color:var(--text)]',
@@ -74,41 +34,6 @@ const proseClassName = cn(
 
 function HomeMarkdown({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn(proseClassName, className)}>{children}</div>;
-}
-
-function TadoLogoMatrix() {
-  return (
-    <Matrix
-      rows={TADO_LOGO_ROWS}
-      cols={TADO_LOGO_COLS}
-      frames={tadoLogoFrames}
-      fps={8}
-      size={7}
-      gap={3}
-      palette={{
-        on: '#8f8f8f',
-        off: 'rgba(245,245,245,0.045)',
-      }}
-      ariaLabel='Animated Tado matrix mark'
-    />
-  );
-}
-
-function TadoIdentityBand() {
-  return (
-    <div className='flex flex-col gap-5 border-y border-white/10 py-5 sm:flex-row sm:items-center sm:justify-between'>
-      <Image
-        src='/brand/generated/tado-mark-dark-transparent.png'
-        alt='Tado mark'
-        width={1176}
-        height={822}
-        className='h-auto w-full max-w-[19rem] object-contain'
-      />
-      <div className='flex justify-start sm:justify-end'>
-        <TadoLogoMatrix />
-      </div>
-    </div>
-  );
 }
 
 function SurfacePreview({ surface }: { surface: ProductSurface }) {
@@ -178,9 +103,6 @@ export function ProductSurfaces({ product, locale }: ProductSurfacesProps) {
               >
                 {meta.statusLabel[locale]}
               </span>
-              <span className='rounded-full border border-white/10 bg-transparent px-2 py-[2px] font-mono text-[0.6rem] uppercase tracking-[0.18em] text-[color:var(--muted)]'>
-                {meta.licenseLabel[locale]}
-              </span>
             </div>
             <h2 className='text-[2.2rem] font-semibold leading-[0.98] tracking-[-0.09em] text-white sm:text-[3rem]'>
               {frontMatter.surfacesTitle}
@@ -190,8 +112,6 @@ export function ProductSurfaces({ product, locale }: ProductSurfacesProps) {
             {frontMatter.surfacesIntro}
           </p>
         </div>
-
-        {meta.id === 'tado' ? <TadoIdentityBand /> : null}
 
         <div className='flex flex-wrap items-center gap-3 pt-1'>
           <Button

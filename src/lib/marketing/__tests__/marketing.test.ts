@@ -40,45 +40,47 @@ describe('marketing runtime resolution', () => {
 describe('marketing pricing', () => {
   it('returns expected plan set for models', () => {
     const plans = getPlansForModels('USD');
-    expect(plans.map((plan) => plan.key)).toEqual(['pro_monthly']);
-    expect(plans.find((plan) => plan.key === 'pro_monthly')?.amount).toBe(9.99);
+    expect(plans.map((plan) => plan.key)).toEqual(['cumulus_db_free']);
+    expect(plans.find((plan) => plan.key === 'cumulus_db_free')?.amount).toBe(0);
   });
 
   it('builds checkout start href with required query params', () => {
     const href = buildCheckoutStartHref({
-      planKey: 'pro_monthly',
+      planKey: 'cumulus_db_free',
       currency: 'USD',
       locale: 'en',
       source: 'unit',
     });
 
     expect(href).toContain('/checkout/start?');
-    expect(href).toContain('planKey=pro_monthly');
+    expect(href).toContain('planKey=cumulus_db_free');
     expect(href).toContain('currency=USD');
   });
 });
 
 describe('marketing product briefs', () => {
-  it('returns all scoped federation products', () => {
+  it('returns only the active Cumulus Create brief', () => {
     const briefs = getMarketingProductBriefs();
-    expect(briefs.map((brief) => brief.product)).toEqual(['rune', 'enterprise', 'blocks', 'hub', 'notes']);
+    expect(briefs.map((brief) => brief.product)).toEqual(['cumulus-db']);
+    expect(briefs[0]?.title.en).toBe('Cumulus Create');
   });
 });
 
 describe('marketing home document', () => {
-  it('loads the company hero plus every registered product in order', async () => {
+  it('loads the Cumulus Create hero and product document', async () => {
     const [enDocument, esDocument] = await Promise.all([
       loadMarketingHomeDocument('en'),
       loadMarketingHomeDocument('es'),
     ]);
 
-    expect(enDocument.hero.title).toBe('Cumulus');
-    expect(esDocument.hero.title).toBe('Cumulus');
+    expect(enDocument.hero.title).toBe('Cumulus Create');
+    expect(esDocument.hero.title).toBe('Cumulus Create');
 
-    expect(enDocument.products.map((product) => product.id)).toEqual(['tado', 'relay']);
-    expect(esDocument.products.map((product) => product.id)).toEqual(['tado', 'relay']);
+    expect(enDocument.products.map((product) => product.id)).toEqual(['cumulus-db']);
+    expect(esDocument.products.map((product) => product.id)).toEqual(['cumulus-db']);
 
-    const tadoEn = enDocument.products.find((product) => product.id === 'tado');
-    expect(tadoEn?.surfaces.map((surface) => surface.id)).toEqual(['canvas', 'ipc', 'teams', 'projects']);
+    const databaseEn = enDocument.products.find((product) => product.id === 'cumulus-db');
+    expect(databaseEn?.frontMatter.title).toBe('Cumulus Create');
+    expect(databaseEn?.surfaces.map((surface) => surface.id)).toEqual(['templates', 'auth', 'db', 'flags']);
   });
 });

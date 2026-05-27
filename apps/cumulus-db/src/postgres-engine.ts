@@ -20,6 +20,7 @@ import {
 import {
   DEFAULT_AGENT_SYSTEM_SCOPES,
   buildSchemaPlan,
+  ensureDatabaseTransactionState,
   isHardSystemScope,
   newSystemState,
   normalizeTokenScopes,
@@ -40,6 +41,23 @@ import type {
   TokenScope,
   WorkspaceManifest,
 } from './types.js';
+import {
+  appendDatabaseAuditEvent,
+  createDatabaseApproval,
+  createDatabaseRestorePlan,
+  executeDatabasePlan,
+  inspectPostgresDatabase,
+  type CumulusDatabasePlan,
+  type CumulusDatabaseState,
+  type DatabaseApplyResult,
+  type DatabaseApprovalRecord,
+  type DatabasePlanStep,
+  type DatabaseRestoreResult,
+  type DatabaseSnapshot,
+  type DatabaseTarget,
+  type PostgresQueryClient,
+  restoreDatabaseSnapshot as restoreLogicalDatabaseSnapshot,
+} from './database-transaction.js';
 
 type PostgresSsl = false | true | { rejectUnauthorized: boolean };
 
@@ -245,6 +263,124 @@ export class PostgresCumulusDbEngine extends CumulusDbEngine {
     await this.pool.end();
   }
 
+  async inspectDatabaseState(target: DatabaseTarget, options: { schemas?: string[] } = {}): Promise<CumulusDatabaseState> {
+    return inspectPostgresDatabase(this.pool as PostgresQueryClient, target, options);
+  }
+
+  async applyDatabasePlan(input: {
+    plan: CumulusDatabasePlan;
+    currentState: CumulusDatabaseState;
+    approval?: DatabaseApprovalRecord;
+    actor?: { principalId: string; kind: 'human' | 'agent' | 'system' };
+    now?: string;
+    snapshotReason?: DatabaseSnapshot['reason'];
+    initialAudit?: DatabaseRestoreResult['apply']['audit'];
+  }): Promise<DatabaseApplyResult> {
+    const logicalApply = executeDatabasePlan(input);
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('select pg_advisory_xact_lock(hashtext($1), hashtext($2))', [
+        'cumulus.database.plan',
+        `${input.plan.target.database}:${input.plan.target.environment ?? ''}`,
+      ]);
+      for (const step of input.plan.steps) {
+        if (step.op === 'noop') continue;
+        if (step.op === 'raw_sql_blocked_by_default') {
+          throw new Error('RAW_SQL_EXECUTION_BLOCKED: raw SQL steps are not executed by the Postgres apply executor');
+        }
+        if (!step.sql) throw new Error(`STEP_SQL_MISSING: ${step.stepId}`);
+        await this.pgPreflightDatabaseStep(client, step);
+        await client.query(step.sql);
+      }
+      const finalState = await inspectPostgresDatabase(client as PostgresQueryClient, input.plan.target, {
+        schemas: logicalApply.state.schemas.map((schema) => schema.name),
+      });
+      if (finalState.fingerprint !== logicalApply.state.fingerprint) {
+        throw new Error(`FINAL_STATE_MISMATCH: expected ${logicalApply.state.fingerprint} got ${finalState.fingerprint}`);
+      }
+      await client.query('commit');
+      return { ...logicalApply, state: finalState };
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async restoreDatabaseSnapshot(input: {
+    snapshot: DatabaseSnapshot;
+    actor?: { principalId: string; kind: 'human' | 'agent' | 'system' };
+    now?: string;
+  }): Promise<DatabaseRestoreResult> {
+    const restoredState = restoreLogicalDatabaseSnapshot(input.snapshot);
+    const currentState = await this.inspectDatabaseState(input.snapshot.target, {
+      schemas: restoredState.schemas.map((schema) => schema.name),
+    });
+    const plan = createDatabaseRestorePlan({
+      snapshot: input.snapshot,
+      currentState,
+      now: input.now,
+    });
+    const actor = input.actor ?? { principalId: 'system', kind: 'system' };
+    const approval = createDatabaseApproval(plan, {
+      principalId: actor.principalId,
+      type: actor.kind,
+      scopes: [
+        'cumulus.plan.read',
+        'cumulus.apply',
+        'cumulus.approve.destructive',
+        'cumulus.approve.admin_override',
+      ],
+      reason: `Restore database snapshot ${input.snapshot.snapshotId}`,
+      now: input.now,
+    });
+    const initialAudit: DatabaseRestoreResult['apply']['audit'] = [];
+    appendDatabaseAuditEvent(initialAudit, {
+      eventType: 'revert.requested',
+      actor,
+      target: input.snapshot.target,
+      subject: {
+        snapshotId: input.snapshot.snapshotId,
+        stateFingerprint: input.snapshot.stateFingerprint,
+        restorePlanId: plan.planId,
+      },
+      decision: {
+        riskLevel: plan.summary.highestRisk,
+        approvalRequired: plan.summary.approvalRequired,
+      },
+      timestamp: input.now ?? nowIso(),
+    });
+    const apply = await this.applyDatabasePlan({
+      plan,
+      currentState,
+      approval,
+      actor,
+      now: input.now,
+      snapshotReason: 'revert_point',
+      initialAudit,
+    });
+    appendDatabaseAuditEvent(apply.audit, {
+      eventType: 'revert.completed',
+      actor,
+      target: input.snapshot.target,
+      subject: {
+        snapshotId: input.snapshot.snapshotId,
+        restorePlanId: plan.planId,
+        finalStateFingerprint: apply.state.fingerprint,
+      },
+      timestamp: apply.applyRun.completedAt,
+    });
+    return {
+      snapshot: input.snapshot,
+      currentState,
+      plan,
+      approval,
+      apply,
+    };
+  }
+
   async ensureRoot(): Promise<void> {
     if (this.shouldAutoMigrate) {
       await this.pgApplyRuntimeSchema();
@@ -256,6 +392,49 @@ export class PostgresCumulusDbEngine extends CumulusDbEngine {
     );
     if (!result.rows[0]?.data_schema) {
       throw new Error('Postgres schema is not initialized; set CUMULUS_DB_AUTO_MIGRATE=true or apply apps/cumulus-db/postgres/data-v1.sql');
+    }
+  }
+
+  private async pgPreflightDatabaseStep(client: PgClient, step: DatabasePlanStep): Promise<void> {
+    if (step.op === 'add_unique_constraint') {
+      const table = databaseStepTable(step);
+      const columns = step.details?.index?.columns ?? (step.details?.column ? [step.details.column.name] : table.name ? [table.name] : []);
+      if (!table.schema || !table.table || columns.length === 0) return;
+      const notNullFilter = columns.map((column) => `${pgQuoteIdent(column)} is not null`).join(' and ');
+      const columnList = columns.map(pgQuoteIdent).join(', ');
+      const duplicate = await client.query(
+        `select 1
+           from ${pgQuoteTable(table.schema, table.table)}
+          where ${notNullFilter}
+          group by ${columnList}
+         having count(*) > 1
+          limit 1`,
+      );
+      if (duplicate.rows.length) {
+        throw new Error(`PREFLIGHT_UNIQUE_VIOLATION: ${step.object} has duplicate existing values`);
+      }
+      return;
+    }
+
+    if (step.op === 'add_column' && step.details?.column && !step.details.column.nullable && step.details.column.default === null) {
+      const table = databaseStepTable(step);
+      if (!table.schema || !table.table) return;
+      const existing = await client.query(`select 1 from ${pgQuoteTable(table.schema, table.table)} limit 1`);
+      if (existing.rows.length) {
+        throw new Error(`PREFLIGHT_NOT_NULL_COLUMN_WITH_EXISTING_ROWS: ${step.object} cannot be added without a default`);
+      }
+      return;
+    }
+
+    if (step.op === 'alter_column_nullable' && step.details?.column && !step.details.column.nullable) {
+      const table = databaseStepTable(step);
+      if (!table.schema || !table.table || !table.name) return;
+      const existingNull = await client.query(
+        `select 1 from ${pgQuoteTable(table.schema, table.table)} where ${pgQuoteIdent(table.name)} is null limit 1`,
+      );
+      if (existingNull.rows.length) {
+        throw new Error(`PREFLIGHT_NULL_VALUES_PRESENT: ${step.object} cannot be set not null while null values exist`);
+      }
     }
   }
 
@@ -1065,7 +1244,10 @@ export class PostgresCumulusDbEngine extends CumulusDbEngine {
       [dbId],
     );
     const existing = result.rows[0]?.state_json;
-    if (existing) return existing;
+    if (existing) {
+      ensureDatabaseTransactionState(existing);
+      return existing;
+    }
 
     const manifest = await this.pgRequireManifest(client, dbId);
     const state = newSystemState({
@@ -1355,4 +1537,21 @@ export class PostgresCumulusDbEngine extends CumulusDbEngine {
 
 export function postgresDataDdlForTests(): string {
   return POSTGRES_DATA_DDL;
+}
+
+function databaseStepTable(step: DatabasePlanStep): { schema: string | null; table: string | null; name: string | null } {
+  const [schema, table, name] = step.object.split('.');
+  return {
+    schema: schema ?? null,
+    table: table ?? null,
+    name: name ?? null,
+  };
+}
+
+function pgQuoteTable(schema: string, table: string): string {
+  return `${pgQuoteIdent(schema)}.${pgQuoteIdent(table)}`;
+}
+
+function pgQuoteIdent(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
 }

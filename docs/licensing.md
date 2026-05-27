@@ -7,7 +7,7 @@ Cumulus uses a split license model.
 | Area | License | Why |
 | --- | --- | --- |
 | Root app, marketing, dashboard, auth package, docs, tests, Supabase migrations | Apache-2.0 | Broad adoption, forks, commercial use, and cloud integrations. |
-| `apps/cumulus-db` Cumulus Database provider | AGPL-3.0-only | Networked database-provider improvements stay open when people run modified versions as a service. |
+| `apps/cumulus-db` Cumulus Database provider | AGPL-3.0-only | Networked database-provider improvements remain available when people run modified versions as a service. |
 
 ## Boundary Rules
 

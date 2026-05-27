@@ -1,123 +1,33 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { NavSheetContent } from "./nav";
-import { useAuth } from "@/components/providers/auth-provider";
+import { CREATE_SHORT_COMMAND } from "@/lib/cumulus-create";
 
-type HeaderProps = {
-  hideNavigationMenu?: boolean;
-};
+const darkLogo = "/create/darkmode.png";
 
-export function Header({ hideNavigationMenu = false }: HeaderProps) {
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-  const { user } = useAuth();
-  const isHomePage = pathname === "/";
-  const guestPrimaryHref = isHomePage ? "/login" : "/login?mode=signup";
-  const guestPrimaryLabel = isHomePage ? "Sign In" : "Create Account";
-
+export function Header() {
   return (
-    <header className="sticky top-0 z-40 bg-transparent">
-      <div className="container flex items-center justify-between py-6">
-        {/* Cumulus brand mark — terracotta dot + two-line JetBrains Mono caps lockup
-            per /Users/miguel/Documents/cumulus/CUMULUS-BRAND.md */}
-        <Link
-          href="/"
-          className="inline-flex items-start gap-[10px]"
-          aria-label="Cumulus home"
-        >
-          <span
-            aria-hidden
-            className="mt-[3px] inline-block h-[6px] w-[6px] rounded-full bg-[color:var(--color-terracotta)]"
-          />
-          <span className="flex flex-col font-mono uppercase leading-none">
-            <span className="text-[11px] font-semibold tracking-[0.22em] text-[color:var(--text)]">
-              Cumulus
-            </span>
-            <span className="mt-[4px] text-[9px] font-normal tracking-[0.16em] text-[color:var(--muted)]">
-              by Cumulus
-            </span>
+    <header className="sticky top-0 z-40 border-b border-[color:var(--hairline)] bg-[color:var(--bg)]/95">
+      <div className="mx-auto flex w-full max-w-[1560px] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-10">
+        <Link href="/" className="inline-flex items-center gap-3" aria-label="Cumulus home">
+          <Image src={darkLogo} alt="Cumulus" width={1122} height={1402} className="h-10 w-10 rounded-[5.5px] object-cover" priority />
+          <span className="hidden font-mono text-xs uppercase text-[color:var(--title)] sm:inline">
+            Cumulus Create
           </span>
         </Link>
-        <div className="flex items-center gap-4">
-          {!hideNavigationMenu ? (
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs tracking-[0.08em] xl:hidden"
-                >
-                  Menu
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[280px]">
-                <SheetHeader>
-                  <SheetTitle className="text-base tracking-[0.2em] text-[color:var(--muted)]">
-                    Navigate
-                  </SheetTitle>
-                </SheetHeader>
-                <div className="mt-6 flex flex-col gap-6">
-                  <NavSheetContent />
-                  <SheetClose asChild>
-                    <Button variant="secondary" className="justify-center" onClick={() => setOpen(false)}>
-                      Close
-                    </Button>
-                  </SheetClose>
-                </div>
-              </SheetContent>
-            </Sheet>
-          ) : null}
-          {user ? (
-            <>
-              <Button
-                asChild
-                variant="ghost"
-                className="hidden text-sm tracking-[0.08em] xl:inline-flex"
-              >
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
-              <Button
-                asChild
-                size="sm"
-                variant="ghost"
-                className="text-xs tracking-[0.08em] xl:hidden"
-              >
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                asChild
-                variant="ghost"
-                className="hidden text-sm tracking-[0.08em] xl:inline-flex"
-              >
-                <Link href={guestPrimaryHref}>{guestPrimaryLabel}</Link>
-              </Button>
-              <Button
-                asChild
-                size="sm"
-                variant="ghost"
-                className="text-xs tracking-[0.08em] xl:hidden"
-              >
-                <Link href={guestPrimaryHref}>{guestPrimaryLabel}</Link>
-              </Button>
-            </>
-          )}
-        </div>
+
+        <code className="hidden min-w-0 max-w-[52vw] overflow-x-auto rounded-[5.5px] border border-[color:var(--hairline)] px-3 py-2 font-mono text-xs text-[color:var(--subtitle)] md:block">
+          {CREATE_SHORT_COMMAND}
+        </code>
+
+        <Link
+          href="/dashboard"
+          className="rounded-[5.5px] bg-[color:var(--color-paper)] px-4 py-2 text-sm font-semibold text-[color:var(--color-ink)] transition hover:opacity-90"
+        >
+          Dashboard
+        </Link>
       </div>
     </header>
   );

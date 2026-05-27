@@ -1,0 +1,96 @@
+---
+title: Cumulus Create
+description: Crea una app Cumulus desde un comando.
+surfacesEyebrow: Cumulus Create
+surfacesTitle: Elige la forma de app.
+surfacesIntro: Cumulus Create escribe archivos de app, ejemplos de env, scripts y partes Cumulus elegidas.
+surfaceTabs:
+  - id: templates
+    label: Templates
+    eyebrow: Forma de app
+    status: full outer inner agent-auth
+    matrixPreset: forcefield
+  - id: auth
+    label: Auth
+    eyebrow: Relay
+    status: hosted self-hosted
+    matrixPreset: signal
+  - id: db
+    label: Cumulus DB
+    eyebrow: Datos de workspace
+    status: cloud local both
+    matrixPreset: radar
+  - id: flags
+    label: Flags
+    eyebrow: Terminal
+    status: comando exacto
+    matrixPreset: dna
+sections:
+  - id: defaults
+    label: Defaults
+  - id: examples
+    label: Ejemplos
+  - id: dashboard
+    label: Dashboard
+---
+
+<!-- content:templates -->
+### Templates elige el tamano de app.
+
+- `full` incluye sitio publico, `/me`, `/dev`, dashboards, API/MCP, docs, auth, signup y actions.
+- `outer` incluye sitio publico, docs, discovery, signup e inicio de actions.
+- `inner` incluye `/me`, `/dev`, settings, API/MCP, auth y actions.
+- `agent-auth` es el starter pequeno para discovery, login por attestation, signup y actions.
+
+Usa `marketing` como alias de `outer`. Usa `inside` como alias de `inner`.
+
+<!-- content:auth -->
+### Auth elige quien ejecuta Relay.
+
+- `hosted` usa auth, signup y actions en Relay hosted.
+- `self-hosted` deja que la app generada ejecute su API Relay y superficie MCP.
+
+Hosted es el camino mas corto. Self-hosted es para apps que tienen mas servidor propio.
+
+<!-- content:db -->
+### Cumulus DB elige donde viven los datos de workspace.
+
+- `cloud` usa Cumulus DB hosted.
+- `local` agrega el servicio local de Cumulus DB.
+- `both` agrega servicio local y mantiene ejemplos hosted.
+
+Relay Postgres guarda usuarios, sesiones, tenants, jobs de signup y registros de API keys. Cumulus DB guarda records de workspace de agentes, key-value, secretos y datos de busqueda.
+
+<!-- content:flags -->
+### Flags hacen exacto el comando.
+
+```bash
+npm create @cmls@latest my-acme -- --template full --agent-auth hosted --cumulus-db both --with auth,db,knowledge --package-manager npm --no-install --no-git
+```
+
+Usa el dashboard cuando quieras armar el comando sin recordar cada flag.
+
+<!-- content:defaults -->
+## Defaults
+
+`full`, `inner` y `agent-auth` usan `both` por defecto.
+
+`outer` usa `cloud` por defecto.
+
+Sin flags no interactivos, usa `full`, `hosted`, `npm`, sin install y sin git init.
+
+<!-- content:examples -->
+## Ejemplos
+
+```bash
+npm create @cmls@latest my-acme
+npm create @cmls@latest my-acme -- --template outer --agent-auth hosted
+npm create @cmls@latest my-acme -- --template full --agent-auth self-hosted --with auth,db,knowledge --install-runtimes
+```
+
+`npm create @cmls@latest` es shorthand de `@cmls/create@latest`.
+
+<!-- content:dashboard -->
+## Dashboard
+
+El dashboard es un playground para armar y copiar el comando create.

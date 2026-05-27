@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -13,29 +13,48 @@ import { AutoLocaleDetect } from "@/components/site/auto-locale-detect";
 
 import "./globals.css";
 
-// Per the master Cumulus brand spec: exactly two font families load.
-// - Plus Jakarta Sans = the only readable typeface (display + body)
-// - JetBrains Mono   = the unavoidable data partner (kickers, mono meta, code)
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
+const plusJakartaSans = localFont({
+  src: "../fonts/PlusJakartaSans-VariableFont_wght.ttf",
   variable: "--font-display",
   display: "swap",
-  weight: ["200", "300", "400", "500", "600", "700", "800"],
+  weight: "200 800",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
+const spaceGrotesk = localFont({
+  src: "../fonts/SpaceGrotesk-VariableFont_wght.ttf",
+  variable: "--font-body",
+  display: "swap",
+  weight: "300 700",
+});
+
+const draftingMono = localFont({
+  src: [
+    {
+      path: "../fonts/DraftingMono-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../fonts/DraftingMono-Medium.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../fonts/DraftingMono-SemiBold.woff2",
+      weight: "600",
+      style: "normal",
+    },
+  ],
   variable: "--font-mono",
   display: "swap",
-  weight: ["400", "500", "600"],
 });
 
 const SITE_URL = "https://cumulush.com";
 const SITE_NAME = "Cumulus";
 const SITE_DESCRIPTION =
-  "A small studio shipping tools and infrastructure for AI-first software. Independent products, one quiet studio.";
+  "Run npm create @cmls@latest my-acme to create a ready Cumulus app.";
 const SITE_TAGLINE =
-  "Tools and infrastructure for people building with AI.";
+  "npm create @cmls@latest my-acme";
 const UI_PREFERENCES_STORAGE_KEY = "cumulus_ui_preferences:hub";
 const initialThemeScript = `
 (() => {
@@ -56,18 +75,18 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: SITE_NAME,
-    template: "%s · Tado",
+    template: "%s · Cumulus",
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   category: "developer tools",
   keywords: [
     "Cumulus",
-    "Tado",
+    "Cumulus Create",
+    "npm create @cmls",
     "Relay",
-    "AI coding agents",
     "developer tools",
-    "indie studio",
+    "Cumulus app",
   ],
   authors: [{ name: "Cumulus", url: SITE_URL }],
   creator: "Cumulus",
@@ -144,7 +163,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="dark"
-      className={`${plusJakartaSans.variable} ${jetbrainsMono.variable} antialiased`}
+      className={`${plusJakartaSans.variable} ${spaceGrotesk.variable} ${draftingMono.variable} antialiased`}
       suppressHydrationWarning
     >
       <head>

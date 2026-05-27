@@ -1,8 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { nimbusIrJsonSchema } from './nimbus-schema.js';
 import { SYSTEM_SCOPE_REGISTRY } from './system.js';
+import {
+  cumulusDatabasePlanJsonSchemaContract,
+  databaseApprovalJsonSchemaContract,
+  databaseAuditEventJsonSchemaContract,
+  databaseSnapshotJsonSchemaContract,
+  databaseStateJsonSchemaContract,
+  nimbusDatabaseIrJsonSchemaContract,
+  nimbusDatabaseManifestJsonSchemaContract,
+} from './database-contracts.js';
 
 export const nimbusIrJsonSchemaContract = nimbusIrJsonSchema;
+export {
+  cumulusDatabasePlanJsonSchemaContract,
+  databaseApprovalJsonSchemaContract,
+  databaseAuditEventJsonSchemaContract,
+  databaseSnapshotJsonSchemaContract,
+  databaseStateJsonSchemaContract,
+  nimbusDatabaseIrJsonSchemaContract,
+  nimbusDatabaseManifestJsonSchemaContract,
+} from './database-contracts.js';
 
 const systemScopeContract = SYSTEM_SCOPE_REGISTRY.map(({ scope, label, dangerous, approvalRequired }) => ({
   scope,
@@ -47,6 +65,7 @@ export const systemOpenApiContract = {
     { name: 'system', description: 'System state and audit operations' },
     { name: 'principals', description: 'Org claim, grants, passkey step-up, and agent lifecycle operations' },
     { name: 'schema', description: 'Nimbus schema planning and apply operations' },
+    { name: 'database', description: 'Nimbus DB manifest planning, risk gates, snapshots, apply, and audit operations' },
     { name: 'snapshots', description: 'Provider-managed system snapshots' },
   ],
   paths: {
@@ -515,6 +534,420 @@ export const systemOpenApiContract = {
         },
       },
     },
+    '/v1/database/manifests:compile': {
+      post: {
+        tags: ['database'],
+        operationId: 'compileDatabaseManifest',
+        security: bearerSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['dbId', 'manifest'],
+                properties: {
+                  dbId: { type: 'string', minLength: 1 },
+                  manifest: { $ref: '#/components/schemas/NimbusDatabaseManifest' },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Compiled Nimbus DB IR',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['ir'],
+                  properties: {
+                    ir: { $ref: '#/components/schemas/NimbusDatabaseIr' },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/Error' },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
+    },
+    '/v1/database/plans': {
+      post: {
+        tags: ['database'],
+        operationId: 'createDatabasePlan',
+        security: bearerSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['dbId'],
+                properties: {
+                  dbId: { type: 'string', minLength: 1 },
+                  manifest: { $ref: '#/components/schemas/NimbusDatabaseManifest' },
+                  ir: { $ref: '#/components/schemas/NimbusDatabaseIr' },
+                  currentState: {
+                    description: 'Optional fixture state. If omitted, engines with live inspection inspect the target database.',
+                    $ref: '#/components/schemas/CumulusDatabaseState',
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Immutable Cumulus database plan',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['plan'],
+                  properties: {
+                    plan: { $ref: '#/components/schemas/CumulusDatabasePlan' },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/Error' },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
+    },
+    '/v1/database/plans/{planId}': {
+      get: {
+        tags: ['database'],
+        operationId: 'getDatabasePlan',
+        security: bearerSecurity,
+        parameters: [
+          { $ref: '#/components/parameters/DbId' },
+          {
+            name: 'planId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', minLength: 1 },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Saved Cumulus database plan record',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['plan', 'status', 'currentState', 'createdAt', 'appliedAt', 'snapshotId', 'applyRunId'],
+                  properties: {
+                    plan: { $ref: '#/components/schemas/CumulusDatabasePlan' },
+                    status: { enum: ['planned', 'applied'] },
+                    currentState: { $ref: '#/components/schemas/CumulusDatabaseState' },
+                    createdAt: { type: 'string', format: 'date-time' },
+                    appliedAt: { anyOf: [{ type: 'string', format: 'date-time' }, { type: 'null' }] },
+                    snapshotId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+                    applyRunId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/Error' },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
+    },
+    '/v1/database/plans:approve': {
+      post: {
+        tags: ['database'],
+        operationId: 'approveDatabasePlan',
+        security: bearerSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['dbId', 'planId', 'reason'],
+                properties: {
+                  dbId: { type: 'string', minLength: 1 },
+                  planId: { type: 'string', minLength: 1 },
+                  reason: { type: 'string', minLength: 1 },
+                  principalId: { type: 'string', minLength: 1 },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Plan-hash-bound database approval record',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['approval'],
+                  properties: {
+                    approval: { $ref: '#/components/schemas/DatabaseApproval' },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/Error' },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
+    },
+    '/v1/database/plans:apply': {
+      post: {
+        tags: ['database'],
+        operationId: 'applyDatabasePlan',
+        security: bearerSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['dbId', 'planId'],
+                properties: {
+                  dbId: { type: 'string', minLength: 1 },
+                  planId: { type: 'string', minLength: 1 },
+                  currentState: {
+                    description: 'Optional fixture state. If omitted, engines with live inspection re-inspect the target database before drift checks.',
+                    $ref: '#/components/schemas/CumulusDatabaseState',
+                  },
+                  approvalId: { type: 'string', minLength: 1 },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Database apply result with optional snapshot and audit chain',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['apply'],
+                  properties: {
+                    apply: {
+                      type: 'object',
+                      required: ['applyRun', 'state', 'snapshot', 'audit'],
+                      properties: {
+                        applyRun: { type: 'object', additionalProperties: true },
+                        state: { $ref: '#/components/schemas/CumulusDatabaseState' },
+                        snapshot: {
+                          anyOf: [{ $ref: '#/components/schemas/DatabaseSnapshot' }, { type: 'null' }],
+                        },
+                        audit: { type: 'array', items: { $ref: '#/components/schemas/DatabaseAuditEvent' } },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/Error' },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
+    },
+    '/v1/database/snapshots': {
+      post: {
+        tags: ['database'],
+        operationId: 'createDatabaseSnapshot',
+        security: bearerSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['dbId', 'target'],
+                properties: {
+                  dbId: { type: 'string', minLength: 1 },
+                  target: { $ref: '#/components/schemas/DatabaseTarget' },
+                  currentState: {
+                    description: 'Optional fixture state. If omitted, engines with live inspection inspect the target database.',
+                    $ref: '#/components/schemas/CumulusDatabaseState',
+                  },
+                  schemas: { type: 'array', items: { type: 'string', minLength: 1 } },
+                  reason: { enum: ['manual', 'pre_destructive_apply', 'revert_point'] },
+                  planId: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Created logical database snapshot',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['snapshot'],
+                  properties: {
+                    snapshot: { $ref: '#/components/schemas/DatabaseSnapshot' },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/Error' },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
+    },
+    '/v1/database/snapshots:restore': {
+      post: {
+        tags: ['database'],
+        operationId: 'restoreDatabaseSnapshot',
+        security: bearerSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['dbId', 'snapshot'],
+                properties: {
+                  dbId: { type: 'string', minLength: 1 },
+                  snapshot: { $ref: '#/components/schemas/DatabaseSnapshot' },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Restored logical database state',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['state'],
+                  properties: {
+                    state: { $ref: '#/components/schemas/CumulusDatabaseState' },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/Error' },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
+    },
+    '/v1/database/audit': {
+      get: {
+        tags: ['database'],
+        operationId: 'listDatabaseAuditEvents',
+        security: bearerSecurity,
+        parameters: [
+          { $ref: '#/components/parameters/DbId' },
+          {
+            name: 'planId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', minLength: 1 },
+          },
+          {
+            name: 'eventType',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', minLength: 1 },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, maximum: 500 },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Persisted database transaction audit events',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['audit', 'ok'],
+                  properties: {
+                    audit: { type: 'array', items: { $ref: '#/components/schemas/DatabaseAuditEvent' } },
+                    ok: { type: 'boolean' },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/Error' },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
+    },
+    '/v1/database/audit:verify': {
+      post: {
+        tags: ['database'],
+        operationId: 'verifyDatabaseAuditChain',
+        security: bearerSecurity,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['dbId', 'audit'],
+                properties: {
+                  dbId: { type: 'string', minLength: 1 },
+                  audit: { type: 'array', items: { $ref: '#/components/schemas/DatabaseAuditEvent' } },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Audit hash-chain verification result',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['ok'],
+                  properties: {
+                    ok: { type: 'boolean' },
+                  },
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/Error' },
+          '401': { $ref: '#/components/responses/Error' },
+        },
+      },
+    },
     '/v1/system/schema/plan': {
       post: {
         tags: ['schema'],
@@ -895,6 +1328,13 @@ export const systemOpenApiContract = {
     schemas: {
       ErrorResponse: errorResponse,
       NimbusIr: nimbusIrJsonSchema,
+      NimbusDatabaseManifest: nimbusDatabaseManifestJsonSchemaContract,
+      NimbusDatabaseIr: nimbusDatabaseIrJsonSchemaContract,
+      CumulusDatabaseState: databaseStateJsonSchemaContract,
+      CumulusDatabasePlan: cumulusDatabasePlanJsonSchemaContract,
+      DatabaseApproval: databaseApprovalJsonSchemaContract,
+      DatabaseSnapshot: databaseSnapshotJsonSchemaContract,
+      DatabaseAuditEvent: databaseAuditEventJsonSchemaContract,
       SystemScope: {
         type: 'string',
         enum: systemScopeEnum,
@@ -943,7 +1383,7 @@ export const systemOpenApiContract = {
       },
       SystemState: {
         type: 'object',
-        required: ['version', 'org', 'principals', 'approvals', 'schema'],
+        required: ['version', 'org', 'principals', 'approvals', 'schema', 'databaseTransactions'],
         properties: {
           version: { const: 1 },
           org: { type: 'object', additionalProperties: true },
@@ -960,6 +1400,48 @@ export const systemOpenApiContract = {
               plans: { type: 'array', items: { $ref: '#/components/schemas/SchemaPlan' } },
               versions: { type: 'array', items: { type: 'object', additionalProperties: true } },
               snapshots: { type: 'array', items: { $ref: '#/components/schemas/SystemSnapshot' } },
+            },
+            additionalProperties: false,
+          },
+          databaseTransactions: {
+            type: 'object',
+            required: ['currentState', 'currentStateFingerprint', 'plans', 'approvals', 'snapshots', 'applyRuns', 'audit'],
+            properties: {
+              currentState: { anyOf: [{ $ref: '#/components/schemas/CumulusDatabaseState' }, { type: 'null' }] },
+              currentStateFingerprint: { type: ['string', 'null'] },
+              plans: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  required: ['plan', 'currentState', 'status', 'createdAt', 'appliedAt', 'snapshotId', 'applyRunId'],
+                  properties: {
+                    plan: { $ref: '#/components/schemas/CumulusDatabasePlan' },
+                    currentState: { $ref: '#/components/schemas/CumulusDatabaseState' },
+                    status: { enum: ['planned', 'applied', 'rejected'] },
+                    createdAt: { type: 'string', format: 'date-time' },
+                    appliedAt: { type: ['string', 'null'], format: 'date-time' },
+                    snapshotId: { type: ['string', 'null'] },
+                    applyRunId: { type: ['string', 'null'] },
+                  },
+                  additionalProperties: false,
+                },
+              },
+              approvals: {
+                type: 'array',
+                items: {
+                  allOf: [
+                    { $ref: '#/components/schemas/DatabaseApproval' },
+                    {
+                      type: 'object',
+                      required: ['usedAt'],
+                      properties: { usedAt: { type: ['string', 'null'], format: 'date-time' } },
+                    },
+                  ],
+                },
+              },
+              snapshots: { type: 'array', items: { $ref: '#/components/schemas/DatabaseSnapshot' } },
+              applyRuns: { type: 'array', items: { type: 'object', additionalProperties: true } },
+              audit: { type: 'array', items: { $ref: '#/components/schemas/DatabaseAuditEvent' } },
             },
             additionalProperties: false,
           },

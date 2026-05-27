@@ -1,0 +1,61 @@
+{
+  "apiVersion": "nimbus.db/v0.1",
+  "kind": "DatabaseManifest",
+  "metadata": {
+    "name": "customer-core",
+    "workspace": "demo"
+  },
+  "target": {
+    "engine": "postgres",
+    "database": "app",
+    "environment": "dev"
+  },
+  "resources": {
+    "schemas": [
+      {
+        "name": "public"
+      }
+    ],
+    "tables": [
+      {
+        "schema": "public",
+        "name": "users",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "primaryKey": true
+          },
+          {
+            "name": "email",
+            "type": "text",
+            "nullable": false,
+            "unique": true
+          },
+          {
+            "name": "display_name",
+            "type": "text",
+            "nullable": true
+          }
+        ],
+        "indexes": [
+          {
+            "name": "users_email_idx",
+            "columns": [
+              "email"
+            ],
+            "unique": true
+          }
+        ]
+      }
+    ]
+  },
+  "policies": {
+    "destructiveChanges": "require_approval",
+    "snapshotBefore": [
+      "destructive",
+      "irreversible",
+      "high"
+    ]
+  }
+}

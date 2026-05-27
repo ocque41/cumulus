@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 export { loadConfig, randomMasterKey } from './config.js';
+export * from './database-transaction.js';
 export { nimbusIrJsonSchemaContract, systemOpenApiContract } from './contracts.js';
 export { parseEnvFile } from './env-parser.js';
 export { createHandler } from './http.js';

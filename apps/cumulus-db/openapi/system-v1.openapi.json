@@ -34,6 +34,10 @@
       "description": "Nimbus schema planning and apply operations"
     },
     {
+      "name": "database",
+      "description": "Nimbus DB manifest planning, risk gates, snapshots, apply, and audit operations"
+    },
+    {
       "name": "snapshots",
       "description": "Provider-managed system snapshots"
     }
@@ -789,6 +793,727 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/database/manifests:compile": {
+      "post": {
+        "tags": [
+          "database"
+        ],
+        "operationId": "compileDatabaseManifest",
+        "security": [
+          {
+            "bearerToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbId",
+                  "manifest"
+                ],
+                "properties": {
+                  "dbId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "manifest": {
+                    "$ref": "#/components/schemas/NimbusDatabaseManifest"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compiled Nimbus DB IR",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ir"
+                  ],
+                  "properties": {
+                    "ir": {
+                      "$ref": "#/components/schemas/NimbusDatabaseIr"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/database/plans": {
+      "post": {
+        "tags": [
+          "database"
+        ],
+        "operationId": "createDatabasePlan",
+        "security": [
+          {
+            "bearerToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbId"
+                ],
+                "properties": {
+                  "dbId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "manifest": {
+                    "$ref": "#/components/schemas/NimbusDatabaseManifest"
+                  },
+                  "ir": {
+                    "$ref": "#/components/schemas/NimbusDatabaseIr"
+                  },
+                  "currentState": {
+                    "description": "Optional fixture state. If omitted, engines with live inspection inspect the target database.",
+                    "$ref": "#/components/schemas/CumulusDatabaseState"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable Cumulus database plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "plan"
+                  ],
+                  "properties": {
+                    "plan": {
+                      "$ref": "#/components/schemas/CumulusDatabasePlan"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/database/plans/{planId}": {
+      "get": {
+        "tags": [
+          "database"
+        ],
+        "operationId": "getDatabasePlan",
+        "security": [
+          {
+            "bearerToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DbId"
+          },
+          {
+            "name": "planId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved Cumulus database plan record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "plan",
+                    "status",
+                    "currentState",
+                    "createdAt",
+                    "appliedAt",
+                    "snapshotId",
+                    "applyRunId"
+                  ],
+                  "properties": {
+                    "plan": {
+                      "$ref": "#/components/schemas/CumulusDatabasePlan"
+                    },
+                    "status": {
+                      "enum": [
+                        "planned",
+                        "applied"
+                      ]
+                    },
+                    "currentState": {
+                      "$ref": "#/components/schemas/CumulusDatabaseState"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "appliedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "snapshotId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "applyRunId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/database/plans:approve": {
+      "post": {
+        "tags": [
+          "database"
+        ],
+        "operationId": "approveDatabasePlan",
+        "security": [
+          {
+            "bearerToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbId",
+                  "planId",
+                  "reason"
+                ],
+                "properties": {
+                  "dbId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "planId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "principalId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Plan-hash-bound database approval record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "approval"
+                  ],
+                  "properties": {
+                    "approval": {
+                      "$ref": "#/components/schemas/DatabaseApproval"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/database/plans:apply": {
+      "post": {
+        "tags": [
+          "database"
+        ],
+        "operationId": "applyDatabasePlan",
+        "security": [
+          {
+            "bearerToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbId",
+                  "planId"
+                ],
+                "properties": {
+                  "dbId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "planId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "currentState": {
+                    "description": "Optional fixture state. If omitted, engines with live inspection re-inspect the target database before drift checks.",
+                    "$ref": "#/components/schemas/CumulusDatabaseState"
+                  },
+                  "approvalId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Database apply result with optional snapshot and audit chain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "apply"
+                  ],
+                  "properties": {
+                    "apply": {
+                      "type": "object",
+                      "required": [
+                        "applyRun",
+                        "state",
+                        "snapshot",
+                        "audit"
+                      ],
+                      "properties": {
+                        "applyRun": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "state": {
+                          "$ref": "#/components/schemas/CumulusDatabaseState"
+                        },
+                        "snapshot": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/DatabaseSnapshot"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "audit": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DatabaseAuditEvent"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/database/snapshots": {
+      "post": {
+        "tags": [
+          "database"
+        ],
+        "operationId": "createDatabaseSnapshot",
+        "security": [
+          {
+            "bearerToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbId",
+                  "target"
+                ],
+                "properties": {
+                  "dbId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target": {
+                    "$ref": "#/components/schemas/DatabaseTarget"
+                  },
+                  "currentState": {
+                    "description": "Optional fixture state. If omitted, engines with live inspection inspect the target database.",
+                    "$ref": "#/components/schemas/CumulusDatabaseState"
+                  },
+                  "schemas": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "reason": {
+                    "enum": [
+                      "manual",
+                      "pre_destructive_apply",
+                      "revert_point"
+                    ]
+                  },
+                  "planId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created logical database snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "snapshot"
+                  ],
+                  "properties": {
+                    "snapshot": {
+                      "$ref": "#/components/schemas/DatabaseSnapshot"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/database/snapshots:restore": {
+      "post": {
+        "tags": [
+          "database"
+        ],
+        "operationId": "restoreDatabaseSnapshot",
+        "security": [
+          {
+            "bearerToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbId",
+                  "snapshot"
+                ],
+                "properties": {
+                  "dbId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "snapshot": {
+                    "$ref": "#/components/schemas/DatabaseSnapshot"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Restored logical database state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "state"
+                  ],
+                  "properties": {
+                    "state": {
+                      "$ref": "#/components/schemas/CumulusDatabaseState"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/database/audit": {
+      "get": {
+        "tags": [
+          "database"
+        ],
+        "operationId": "listDatabaseAuditEvents",
+        "security": [
+          {
+            "bearerToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DbId"
+          },
+          {
+            "name": "planId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "eventType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persisted database transaction audit events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "audit",
+                    "ok"
+                  ],
+                  "properties": {
+                    "audit": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DatabaseAuditEvent"
+                      }
+                    },
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/database/audit:verify": {
+      "post": {
+        "tags": [
+          "database"
+        ],
+        "operationId": "verifyDatabaseAuditChain",
+        "security": [
+          {
+            "bearerToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dbId",
+                  "audit"
+                ],
+                "properties": {
+                  "dbId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "audit": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/DatabaseAuditEvent"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Audit hash-chain verification result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
           },
           "401": {
             "$ref": "#/components/responses/Error"
@@ -1642,6 +2367,1521 @@
           }
         }
       },
+      "NimbusDatabaseManifest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://schemas.cumulus.sh/nimbus-db-manifest/v0.schema.json",
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "kind",
+          "metadata",
+          "target",
+          "resources"
+        ],
+        "properties": {
+          "apiVersion": {
+            "const": "nimbus.db/v0.1"
+          },
+          "kind": {
+            "const": "DatabaseManifest"
+          },
+          "metadata": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "workspace": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "engine",
+              "database"
+            ],
+            "properties": {
+              "engine": {
+                "const": "postgres"
+              },
+              "database": {
+                "type": "string",
+                "minLength": 1
+              },
+              "environment": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "schemas": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "tables": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "columns"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "type": "string",
+                      "minLength": 1,
+                      "default": "public"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "renameFrom": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "name"
+                          ],
+                          "properties": {
+                            "schema": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "columns": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "type"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "renameFrom": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "type": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "nullable": {
+                            "type": "boolean"
+                          },
+                          "primaryKey": {
+                            "type": "boolean"
+                          },
+                          "unique": {
+                            "type": "boolean"
+                          },
+                          "default": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "indexes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "columns"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "columns": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "unique": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "rawSql": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "policies": {
+            "type": "object",
+            "properties": {
+              "destructiveChanges": {
+                "enum": [
+                  "block",
+                  "require_approval"
+                ]
+              },
+              "snapshotBefore": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "destructive",
+                    "irreversible",
+                    "high"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "NimbusDatabaseIr": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://schemas.cumulus.sh/nimbus-db-ir/v0.schema.json",
+        "type": "object",
+        "required": [
+          "irVersion",
+          "manifestHash",
+          "metadata",
+          "target",
+          "resources",
+          "policies",
+          "hash"
+        ],
+        "properties": {
+          "irVersion": {
+            "const": "nimbus.db.ir/v0.1"
+          },
+          "manifestHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "metadata": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "workspace": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "engine",
+              "database"
+            ],
+            "properties": {
+              "engine": {
+                "const": "postgres"
+              },
+              "database": {
+                "type": "string",
+                "minLength": 1
+              },
+              "environment": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "resources": {
+            "type": "object",
+            "required": [
+              "schemas",
+              "tables",
+              "rawSql"
+            ],
+            "properties": {
+              "schemas": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "tables": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "schema",
+                    "name",
+                    "columns",
+                    "indexes"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "schema": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "renameFrom": {
+                      "type": "object",
+                      "required": [
+                        "schema",
+                        "name"
+                      ],
+                      "properties": {
+                        "schema": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "nullable",
+                          "primaryKey",
+                          "unique",
+                          "default"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "renameFrom": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "type": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "nullable": {
+                            "type": "boolean"
+                          },
+                          "primaryKey": {
+                            "type": "boolean"
+                          },
+                          "unique": {
+                            "type": "boolean"
+                          },
+                          "default": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "indexes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "columns",
+                          "unique"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "columns": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "unique": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "rawSql": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "policies": {
+            "type": "object",
+            "required": [
+              "destructiveChanges",
+              "snapshotBefore"
+            ],
+            "properties": {
+              "destructiveChanges": {
+                "enum": [
+                  "block",
+                  "require_approval"
+                ]
+              },
+              "snapshotBefore": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "destructive",
+                    "irreversible",
+                    "high"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CumulusDatabaseState": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://schemas.cumulus.sh/cumulus-db-state/v0.schema.json",
+        "type": "object",
+        "required": [
+          "target",
+          "schemas",
+          "tables",
+          "fingerprint"
+        ],
+        "properties": {
+          "target": {
+            "type": "object",
+            "required": [
+              "engine",
+              "database"
+            ],
+            "properties": {
+              "engine": {
+                "const": "postgres"
+              },
+              "database": {
+                "type": "string",
+                "minLength": 1
+              },
+              "environment": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "schemas": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "schema",
+                "name",
+                "columns",
+                "indexes"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "renameFrom": {
+                  "type": "object",
+                  "required": [
+                    "schema",
+                    "name"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "columns": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "type",
+                      "nullable",
+                      "primaryKey",
+                      "unique",
+                      "default"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "renameFrom": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "type": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "nullable": {
+                        "type": "boolean"
+                      },
+                      "primaryKey": {
+                        "type": "boolean"
+                      },
+                      "unique": {
+                        "type": "boolean"
+                      },
+                      "default": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "indexes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "columns",
+                      "unique"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "columns": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "unique": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CumulusDatabasePlan": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://schemas.cumulus.sh/cumulus-db-plan/v0.schema.json",
+        "type": "object",
+        "required": [
+          "planId",
+          "planVersion",
+          "manifestHash",
+          "irHash",
+          "target",
+          "currentStateFingerprint",
+          "riskPolicyVersion",
+          "steps",
+          "summary",
+          "planHash"
+        ],
+        "properties": {
+          "planId": {
+            "type": "string",
+            "pattern": "^plan_[A-Za-z0-9]+$"
+          },
+          "planVersion": {
+            "const": "cumulus.plan/v0.1"
+          },
+          "manifestHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "irHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "engine",
+              "database"
+            ],
+            "properties": {
+              "engine": {
+                "const": "postgres"
+              },
+              "database": {
+                "type": "string",
+                "minLength": 1
+              },
+              "environment": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "currentStateFingerprint": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "riskPolicyVersion": {
+            "const": "risk.policy/v0.1"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "stepId",
+                "op",
+                "object",
+                "sql",
+                "risk"
+              ],
+              "properties": {
+                "stepId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "op": {
+                  "enum": [
+                    "noop",
+                    "create_schema",
+                    "create_table",
+                    "add_column",
+                    "alter_column_nullable",
+                    "alter_column_type",
+                    "add_index",
+                    "add_unique_constraint",
+                    "drop_index",
+                    "drop_column",
+                    "drop_table",
+                    "rename_column",
+                    "rename_table",
+                    "raw_sql_blocked_by_default"
+                  ]
+                },
+                "object": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sql": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "risk": {
+                  "type": "object",
+                  "required": [
+                    "level",
+                    "categories",
+                    "requiresApproval",
+                    "snapshotRequired",
+                    "reason"
+                  ],
+                  "properties": {
+                    "level": {
+                      "enum": [
+                        "R0_NOOP",
+                        "R1_SAFE_ADDITIVE",
+                        "R2_OPERATIONAL",
+                        "R3_DATA_DEPENDENT",
+                        "R4_BACKWARD_INCOMPATIBLE",
+                        "R5_DESTRUCTIVE",
+                        "R6_IRREVERSIBLE_OR_UNKNOWN"
+                      ]
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "requiresApproval": {
+                      "type": "boolean"
+                    },
+                    "snapshotRequired": {
+                      "type": "boolean"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "details": {
+                  "type": "object",
+                  "properties": {
+                    "table": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "schema",
+                        "name",
+                        "columns",
+                        "indexes"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "schema": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "renameFrom": {
+                          "type": "object",
+                          "required": [
+                            "schema",
+                            "name"
+                          ],
+                          "properties": {
+                            "schema": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "columns": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "type",
+                              "nullable",
+                              "primaryKey",
+                              "unique",
+                              "default"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "renameFrom": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "type": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "nullable": {
+                                "type": "boolean"
+                              },
+                              "primaryKey": {
+                                "type": "boolean"
+                              },
+                              "unique": {
+                                "type": "boolean"
+                              },
+                              "default": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "indexes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "columns",
+                              "unique"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "columns": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "unique": {
+                                "type": "boolean"
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "column": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "type",
+                        "nullable",
+                        "primaryKey",
+                        "unique",
+                        "default"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "renameFrom": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "type": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "nullable": {
+                          "type": "boolean"
+                        },
+                        "primaryKey": {
+                          "type": "boolean"
+                        },
+                        "unique": {
+                          "type": "boolean"
+                        },
+                        "default": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "index": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "name",
+                        "columns",
+                        "unique"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "columns": {
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "unique": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "summary": {
+            "type": "object",
+            "required": [
+              "creates",
+              "updates",
+              "drops",
+              "destructive",
+              "highestRisk",
+              "approvalRequired",
+              "snapshotRequired"
+            ],
+            "properties": {
+              "creates": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "updates": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "drops": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "destructive": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "highestRisk": {
+                "enum": [
+                  "R0_NOOP",
+                  "R1_SAFE_ADDITIVE",
+                  "R2_OPERATIONAL",
+                  "R3_DATA_DEPENDENT",
+                  "R4_BACKWARD_INCOMPATIBLE",
+                  "R5_DESTRUCTIVE",
+                  "R6_IRREVERSIBLE_OR_UNKNOWN"
+                ]
+              },
+              "approvalRequired": {
+                "type": "boolean"
+              },
+              "snapshotRequired": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "planHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseApproval": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://schemas.cumulus.sh/cumulus-db-approval/v0.schema.json",
+        "type": "object",
+        "required": [
+          "approvalId",
+          "planId",
+          "planHash",
+          "decision",
+          "approvedBy",
+          "requiredScopes",
+          "reason",
+          "expiresAt",
+          "createdAt"
+        ],
+        "properties": {
+          "approvalId": {
+            "type": "string",
+            "pattern": "^appr_[A-Za-z0-9]+$"
+          },
+          "planId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "planHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "decision": {
+            "const": "approved"
+          },
+          "approvedBy": {
+            "type": "object",
+            "required": [
+              "principalId",
+              "type"
+            ],
+            "properties": {
+              "principalId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "enum": [
+                  "human",
+                  "agent",
+                  "system"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "requiredScopes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseSnapshot": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://schemas.cumulus.sh/cumulus-db-snapshot/v0.schema.json",
+        "type": "object",
+        "required": [
+          "snapshotId",
+          "target",
+          "provider",
+          "reason",
+          "planId",
+          "createdAt",
+          "verified",
+          "stateFingerprint",
+          "state"
+        ],
+        "properties": {
+          "snapshotId": {
+            "type": "string",
+            "pattern": "^snap_[A-Za-z0-9]+$"
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "engine",
+              "database"
+            ],
+            "properties": {
+              "engine": {
+                "const": "postgres"
+              },
+              "database": {
+                "type": "string",
+                "minLength": 1
+              },
+              "environment": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "provider": {
+            "const": "postgres.logical_state.v0"
+          },
+          "reason": {
+            "enum": [
+              "pre_destructive_apply",
+              "manual",
+              "revert_point"
+            ]
+          },
+          "planId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "stateFingerprint": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "state": {
+            "type": "object",
+            "required": [
+              "target",
+              "schemas",
+              "tables",
+              "fingerprint"
+            ],
+            "properties": {
+              "target": {
+                "type": "object",
+                "required": [
+                  "engine",
+                  "database"
+                ],
+                "properties": {
+                  "engine": {
+                    "const": "postgres"
+                  },
+                  "database": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "environment": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              },
+              "schemas": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "tables": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "schema",
+                    "name",
+                    "columns",
+                    "indexes"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "schema": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "renameFrom": {
+                      "type": "object",
+                      "required": [
+                        "schema",
+                        "name"
+                      ],
+                      "properties": {
+                        "schema": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "nullable",
+                          "primaryKey",
+                          "unique",
+                          "default"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "renameFrom": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "type": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "nullable": {
+                            "type": "boolean"
+                          },
+                          "primaryKey": {
+                            "type": "boolean"
+                          },
+                          "unique": {
+                            "type": "boolean"
+                          },
+                          "default": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "indexes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "columns",
+                          "unique"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "columns": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "unique": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "fingerprint": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAuditEvent": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://schemas.cumulus.sh/cumulus-db-audit-event/v0.schema.json",
+        "type": "object",
+        "required": [
+          "auditId",
+          "sequence",
+          "eventType",
+          "actor",
+          "target",
+          "subject",
+          "timestamp",
+          "prevHash",
+          "eventHash"
+        ],
+        "properties": {
+          "auditId": {
+            "type": "string",
+            "pattern": "^aud_[A-Za-z0-9]+$"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "eventType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actor": {
+            "type": "object",
+            "required": [
+              "principalId",
+              "kind"
+            ],
+            "properties": {
+              "principalId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "human",
+                  "agent",
+                  "system"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "engine",
+              "database"
+            ],
+            "properties": {
+              "engine": {
+                "const": "postgres"
+              },
+              "database": {
+                "type": "string",
+                "minLength": 1
+              },
+              "environment": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "subject": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "decision": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "prevHash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eventHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": false
+      },
       "SystemScope": {
         "type": "string",
         "enum": [
@@ -1792,7 +4032,8 @@
           "org",
           "principals",
           "approvals",
-          "schema"
+          "schema",
+          "databaseTransactions"
         ],
         "properties": {
           "version": {
@@ -1877,6 +4118,135 @@
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/SystemSnapshot"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "databaseTransactions": {
+            "type": "object",
+            "required": [
+              "currentState",
+              "currentStateFingerprint",
+              "plans",
+              "approvals",
+              "snapshots",
+              "applyRuns",
+              "audit"
+            ],
+            "properties": {
+              "currentState": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CumulusDatabaseState"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "currentStateFingerprint": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "plans": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "plan",
+                    "currentState",
+                    "status",
+                    "createdAt",
+                    "appliedAt",
+                    "snapshotId",
+                    "applyRunId"
+                  ],
+                  "properties": {
+                    "plan": {
+                      "$ref": "#/components/schemas/CumulusDatabasePlan"
+                    },
+                    "currentState": {
+                      "$ref": "#/components/schemas/CumulusDatabaseState"
+                    },
+                    "status": {
+                      "enum": [
+                        "planned",
+                        "applied",
+                        "rejected"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "appliedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "snapshotId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "applyRunId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "approvals": {
+                "type": "array",
+                "items": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/DatabaseApproval"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "usedAt"
+                      ],
+                      "properties": {
+                        "usedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "snapshots": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DatabaseSnapshot"
+                }
+              },
+              "applyRuns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "audit": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DatabaseAuditEvent"
                 }
               }
             },

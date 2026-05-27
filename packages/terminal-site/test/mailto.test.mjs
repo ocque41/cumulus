@@ -12,7 +12,7 @@ test("buildMailtoUrl prepares an addressed draft", () => {
 });
 
 test("openMailDraft supports dry runs for tests and CI", () => {
-  const result = openMailDraft("No external app should open", { dryRun: true });
+  const result = openMailDraft("No external app should launch", { dryRun: true });
   assert.equal(result.ok, true);
   assert.equal(result.command, "dry-run");
   assert.match(result.url, /^mailto:hi@cumulush\.com/);

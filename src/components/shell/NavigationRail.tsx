@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { label: "DOME", href: "/", external: false },
+  { label: "HOME", href: "/", external: false },
   { label: "SETTINGS", href: "/settings", external: false },
 ];
 
@@ -16,7 +16,7 @@ export function NavigationRail() {
   return (
     <nav className="glass-surface glass-subtle glass-e3 fixed left-4 top-4 bottom-4 z-40 hidden w-24 rounded-[5.5px] border border-[color:var(--glass-border-base)] p-3 lg:flex lg:flex-col lg:items-center">
       <div className="mb-8 text-[10px] font-semibold uppercase tracking-[0.26em] text-[color:var(--glass-text-muted)] [writing-mode:vertical-rl]">
-        Tado
+        Cumulus
       </div>
 
       <div className="flex w-full flex-col gap-2">

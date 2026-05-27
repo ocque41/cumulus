@@ -5,7 +5,7 @@ Cumulus releases are cut from the public repo, not from private production histo
 ## Versioning
 
 - Use semantic versioning.
-- Tag releases as `vX.Y.Z`.
+- Tag releases as bare versions like `0.0.7`.
 - Keep `CHANGELOG.md` as the public version ledger.
 
 ## Required Checks
@@ -40,7 +40,7 @@ npm run build
 4. Create an annotated tag:
 
 ```bash
-git tag -a vX.Y.Z -m "Cumulus vX.Y.Z"
+git tag -a X.Y.Z -m "Cumulus X.Y.Z"
 ```
 
 5. Push `main` and the tag.

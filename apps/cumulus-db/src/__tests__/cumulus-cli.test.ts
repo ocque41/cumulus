@@ -183,6 +183,110 @@ describe('Cumulus CLI', () => {
     expect(String(calls[0]?.init?.body)).toContain('"planId":"plan_1"');
   });
 
+  it('runs the Nimbus database transaction flow over HTTP', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cumulus-cli-database-'));
+    await writeFile(
+      join(dir, 'manifest.json'),
+      JSON.stringify({
+        apiVersion: 'nimbus.db/v0.1',
+        kind: 'DatabaseManifest',
+        metadata: { name: 'customer-core' },
+        target: { engine: 'postgres', database: 'app' },
+        resources: {
+          schemas: [{ name: 'public' }],
+          tables: [
+            {
+              name: 'users',
+              columns: [
+                { name: 'id', type: 'uuid', primaryKey: true },
+                { name: 'email', type: 'text', nullable: false },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    await writeFile(
+      join(dir, 'state.json'),
+      JSON.stringify({
+        target: { engine: 'postgres', database: 'app' },
+        schemas: [{ id: 'schema.public', name: 'public' }],
+        tables: [],
+        fingerprint: 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+      }),
+    );
+    await writeFile(
+      join(dir, 'snapshot.json'),
+      JSON.stringify({
+        snapshotId: 'snap_1',
+        target: { engine: 'postgres', database: 'app' },
+        provider: 'postgres.logical_state.v0',
+        reason: 'pre_destructive_apply',
+        planId: 'plan_1',
+        createdAt: '2026-05-23T12:00:00.000Z',
+        verified: true,
+        stateFingerprint: 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+        state: {
+          target: { engine: 'postgres', database: 'app' },
+          schemas: [{ id: 'schema.public', name: 'public' }],
+          tables: [],
+          fingerprint: 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+        },
+      }),
+    );
+    await writeFile(join(dir, 'audit.json'), JSON.stringify([]));
+
+    const calls: FetchCall[] = [];
+    const fetchMock: typeof fetch = async (input, init) => {
+      const url = new URL(String(input));
+      calls.push({ url, init });
+      if (url.pathname === '/v1/database/manifests:compile') return jsonResponse({ ir: { hash: 'sha256:ir' } });
+      if (url.pathname === '/v1/database/plans') return jsonResponse({ plan: { planId: 'plan_1' } });
+      if (url.pathname === '/v1/database/plans/plan_1') return jsonResponse({ plan: { planId: 'plan_1' }, status: 'planned' });
+      if (url.pathname === '/v1/database/plans:approve') return jsonResponse({ approval: { approvalId: 'appr_1' } }, 201);
+      if (url.pathname === '/v1/database/plans:apply') return jsonResponse({ apply: { applyRun: { applyRunId: 'apply_1' } } });
+      if (url.pathname === '/v1/database/snapshots:restore') return jsonResponse({ state: { fingerprint: 'sha256:restored' } });
+      if (url.pathname === '/v1/database/audit') return jsonResponse({ audit: [], ok: true });
+      if (url.pathname === '/v1/database/audit:verify') return jsonResponse({ ok: true });
+      return jsonResponse({});
+    };
+
+    const common = ['--url', 'http://db.test', '--db-id', 'db_1', '--token', 'cu_pat_v1_x_y'];
+    const outputs: string[] = [];
+    const io = {
+      cwd: dir,
+      fetch: fetchMock,
+      stdout: (text: string) => {
+        outputs.push(text);
+      },
+    };
+
+    expect(await runCumulusCli(['database', 'compile', ...common, '--manifest', 'manifest.json'], io)).toBe(0);
+    expect(await runCumulusCli(['database', 'plan', ...common, '--manifest', 'manifest.json'], io)).toBe(0);
+    expect(await runCumulusCli(['database', 'get-plan', ...common, '--plan-id', 'plan_1'], io)).toBe(0);
+    expect(await runCumulusCli(['database', 'approve', ...common, '--plan-id', 'plan_1', '--reason', 'dev fixture'], io)).toBe(0);
+    expect(await runCumulusCli(['database', 'apply', ...common, '--plan-id', 'plan_1', '--approval-id', 'appr_1'], io)).toBe(0);
+    expect(await runCumulusCli(['database', 'restore', ...common, '--snapshot', 'snapshot.json'], io)).toBe(0);
+    expect(await runCumulusCli(['database', 'audit', ...common, '--plan-id', 'plan_1'], io)).toBe(0);
+    expect(await runCumulusCli(['database', 'audit-verify', ...common, '--audit', 'audit.json'], io)).toBe(0);
+
+    expect(calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url.pathname}`)).toEqual([
+      'POST /v1/database/manifests:compile',
+      'POST /v1/database/plans',
+      'GET /v1/database/plans/plan_1',
+      'POST /v1/database/plans:approve',
+      'POST /v1/database/plans:apply',
+      'POST /v1/database/snapshots:restore',
+      'GET /v1/database/audit',
+      'POST /v1/database/audit:verify',
+    ]);
+    expect(String(calls[1]?.init?.body)).toContain('"manifest"');
+    expect(String(calls[1]?.init?.body)).not.toContain('"currentState"');
+    expect(String(calls[3]?.init?.body)).toContain('"reason":"dev fixture"');
+    expect(String(calls[4]?.init?.body)).toContain('"approvalId":"appr_1"');
+    expect(String(calls[3]?.init?.body)).not.toContain('"currentState"');
+  });
+
   it('rotates tokens through the database token route', async () => {
     const calls: FetchCall[] = [];
     const fetchMock: typeof fetch = async (input, init) => {

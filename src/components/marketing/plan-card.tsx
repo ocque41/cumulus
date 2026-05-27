@@ -34,7 +34,11 @@ const statusLabels: Record<PlanDefinition['status'], Record<MarketLocale, string
 
 function priceLine(plan: PlanDefinition, currency: CurrencyCode, locale: MarketLocale): string {
   if (plan.amount === null) {
-    return '--';
+    return locale === 'en' ? 'Contact' : 'Contacto';
+  }
+
+  if (plan.amount === 0) {
+    return locale === 'en' ? 'Free' : 'Gratis';
   }
 
   const amount = formatAmount(plan.amount, currency, locale);
@@ -69,19 +73,21 @@ export function PlanCard({ locale, currency, plan, href, featured = false, sourc
       source,
     });
 
-    trackMarketingEvent('checkout_intent_created', {
-      locale,
-      currency,
-      planKey: plan.key,
-      source,
-    });
+    if (plan.mode !== 'contact') {
+      trackMarketingEvent('checkout_intent_created', {
+        locale,
+        currency,
+        planKey: plan.key,
+        source,
+      });
 
-    trackMarketingEvent('checkout_redirect_started', {
-      locale,
-      currency,
-      planKey: plan.key,
-      source,
-    });
+      trackMarketingEvent('checkout_redirect_started', {
+        locale,
+        currency,
+        planKey: plan.key,
+        source,
+      });
+    }
   };
 
   return (

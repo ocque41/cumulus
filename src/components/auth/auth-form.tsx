@@ -150,11 +150,11 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
     <div className="mx-auto w-full max-w-md space-y-4">
       <div className="rounded-[5.5px] border border-[color:var(--muted)]/40 bg-[color:var(--glass-bg-standard)] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[color:var(--muted)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur">
         <div className="flex items-center justify-between gap-3 text-[11px]">
-          <span className="text-[color:var(--title)] [font-family:var(--type-heading-family)] [font-weight:var(--font-weight-semibold)]">Tado account access</span>
+          <span className="text-[color:var(--title)] [font-family:var(--type-heading-family)] [font-weight:var(--font-weight-semibold)]">Cumulus account access</span>
           <span className="rounded-md bg-[color:var(--accent-soft)] px-2 py-1 text-[10px] text-[color:var(--title)] [font-family:var(--type-label-family)] [font-weight:var(--type-label-weight)]">Shared auth</span>
         </div>
         <p className="mt-2 text-[12px] leading-relaxed text-[color:var(--muted)]">
-          Use one email and password across Tado and linked agent workspaces.
+          Use one email and password for Cumulus app work.
         </p>
       </div>
 
@@ -178,7 +178,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
           <Card className="border-[color:var(--muted)]/40 bg-[color:var(--bg)] backdrop-blur-xl">
             <CardHeader>
               <CardTitle className="text-[color:var(--title)]">Sign In</CardTitle>
-              <CardDescription className="text-[color:var(--muted)]">Use your Tado account credentials.</CardDescription>
+              <CardDescription className="text-[color:var(--muted)]">Use your Cumulus account credentials.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <form onSubmit={onLogin} className="space-y-4">
@@ -231,7 +231,7 @@ export function AuthForm({ initialTab = 'login', redirectPath = '/dashboard', re
           <Card className="border-[color:var(--muted)]/40 bg-[color:var(--bg)] backdrop-blur-xl">
             <CardHeader>
               <CardTitle className="text-[color:var(--title)]">Create Account</CardTitle>
-              <CardDescription className="text-[color:var(--muted)]">Set up a Tado account and continue into the workspace.</CardDescription>
+              <CardDescription className="text-[color:var(--muted)]">Set up a Cumulus account and continue.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <form onSubmit={onSignUp} className="space-y-4">

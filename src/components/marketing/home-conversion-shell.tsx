@@ -17,8 +17,7 @@ import {
   TypographyP,
   TypographySmall,
 } from '@/components/ui/typography';
-import { buildCheckoutStartHref } from '@/lib/marketing/checkout';
-import { dailyFlowSteps, homeContent, selectorPersonas, trustPoints, visionLines } from '@/lib/marketing/content';
+import { accessPoints, dailyFlowSteps, homeContent, selectorPersonas, visionLines } from '@/lib/marketing/content';
 import { MARKET_CURRENCY_COOKIE } from '@/lib/marketing/currency';
 import { trackMarketingEvent } from '@/lib/marketing/events';
 import { MARKET_LOCALE_COOKIE } from '@/lib/marketing/i18n';
@@ -49,27 +48,27 @@ const statusLabel: Record<MarketingProductBrief['status'], Record<MarketLocale, 
 
 const heroScanPoints: Record<MarketLocale, string[]> = {
   en: [
-    'Clear app path by role.',
-    'Start without technical setup.',
+    'Free local database path.',
+    'Scoped tokens for agents.',
   ],
   es: [
-    'Ruta clara por rol.',
-    'Empieza sin configuracion tecnica.',
+    'Camino local gratis.',
+    'Tokens con scope para agentes.',
   ],
 };
 
 const jumpLinks: Record<MarketLocale, Array<{ href: string; label: string }>> = {
   en: [
-    { href: '#selector', label: 'Role paths' },
-    { href: '#federation', label: 'Product map' },
-    { href: '#flow', label: 'Daily flow' },
-    { href: '#trust', label: 'Trust' },
+    { href: '#selector', label: 'Agent needs' },
+    { href: '#federation', label: 'Database surface' },
+    { href: '#flow', label: 'Agent flow' },
+    { href: '#access', label: 'Access' },
   ],
   es: [
-    { href: '#selector', label: 'Rutas por rol' },
-    { href: '#federation', label: 'Mapa de producto' },
-    { href: '#flow', label: 'Flujo diario' },
-    { href: '#trust', label: 'Confianza' },
+    { href: '#selector', label: 'Necesidades de agente' },
+    { href: '#federation', label: 'Superficie de base' },
+    { href: '#flow', label: 'Flujo de agente' },
+    { href: '#access', label: 'Acceso' },
   ],
 };
 
@@ -80,13 +79,6 @@ export function HomeConversionShell({ locale, currency }: HomeConversionShellPro
 
     trackMarketingEvent('home_view', { locale, currency, source: 'home' });
   }, [locale, currency]);
-
-  const accessHref = buildCheckoutStartHref({
-    planKey: 'pro_monthly',
-    currency,
-    locale,
-    source: 'home_hero',
-  });
 
   return (
     <div className='relative mx-auto w-full max-w-[1760px] px-4 pb-20 pt-8 sm:px-6 lg:px-8'>
@@ -115,24 +107,11 @@ export function HomeConversionShell({ locale, currency }: HomeConversionShellPro
                 trackMarketingEvent('home_primary_cta_click', {
                   locale,
                   currency,
-                  planKey: 'pro_monthly',
-                  source: 'home_hero',
-                });
-                trackMarketingEvent('checkout_intent_created', {
-                  locale,
-                  currency,
-                  planKey: 'pro_monthly',
-                  source: 'home_hero',
-                });
-                trackMarketingEvent('checkout_redirect_started', {
-                  locale,
-                  currency,
-                  planKey: 'pro_monthly',
                   source: 'home_hero',
                 });
               }}
             >
-              <Link href={accessHref}>{homeContent.heroPrimaryCta[locale]}</Link>
+              <Link href='/docs'>{homeContent.heroPrimaryCta[locale]}</Link>
             </Button>
           </div>
 
@@ -241,12 +220,12 @@ export function HomeConversionShell({ locale, currency }: HomeConversionShellPro
           </ol>
         </section>
 
-        <section id='trust' className='glass-surface glass-subtle glass-e2 space-y-5 rounded-[5.5px] p-5 sm:p-7 lg:p-8'>
-          <TypographyEyebrow>{locale === 'en' ? 'Trust Layer' : 'Capa de confianza'}</TypographyEyebrow>
-          <TypographyH2 className='border-none pb-0'>{homeContent.trustTitle[locale]}</TypographyH2>
-          <TypographyMuted>{homeContent.trustDescription[locale]}</TypographyMuted>
+        <section id='access' className='glass-surface glass-subtle glass-e2 space-y-5 rounded-[5.5px] p-5 sm:p-7 lg:p-8'>
+          <TypographyEyebrow>{locale === 'en' ? 'Access Layer' : 'Capa de acceso'}</TypographyEyebrow>
+          <TypographyH2 className='border-none pb-0'>{homeContent.accessTitle[locale]}</TypographyH2>
+          <TypographyMuted>{homeContent.accessDescription[locale]}</TypographyMuted>
           <TypographyList className='my-0'>
-            {trustPoints[locale].map((point) => (
+            {accessPoints[locale].map((point) => (
               <li key={point}>{point}</li>
             ))}
           </TypographyList>
@@ -262,7 +241,7 @@ export function HomeConversionShell({ locale, currency }: HomeConversionShellPro
           <TypographyH2 className='border-none pb-0'>{homeContent.pricingBridgeTitle[locale]}</TypographyH2>
           <TypographyP>{homeContent.pricingBridgeDescription[locale]}</TypographyP>
           <Button asChild variant='brand' className='min-h-11 w-full justify-center px-6 text-xs uppercase tracking-[0.12em] sm:w-auto sm:text-sm'>
-            <Link href='/login?mode=signup'>{homeContent.pricingBridgeCta[locale]}</Link>
+            <Link href='/models'>{homeContent.pricingBridgeCta[locale]}</Link>
           </Button>
         </section>
       </article>
