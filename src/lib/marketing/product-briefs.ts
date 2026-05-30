@@ -9,12 +9,12 @@ const productStatus: Record<MarketingProductBrief['product'], MarketingProductBr
 const copy: Record<MarketingProductBrief['product'], Omit<MarketingProductBrief, 'product' | 'status'>> = {
   'cumulus-db': {
     title: {
-      en: 'Cumulus Create',
-      es: 'Cumulus Create',
+      en: 'Cumulus',
+      es: 'Cumulus',
     },
     oneLiner: {
-      en: 'npm create @cmls@latest my-acme',
-      es: 'npm create @cmls@latest my-acme',
+      en: 'npm create @cmls@latest',
+      es: 'npm create @cmls@latest',
     },
     outcome: {
       en: 'Use it when you want a ready Cumulus app with clear flags.',

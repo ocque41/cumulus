@@ -1,5 +1,5 @@
-import { CumulusCreatePage } from "@/components/marketing/cumulus-create-page";
+import { CumulusPage } from "@/components/marketing/cumulus-page";
 
 export default function ContactPage() {
-  return <CumulusCreatePage />;
+  return <CumulusPage />;
 }

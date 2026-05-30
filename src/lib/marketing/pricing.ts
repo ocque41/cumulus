@@ -4,12 +4,12 @@ const basePlans: Record<PlanKey, Omit<PlanDefinition, 'amount'>> = {
   cumulus_db_free: {
     key: 'cumulus_db_free',
     title: {
-      en: 'Cumulus Create',
-      es: 'Cumulus Create',
+      en: 'Cumulus',
+      es: 'Cumulus',
     },
     summary: {
-      en: 'Run npm create @cmls@latest my-acme.',
-      es: 'Ejecuta npm create @cmls@latest my-acme.',
+      en: 'Run npm create @cmls@latest.',
+      es: 'Ejecuta npm create @cmls@latest.',
     },
     cadence: 'one-time',
     mode: 'contact',

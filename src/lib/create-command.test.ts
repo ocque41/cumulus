@@ -5,7 +5,7 @@ import {
   createDefaults,
   defaultCumulusDbForTemplate,
   type CreateCommandOptions,
-} from "./cumulus-create";
+} from "./create-command";
 
 function withOptions(overrides: Partial<CreateCommandOptions> = {}) {
   return buildCreateCommand({ ...createDefaults, ...overrides });
@@ -14,14 +14,14 @@ function withOptions(overrides: Partial<CreateCommandOptions> = {}) {
 describe("buildCreateCommand", () => {
   it("builds the default command", () => {
     expect(withOptions()).toBe(
-      "npm create @cmls@latest my-acme -- --template full --agent-auth hosted --cumulus-db both --with auth,db,knowledge --package-manager npm --no-install --no-git",
+      "npm create @cmls@latest -- --template full --agent-auth hosted --cumulus-db both --with auth,db,knowledge --package-manager npm --no-install --no-git",
     );
   });
 
   it("adds explicit template, auth, company, package manager, install, and git flags", () => {
     expect(
       withOptions({
-        projectName: "my-cumulus-app",
+        projectName: "acme-app",
         company: "Acme Inc",
         template: "inner",
         agentAuth: "self-hosted",
@@ -31,7 +31,7 @@ describe("buildCreateCommand", () => {
         git: true,
       }),
     ).toBe(
-      'npm create @cmls@latest my-cumulus-app -- --template inner --agent-auth self-hosted --cumulus-db local --with auth,db,knowledge --package-manager pnpm --company "Acme Inc" --install --git',
+      'npm create @cmls@latest acme-app -- --template inner --agent-auth self-hosted --cumulus-db local --with auth,db,knowledge --package-manager pnpm --company "Acme Inc" --install --git',
     );
   });
 

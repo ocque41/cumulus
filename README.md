@@ -144,7 +144,7 @@ npm run build
 
 Public releases are tracked in `CHANGELOG.md` and tagged as bare versions like `0.0.7`. See `docs/releasing.md`.
 
-- **0.0.7** (2026-05-27) - Cumulus Create refocus with the command-first public site, dashboard command playground, Cumulus DB contract updates, terminal-site updates, and release cleanup.
+- **0.0.7** (2026-05-27) - Cumulus refocus with the command-first public site, dashboard command playground, Cumulus DB contract updates, terminal-site updates, and release cleanup.
 - **0.0.6** (2026-05-19) - Cumulus DB v1 and Nimbus foundation with Postgres runtime, system console, OIDC/device auth, CLI, MCP schemas, and machine contracts.
 
 ## Project Structure

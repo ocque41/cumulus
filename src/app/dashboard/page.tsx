@@ -23,7 +23,7 @@ import {
   type CreateFeature,
   type CreatePackageManager,
   type CreateTemplate,
-} from "@/lib/cumulus-create";
+} from "@/lib/create-command";
 
 function SegmentButton<T extends string>({
   active,
@@ -124,7 +124,7 @@ export default function DashboardPage() {
     <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-8 px-4 pb-20 pt-10 sm:px-6 lg:px-8">
       <section className="rounded-[5.5px] border border-[color:var(--hairline)] p-5 sm:p-8">
         <p className="font-mono text-[0.72rem] uppercase text-[color:var(--muted)]">
-          Cumulus Create
+          Cumulus
         </p>
         <h1 className="mt-4 max-w-[12ch] text-5xl leading-none text-[color:var(--title)] sm:text-7xl">
           Build the command.

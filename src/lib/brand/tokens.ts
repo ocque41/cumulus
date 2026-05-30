@@ -1,5 +1,4 @@
-// Cumulus brand tokens — derived from the master spec at
-// /Users/miguel/Documents/cumulus/CUMULUS-BRAND.md (v1.0).
+// Cumulus brand tokens — derived from the Cumulus master brand spec (v1.0).
 //
 // Foundation: monochrome ink-on-paper plus a single chromatic moment.
 // - --ink (#1A1A1A): the deep cool ground

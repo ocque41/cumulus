@@ -11,10 +11,11 @@ import {
   localDbEnv,
   localDbScripts,
   templateRows,
-} from "@/lib/cumulus-create";
+} from "@/lib/create-command";
 
 const flags = [
-  "create <project-name>",
+  "npm create @cmls@latest",
+  "  [project-name]",
   "  --template full|outer|inner|agent-auth",
   "  --agent-auth hosted|self-hosted",
   "  --cumulus-db cloud|local|both",
@@ -82,11 +83,11 @@ function SectionHeading({
   );
 }
 
-export function CumulusCreatePage() {
+export function CumulusPage() {
   return (
     <main className="mx-auto w-full max-w-[1560px] px-4 pb-24 pt-6 sm:px-6 lg:px-10">
       <section className="border-b border-[color:var(--hairline)] py-14">
-        <p className="font-mono text-xs uppercase text-[color:var(--muted)]">Cumulus Create</p>
+        <p className="font-mono text-xs uppercase text-[color:var(--muted)]">Cumulus</p>
         <h1 className="mt-6 max-w-3xl text-5xl leading-none text-[color:var(--title)] sm:text-7xl">
           Create a Cumulus app.
         </h1>
@@ -116,7 +117,7 @@ export function CumulusCreatePage() {
           <SectionHeading
             eyebrow="What it does"
             title="One command builds the app shape you choose."
-            body="Cumulus Create asks for a few choices, then writes the app files, examples, and scripts for that shape."
+            body="Cumulus asks for a few choices, then writes the app files, examples, and scripts for that shape."
           />
           <div className="mt-8">
             <CommandBlock command={CREATE_SHORT_COMMAND} />
@@ -177,8 +178,7 @@ export function CumulusCreatePage() {
             agent signup, app start, Knowledge, and Cumulus DB progress writes.
           </p>
           <p>
-            <code className="font-mono text-[color:var(--title)]">my-acme</code> and{" "}
-            <code className="font-mono text-[color:var(--title)]">my-cumulus-app</code> are placeholder names. With{" "}
+            The project name is optional. When it is omitted, the command asks for it. With{" "}
             <code className="font-mono text-[color:var(--title)]">--company &quot;Acme Inc&quot;</code>, the folder and package name come from the company.
           </p>
           <p>Hosted mode writes the Relay discovery, login, signup, action, and env examples needed to connect to Relay.</p>

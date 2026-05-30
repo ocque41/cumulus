@@ -1,6 +1,6 @@
 # Cumulus Marketing Site — Brand Guidelines
 
-**Inherits from `/Users/miguel/Documents/cumulus/CUMULUS-BRAND.md` v1.0.
+**Inherits from the Cumulus master brand spec v1.0.
 The master spec wins on any disagreement.** When this file and the
 master disagree, fix this file. Anything below is either a restatement
 of the master to make it discoverable from the site repo, or a

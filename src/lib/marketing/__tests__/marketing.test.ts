@@ -59,28 +59,28 @@ describe('marketing pricing', () => {
 });
 
 describe('marketing product briefs', () => {
-  it('returns only the active Cumulus Create brief', () => {
+  it('returns only the active Cumulus brief', () => {
     const briefs = getMarketingProductBriefs();
     expect(briefs.map((brief) => brief.product)).toEqual(['cumulus-db']);
-    expect(briefs[0]?.title.en).toBe('Cumulus Create');
+    expect(briefs[0]?.title.en).toBe('Cumulus');
   });
 });
 
 describe('marketing home document', () => {
-  it('loads the Cumulus Create hero and product document', async () => {
+  it('loads the Cumulus hero and product document', async () => {
     const [enDocument, esDocument] = await Promise.all([
       loadMarketingHomeDocument('en'),
       loadMarketingHomeDocument('es'),
     ]);
 
-    expect(enDocument.hero.title).toBe('Cumulus Create');
-    expect(esDocument.hero.title).toBe('Cumulus Create');
+    expect(enDocument.hero.title).toBe('Cumulus');
+    expect(esDocument.hero.title).toBe('Cumulus');
 
     expect(enDocument.products.map((product) => product.id)).toEqual(['cumulus-db']);
     expect(esDocument.products.map((product) => product.id)).toEqual(['cumulus-db']);
 
     const databaseEn = enDocument.products.find((product) => product.id === 'cumulus-db');
-    expect(databaseEn?.frontMatter.title).toBe('Cumulus Create');
+    expect(databaseEn?.frontMatter.title).toBe('Cumulus');
     expect(databaseEn?.surfaces.map((surface) => surface.id)).toEqual(['templates', 'auth', 'db', 'flags']);
   });
 });

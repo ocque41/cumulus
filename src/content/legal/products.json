@@ -1,7 +1,7 @@
 [
   {
-    "slug": "cumulus-create",
-    "name": "Cumulus Create",
+    "slug": "cumulus",
+    "name": "Cumulus",
     "description": "A create command that writes a ready Cumulus app."
   }
 ]

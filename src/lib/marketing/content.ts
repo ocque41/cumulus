@@ -8,16 +8,16 @@ import type {
 
 export const homeContent: MarketingHomeContent = {
   heroEyebrow: {
-    en: 'Cumulus Create',
-    es: 'Cumulus Create',
+    en: 'Cumulus',
+    es: 'Cumulus',
   },
   heroTitle: {
     en: 'Create a Cumulus app.',
     es: 'Crea una app Cumulus.',
   },
   heroSubtitle: {
-    en: 'Run npm create @cmls@latest my-acme and choose the parts.',
-    es: 'Ejecuta npm create @cmls@latest my-acme y elige las partes.',
+    en: 'Run npm create @cmls@latest and choose the parts.',
+    es: 'Ejecuta npm create @cmls@latest y elige las partes.',
   },
   heroPrimaryCta: {
     en: 'Build command',
@@ -64,8 +64,8 @@ export const homeContent: MarketingHomeContent = {
     es: 'Listo para crear?',
   },
   pricingBridgeDescription: {
-    en: 'Start with npm create @cmls@latest my-acme.',
-    es: 'Empieza con npm create @cmls@latest my-acme.',
+    en: 'Start with npm create @cmls@latest.',
+    es: 'Empieza con npm create @cmls@latest.',
   },
   pricingBridgeCta: {
     en: 'Build command',
@@ -75,16 +75,16 @@ export const homeContent: MarketingHomeContent = {
 
 export const modelsContent: MarketingModelsContent = {
   eyebrow: {
-    en: 'Cumulus Create',
-    es: 'Cumulus Create',
+    en: 'Cumulus',
+    es: 'Cumulus',
   },
   title: {
     en: 'Build the command',
     es: 'Crea el comando',
   },
   subtitle: {
-    en: 'Use the dashboard to choose flags for npm create @cmls@latest my-acme.',
-    es: 'Usa el dashboard para elegir flags de npm create @cmls@latest my-acme.',
+    en: 'Use the dashboard to choose flags for npm create @cmls@latest.',
+    es: 'Usa el dashboard para elegir flags de npm create @cmls@latest.',
   },
   comparisonTitle: {
     en: 'Command choices',
@@ -107,8 +107,8 @@ export const modelsContent: MarketingModelsContent = {
     es: 'Usa el comando',
   },
   enterpriseDescription: {
-    en: 'npm create @cmls@latest my-acme',
-    es: 'npm create @cmls@latest my-acme',
+    en: 'npm create @cmls@latest',
+    es: 'npm create @cmls@latest',
   },
   enterpriseCta: {
     en: 'Build command',
@@ -233,8 +233,8 @@ export const purchaseSteps: PurchaseStep[] = [
       es: 'Ejecutalo',
     },
     detail: {
-      en: 'npm create @cmls@latest my-acme',
-      es: 'npm create @cmls@latest my-acme',
+      en: 'npm create @cmls@latest',
+      es: 'npm create @cmls@latest',
     },
   },
   {
@@ -265,11 +265,11 @@ export const accessPoints = {
 
 export const visionLines = {
   en: {
-    title: 'Why Cumulus Create exists',
+    title: 'Why Cumulus exists',
     body: 'Starting a Cumulus app should be one command, with clear choices and no setup maze.',
   },
   es: {
-    title: 'Por que existe Cumulus Create',
+    title: 'Por que existe Cumulus',
     body: 'Empezar una app Cumulus debe ser un comando, con opciones claras y sin laberinto de setup.',
   },
 };

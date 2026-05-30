@@ -5,8 +5,8 @@ import { MarketingLayoutShell } from "@/components/site/marketing-layout-shell";
 import { buildMetadata } from "@/lib/metadata";
 
 export const metadata = buildMetadata({
-  title: "Cumulus Create",
-  description: "Run npm create @cmls@latest my-acme to create a ready Cumulus app.",
+  title: "Cumulus",
+  description: "Run npm create @cmls@latest to create a ready Cumulus app.",
   path: "/contact",
 });
 

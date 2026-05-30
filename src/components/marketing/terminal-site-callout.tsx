@@ -1,5 +1,5 @@
 import { CopyCommand } from "@/components/create/copy-command";
-import { CREATE_SHORT_COMMAND } from "@/lib/cumulus-create";
+import { CREATE_SHORT_COMMAND } from "@/lib/create-command";
 
 export function TerminalSiteCallout() {
   return (
@@ -11,7 +11,7 @@ export function TerminalSiteCallout() {
       <div className='grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-end'>
         <div>
           <p className='font-mono text-[0.72rem] uppercase tracking-[0.2em] text-[color:var(--muted)]'>
-            Cumulus Create
+            Cumulus
           </p>
           <h2
             id='terminal-site-title'

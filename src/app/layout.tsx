@@ -50,8 +50,14 @@ const draftingMono = localFont({
 const SITE_URL = "https://cumulush.com";
 const SITE_NAME = "Cumulus";
 const SITE_DESCRIPTION =
-  "Run npm create @cmls@latest my-acme to create a ready Cumulus app.";
-const SITE_TAGLINE = "npm create @cmls@latest my-acme";
+  "Run npm create @cmls@latest to create a ready-to-deploy agentic Cumulus app.";
+const SITE_TAGLINE = "npm create @cmls@latest";
+const SOCIAL_IMAGE = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "Cumulus social preview",
+} as const;
 const UI_PREFERENCES_STORAGE_KEY = "cumulus_ui_preferences:hub";
 const initialThemeScript = `
 (() => {
@@ -79,7 +85,6 @@ export const metadata: Metadata = {
   category: "developer tools",
   keywords: [
     "Cumulus",
-    "Cumulus Create",
     "npm create @cmls",
     "Relay",
     "developer tools",
@@ -103,13 +108,15 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     locale: "en_US",
     alternateLocale: ["es_ES"],
+    images: [SOCIAL_IMAGE],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: `${SITE_NAME} — ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
     creator: "@cumulus",
     site: "@cumulus",
+    images: [SOCIAL_IMAGE.url],
   },
   robots: {
     index: true,
@@ -117,7 +124,7 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      "max-image-preview": "none",
+      "max-image-preview": "large",
       "max-snippet": -1,
       "max-video-preview": -1,
     },

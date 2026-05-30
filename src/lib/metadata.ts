@@ -2,20 +2,26 @@ import type { Metadata } from "next";
 
 const siteConfig = {
   name: "Cumulus",
-  title: "Cumulus Create",
-  tagline: "npm create @cmls@latest my-acme",
+  title: "Cumulus",
+  tagline: "npm create @cmls@latest",
   description:
-    "Run npm create @cmls@latest my-acme to create a ready Cumulus app.",
+    "Run npm create @cmls@latest to create a ready-to-deploy agentic Cumulus app.",
   url: "https://cumulush.com",
   twitterHandle: "@cumulus",
   keywords: [
     "Cumulus",
-    "Cumulus Create",
     "npm create @cmls",
     "Relay",
     "developer tools",
     "Cumulus app",
   ],
+} as const;
+
+const socialImage = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "Cumulus social preview",
 } as const;
 
 type BuildMetadataOptions = {
@@ -54,13 +60,15 @@ export function buildMetadata({
       url,
       siteName: siteConfig.name,
       locale: "en_US",
+      images: [socialImage],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: ogTitle,
       description: desc,
       creator: siteConfig.twitterHandle,
       site: siteConfig.twitterHandle,
+      images: [socialImage.url],
     },
     robots: noIndex
       ? { index: false, follow: false }

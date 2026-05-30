@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { CopyCommand } from "@/components/create/copy-command";
-import { CREATE_SHORT_COMMAND } from "@/lib/cumulus-create";
+import { CREATE_SHORT_COMMAND } from "@/lib/create-command";
 
 const links = [
   { href: "/", label: "Home" },

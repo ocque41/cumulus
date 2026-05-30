@@ -6,26 +6,26 @@ This project follows semantic versioning. Release tags use bare versions such as
 
 ## [0.0.7] - 2026-05-27
 
-Cumulus 0.0.7 refocuses the public site on Cumulus Create and packages the current public repo work into one clear release. The main message is now one command: `npm create @cmls@latest my-acme`.
+Cumulus 0.0.7 refocuses the public site on Cumulus and packages the current public repo work into one clear release. The main message is now one command: `npm create @cmls@latest`.
 
 ### Added
 
-- **Cumulus Create site** - Rebuilt the public marketing routes around the create command, template choices, auth modes, Cumulus DB modes, defaults, flags, and examples.
+- **Cumulus site** - Rebuilt the public marketing routes around the create command, template choices, auth modes, Cumulus DB modes, defaults, flags, and examples.
 - **Command playground** - Turned `/dashboard` into a public command builder with copy support for template, auth, database, feature, package manager, install, git, dry-run, and runtime choices.
 - **Create command data** - Added shared command-building helpers and tests for defaults, explicit flags, company handling, feature toggles, install runtimes, and dry-run behavior.
 - **Cumulus DB contracts** - Added approval, audit, plan, snapshot, state, IR, and manifest schemas plus transaction contracts and tests for the local Cumulus DB service.
-- **Release assets** - Added curated public images and local fonts used by the Cumulus Create website.
+- **Release assets** - Added curated public images and local fonts used by the Cumulus website.
 
 ### Changed
 
-- **Public navigation** - Simplified the website header, footer, dashboard sidebar, metadata, and old marketing routes so they point to Cumulus Create.
-- **Cumulus Create motion** - Added Anime.js timelines, staggered reveals, command highlights, floating visuals, and scroll-linked section motion.
-- **Terminal site** - Updated terminal-site copy, rendering, documentation, and tests for the current Cumulus Create direction.
+- **Public navigation** - Simplified the website header, footer, dashboard sidebar, metadata, and old marketing routes so they point to Cumulus.
+- **Cumulus motion** - Added Anime.js timelines, staggered reveals, command highlights, floating visuals, and scroll-linked section motion.
+- **Terminal site** - Updated terminal-site copy, rendering, documentation, and tests for the current Cumulus direction.
 - **Release hygiene** - Ignored raw local asset drops and scratch files while keeping the curated runtime assets visible for release.
 
 ### Removed
 
-- **Old marketing surfaces** - Removed stale product pages and old home visual shells that no longer match the Cumulus Create release direction.
+- **Old marketing surfaces** - Removed stale product pages and old home visual shells that no longer match the Cumulus release direction.
 - **Dashboard distractions** - Removed the dashboard database link from navigation and redirects `/dashboard/database` back to the command playground.
 
 ## [0.0.6] - 2026-05-19
@@ -70,7 +70,7 @@ Cumulus 0.0.3 turned the database dashboard into a fuller operational console. T
 ### Added
 
 - **Database operations dashboard** - Expanded `/dashboard/database` with provider health, MCP metadata, key-value, events, token management, backup, compact, and compact record views.
-- **Cumulus DB API coverage** - Added app-side proxy routes for health, MCP metadata, events, key-value, token list/create/rotate/revoke, backup, and compact operations.
+- **Cumulus DB API coverage** - Added app-side proxy routes for health, MCP metadata, events, key-value, token list@cmls/create/rotate/revoke, backup, and compact operations.
 - **Browser polish** - Added favicon coverage, stable theme hydration, form-wrapped token input, and clearer admin-scope hints for secret reveal and maintenance actions.
 
 ### Fixed

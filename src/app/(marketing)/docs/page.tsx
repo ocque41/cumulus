@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 
-import { CumulusCreatePage } from "@/components/marketing/cumulus-create-page";
+import { CumulusPage } from "@/components/marketing/cumulus-page";
 
 export const metadata: Metadata = {
-  title: "Cumulus Create",
-  description: "Build a Cumulus Create command and create a ready Cumulus app.",
+  title: "Cumulus",
+  description: "Build a Cumulus command and create a ready Cumulus app.",
 };
 
 export default function DocsPage() {
-  return <CumulusCreatePage />;
+  return <CumulusPage />;
 }

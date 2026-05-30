@@ -1,9 +1,9 @@
 ---
-title: Cumulus Create
+title: Cumulus
 description: Build a Cumulus app from one command.
-surfacesEyebrow: Cumulus Create
+surfacesEyebrow: Cumulus
 surfacesTitle: Pick the app shape.
-surfacesIntro: Cumulus Create writes the app files, env examples, scripts, and selected Cumulus parts.
+surfacesIntro: Cumulus writes the app files, env examples, scripts, and selected Cumulus parts.
 surfaceTabs:
   - id: templates
     label: Templates
@@ -65,7 +65,7 @@ Relay Postgres stores users, sessions, tenants, signup jobs, and API-key records
 ### Flags make the command exact.
 
 ```bash
-npm create @cmls@latest my-acme -- --template full --agent-auth hosted --cumulus-db both --with auth,db,knowledge --package-manager npm --no-install --no-git
+npm create @cmls@latest -- --template full --agent-auth hosted --cumulus-db both --with auth,db,knowledge --package-manager npm --no-install --no-git
 ```
 
 Use the dashboard when you want to build the command without remembering every flag.
@@ -83,12 +83,12 @@ Missing non-interactive flags default to `full`, `hosted`, `npm`, no install, an
 ## Examples
 
 ```bash
-npm create @cmls@latest my-acme
-npm create @cmls@latest my-acme -- --template outer --agent-auth hosted
-npm create @cmls@latest my-acme -- --template full --agent-auth self-hosted --with auth,db,knowledge --install-runtimes
+npm create @cmls@latest
+npm create @cmls@latest -- --template outer --agent-auth hosted
+npm create @cmls@latest -- --template full --agent-auth self-hosted --with auth,db,knowledge --install-runtimes
 ```
 
-`npm create @cmls@latest` is shorthand for `@cmls/create@latest`.
+`npm create @cmls@latest` is shorthand for `@cmls/create`.
 
 <!-- content:dashboard -->
 ## Dashboard

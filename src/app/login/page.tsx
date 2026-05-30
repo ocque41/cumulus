@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { AuthForm } from "@/components/auth/auth-form";
 import { CopyCommand } from "@/components/create/copy-command";
-import { CREATE_SHORT_COMMAND } from "@/lib/cumulus-create";
+import { CREATE_SHORT_COMMAND } from "@/lib/create-command";
 
 type AuthMode = "login" | "signup" | "forgot-password";
 type SearchParamValue = string | string[] | undefined;
@@ -48,7 +48,7 @@ export default async function LoginPage({
         <div className="space-y-8">
           <div className="space-y-5">
             <Link href="/" className="font-mono text-xs uppercase text-[color:var(--title)]" aria-label="Cumulus home">
-              Cumulus Create
+              Cumulus
             </Link>
 
             <div className="space-y-4">
@@ -59,7 +59,7 @@ export default async function LoginPage({
                 Sign in to Cumulus.
               </h1>
               <p className="max-w-[58ch] text-[1.05rem] leading-[1.7] text-[color:var(--subtitle)]">
-                Cumulus Create builds a ready app from one command.
+                Cumulus builds a ready app from one command.
               </p>
               <CopyCommand command={CREATE_SHORT_COMMAND} />
             </div>

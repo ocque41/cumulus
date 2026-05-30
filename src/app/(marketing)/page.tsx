@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 
-import { CumulusCreatePage } from "@/components/marketing/cumulus-create-page";
+import { CumulusPage } from "@/components/marketing/cumulus-page";
 
 export const metadata: Metadata = {
-  title: { absolute: "Cumulus Create" },
-  description: "Run npm create @cmls@latest my-acme to create a ready Cumulus app.",
+  title: { absolute: "Cumulus" },
+  description: "Run npm create @cmls@latest to create a ready Cumulus app.",
 };
 
 export const viewport: Viewport = {
@@ -13,5 +13,5 @@ export const viewport: Viewport = {
 };
 
 export default function HomePage() {
-  return <CumulusCreatePage />;
+  return <CumulusPage />;
 }

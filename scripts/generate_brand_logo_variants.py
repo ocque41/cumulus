@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Iterable
 
@@ -12,8 +13,12 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "public" / "brand" / "generated"
 
-CUMULUS_SOURCE = Path("/Users/miguel/Downloads/Mark _ display type.png")
-TADO_SOURCE = Path("/Users/miguel/Downloads/B _ Dark mode _primary default_.png")
+CUMULUS_SOURCE = Path(
+  os.environ.get("CUMULUS_LOGO_SOURCE", ROOT / "brand-sources" / "cumulus-mark.png")
+)
+TADO_SOURCE = Path(
+  os.environ.get("TADO_LOGO_SOURCE", ROOT / "brand-sources" / "tado-mark.png")
+)
 
 INK = np.array([26, 26, 26], dtype=np.float32)
 PAPER = np.array([245, 245, 245], dtype=np.float32)

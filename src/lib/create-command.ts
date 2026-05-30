@@ -1,6 +1,6 @@
-export const CREATE_SHORT_COMMAND = "npm create @cmls@latest my-acme";
+export const CREATE_SHORT_COMMAND = "npm create @cmls@latest";
 export const CREATE_NPM_SHORTHAND = "npm create @cmls@latest";
-export const CREATE_PACKAGE_NAME = "@cmls/create@latest";
+export const CREATE_PACKAGE_NAME = "@cmls/create";
 
 export const CREATE_FEATURES = ["auth", "db", "knowledge"] as const;
 export const CREATE_TEMPLATES = ["full", "outer", "inner", "agent-auth"] as const;
@@ -29,7 +29,7 @@ export type CreateCommandOptions = {
 };
 
 export const createDefaults: CreateCommandOptions = {
-  projectName: "my-acme",
+  projectName: "",
   company: "",
   template: "full",
   agentAuth: "hosted",
@@ -106,11 +106,11 @@ export const localDbEnv = [
 
 export const createExamples = [
   CREATE_SHORT_COMMAND,
-  'npm create @cmls@latest my-acme -- --template full --agent-auth hosted --company "Acme Inc"',
-  "npm create @cmls@latest my-acme -- --template outer --agent-auth hosted",
-  "npm create @cmls@latest my-acme -- --template inner --agent-auth hosted",
-  "npm create @cmls@latest my-acme -- --template full --agent-auth self-hosted --with auth,db,knowledge --install-runtimes",
-  "npm create @cmls@latest my-acme -- --template agent-auth --cumulus-db cloud",
+  'npm create @cmls@latest -- --template full --agent-auth hosted --company "Acme Inc"',
+  "npm create @cmls@latest -- --template outer --agent-auth hosted",
+  "npm create @cmls@latest -- --template inner --agent-auth hosted",
+  "npm create @cmls@latest -- --template full --agent-auth self-hosted --with auth,db,knowledge --install-runtimes",
+  "npm create @cmls@latest -- --template agent-auth --cumulus-db cloud",
 ] as const;
 
 export function defaultCumulusDbForTemplate(template: CreateTemplate): CreateCumulusDbMode {
@@ -118,7 +118,7 @@ export function defaultCumulusDbForTemplate(template: CreateTemplate): CreateCum
 }
 
 export function normalizeProjectName(value: string) {
-  return value.trim() || createDefaults.projectName;
+  return value.trim();
 }
 
 export function quoteShellValue(value: string) {
@@ -130,6 +130,7 @@ export function quoteShellValue(value: string) {
 
 export function buildCreateCommand(options: CreateCommandOptions) {
   const projectName = quoteShellValue(normalizeProjectName(options.projectName));
+  const command = projectName ? `${CREATE_NPM_SHORTHAND} ${projectName}` : CREATE_NPM_SHORTHAND;
   const flags = [
     "--template",
     options.template,
@@ -160,5 +161,5 @@ export function buildCreateCommand(options: CreateCommandOptions) {
     flags.push("--dry-run");
   }
 
-  return `npm create @cmls@latest ${projectName} -- ${flags.join(" ")}`;
+  return `${command} -- ${flags.join(" ")}`;
 }
