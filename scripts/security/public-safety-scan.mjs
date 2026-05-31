@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 
 const blockedPaths = [
   /^\.agent\//,
@@ -49,9 +50,69 @@ const blockedContent = [
   [/BEGIN [A-Z ]+PRIVATE KEY/, 'private key block'],
 ];
 
+const syncConflictIgnoredDirs = new Set([
+  '.next',
+  '.turbo',
+  '.cache',
+  'build',
+  'coverage',
+  'dist',
+  'node_modules',
+  'out',
+  'test-results',
+]);
+
 function extensionOf(path) {
   const dot = path.lastIndexOf('.');
   return dot >= 0 ? path.slice(dot).toLowerCase() : '';
+}
+
+function isSyncConflictName(name) {
+  return / 2(?:\.[^.]+)?$/.test(name);
+}
+
+function collectSyncConflictFiles(dir = '.', findings = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    const relativePath = fullPath.replace(/^\.\//, '');
+
+    if (entry.isDirectory()) {
+      if (entry.name === '.git') {
+        collectGitRefConflicts(path.join(fullPath, 'refs'), findings);
+        continue;
+      }
+
+      if (syncConflictIgnoredDirs.has(entry.name)) continue;
+      collectSyncConflictFiles(fullPath, findings);
+      continue;
+    }
+
+    if (isSyncConflictName(entry.name)) {
+      findings.push(`${relativePath}: iCloud/Finder conflict copy`);
+    }
+  }
+
+  return findings;
+}
+
+function collectGitRefConflicts(dir, findings = []) {
+  if (!existsSync(dir)) return findings;
+
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    const relativePath = fullPath.replace(/^\.\//, '');
+
+    if (entry.isDirectory()) {
+      collectGitRefConflicts(fullPath, findings);
+      continue;
+    }
+
+    if (isSyncConflictName(entry.name)) {
+      findings.push(`${relativePath}: invalid Git ref conflict copy`);
+    }
+  }
+
+  return findings;
 }
 
 const files = Array.from(
@@ -67,6 +128,8 @@ const files = Array.from(
 );
 
 const findings = [];
+
+collectSyncConflictFiles('.', findings);
 
 for (const file of files) {
   if (!existsSync(file)) continue;

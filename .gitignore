@@ -97,6 +97,10 @@ next-env.d.ts
 Thumbs.db
 *.pem
 
+# iCloud/Finder conflict copies, such as `nav 2.tsx` or `HEAD 2`.
+**/* 2
+**/* 2.*
+
 # ------------------------------------------------------------
 # Local release-prep scratch
 # ------------------------------------------------------------
