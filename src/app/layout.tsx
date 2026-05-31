@@ -52,11 +52,24 @@ const SITE_NAME = "Cumulus";
 const SITE_DESCRIPTION =
   "Run npm create @cmls@latest to create a ready-to-deploy agentic Cumulus app.";
 const SITE_TAGLINE = "npm create @cmls@latest";
-const SOCIAL_IMAGE = {
-  url: "/opengraph-image",
+const SOCIAL_PREVIEW_VERSION = "20260531-1";
+const OPEN_GRAPH_IMAGE_URL = `${SITE_URL}/opengraph-image?v=${SOCIAL_PREVIEW_VERSION}`;
+const TWITTER_IMAGE_URL = `${SITE_URL}/twitter-image?v=${SOCIAL_PREVIEW_VERSION}`;
+const OPEN_GRAPH_IMAGE = {
+  url: OPEN_GRAPH_IMAGE_URL,
+  secureUrl: OPEN_GRAPH_IMAGE_URL,
+  type: "image/png",
   width: 1200,
   height: 630,
   alt: "Cumulus social preview",
+} as const;
+const TWITTER_IMAGE = {
+  url: TWITTER_IMAGE_URL,
+  secureUrl: TWITTER_IMAGE_URL,
+  type: "image/png",
+  width: 1200,
+  height: 630,
+  alt: OPEN_GRAPH_IMAGE.alt,
 } as const;
 const UI_PREFERENCES_STORAGE_KEY = "cumulus_ui_preferences:hub";
 const initialThemeScript = `
@@ -108,7 +121,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     locale: "en_US",
     alternateLocale: ["es_ES"],
-    images: [SOCIAL_IMAGE],
+    images: [OPEN_GRAPH_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
@@ -116,7 +129,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     creator: "@cumulus",
     site: "@cumulus",
-    images: [SOCIAL_IMAGE.url],
+    images: [TWITTER_IMAGE],
   },
   robots: {
     index: true,

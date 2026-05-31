@@ -17,11 +17,26 @@ const siteConfig = {
   ],
 } as const;
 
-const socialImage = {
-  url: "/opengraph-image",
+const socialPreviewVersion = "20260531-1";
+const openGraphImageUrl = `${siteConfig.url}/opengraph-image?v=${socialPreviewVersion}`;
+const twitterImageUrl = `${siteConfig.url}/twitter-image?v=${socialPreviewVersion}`;
+
+const openGraphImage = {
+  url: openGraphImageUrl,
+  secureUrl: openGraphImageUrl,
+  type: "image/png",
   width: 1200,
   height: 630,
   alt: "Cumulus social preview",
+} as const;
+
+const twitterImage = {
+  url: twitterImageUrl,
+  secureUrl: twitterImageUrl,
+  type: "image/png",
+  width: 1200,
+  height: 630,
+  alt: openGraphImage.alt,
 } as const;
 
 type BuildMetadataOptions = {
@@ -60,7 +75,7 @@ export function buildMetadata({
       url,
       siteName: siteConfig.name,
       locale: "en_US",
-      images: [socialImage],
+      images: [openGraphImage],
     },
     twitter: {
       card: "summary_large_image",
@@ -68,7 +83,7 @@ export function buildMetadata({
       description: desc,
       creator: siteConfig.twitterHandle,
       site: siteConfig.twitterHandle,
-      images: [socialImage.url],
+      images: [twitterImage],
     },
     robots: noIndex
       ? { index: false, follow: false }
