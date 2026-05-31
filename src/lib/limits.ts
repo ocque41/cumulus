@@ -31,7 +31,7 @@ export function checkLimit(tier: Tier, resource: keyof typeof TIER_LIMITS['free'
 }
 
 export function hasFeature(tier: Tier, feature: string): boolean {
-    // Implement specific feature checks if needed
-    // For now, simpler checks are done in components
+    void tier;
+    void feature;
     return true;
 }

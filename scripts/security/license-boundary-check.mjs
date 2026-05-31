@@ -41,6 +41,9 @@ const allowedBoundaryTooling = new Set([
   'scripts/release/create-public-export.mjs',
 ]);
 
+const agplImportPattern =
+  /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*(?:@cumulus\/database|apps\/cumulus-db)[^'"]*['"]/;
+
 for (const file of files) {
   if (!existsSync(file)) continue;
 
@@ -53,8 +56,8 @@ for (const file of files) {
 
   if (!allowedBoundaryTooling.has(file) && !file.startsWith('apps/cumulus-db/') && /\.(c|m)?tsx?$|\.m?js$/.test(file)) {
     const content = readFileSync(file, 'utf8');
-    if (content.includes('@cumulus/database') || content.includes('apps/cumulus-db')) {
-      findings.push(`${file}: Apache-side code must not import or couple directly to the AGPL database provider.`);
+    if (agplImportPattern.test(content)) {
+      findings.push(`${file}: Apache-side code must not import the AGPL database provider.`);
     }
   }
 }

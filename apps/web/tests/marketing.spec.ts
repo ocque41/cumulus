@@ -1,16 +1,18 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('marketing conversion pages', () => {
-  test('home page renders the Cumulus DB narrative', async ({ page }) => {
+  test('home page renders the Cumulus create command narrative', async ({ page }) => {
     const response = await page.goto('/');
 
     expect(response?.ok()).toBeTruthy();
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Cumulus DB');
-    await expect(page.getByText('The database for your agent, for free.', { exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Start free' }).first()).toHaveAttribute('href', '#cumulus-db');
-    await expect(page.getByRole('heading', { name: 'Start Cumulus DB from a terminal.' })).toBeVisible();
-    await expect(page.locator('#terminal code')).toContainText('npm run db:build');
-    await expect(page.locator('#terminal code')).toContainText('npm run db:start');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Create a Cumulus app.');
+    await expect(page.getByText('Run one command. Choose the parts. Get a ready app.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Copy command: npm create @cmls@latest' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Dashboard' }).first()).toHaveAttribute('href', '/dashboard');
+    await expect(page.getByRole('heading', { name: 'Pick how much app you want.' })).toBeVisible();
+    await expect(page.getByText('full', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('agent-auth', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Choose where workspace data lives.' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Run your daily operations with one clear ecosystem.' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'All products in one federation map' })).toHaveCount(0);
   });
@@ -27,19 +29,17 @@ test.describe('marketing conversion pages', () => {
     await expect(page.getByText('The public app talks to Cumulus DB through HTTP/token APIs', { exact: false })).toBeVisible();
   });
 
-  test('models page shows the free Cumulus DB plan', async ({ page }) => {
-    await page.goto('/models');
+  test('models page renders the create command surface', async ({ page }) => {
+    const response = await page.goto('/models');
 
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Run Cumulus DB for free');
-    await expect(page.getByRole('heading', { name: 'Cumulus DB Free', exact: true })).toBeVisible();
-    await expect(page.getByText('Free', { exact: true }).first()).toBeVisible();
+    expect(response?.ok()).toBeTruthy();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Create a Cumulus app.');
+    await expect(page.getByRole('heading', { name: 'The defaults are made for a fast start.' })).toBeVisible();
+    await expect(page.getByText('npm create @cmls@latest -- --template outer --agent-auth hosted', { exact: false })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Pro', exact: true })).toHaveCount(0);
-
-    const docsLink = page.getByRole('link', { name: 'Read setup docs' }).first();
-    await expect(docsLink).toHaveAttribute('href', '/docs');
   });
 
-  test('spanish locale cookie controls render language and currency', async ({ browser }) => {
+  test('locale cookies do not break the create command surface', async ({ browser }) => {
     const context = await browser.newContext();
     await context.addCookies([
       {
@@ -59,8 +59,8 @@ test.describe('marketing conversion pages', () => {
     const page = await context.newPage();
     await page.goto('/models');
 
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Ejecuta Cumulus DB gratis');
-    await expect(page.getByText('Gratis', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Create a Cumulus app.');
+    await expect(page.getByRole('button', { name: 'Copy command: npm create @cmls@latest' }).first()).toBeVisible();
 
     await context.close();
   });

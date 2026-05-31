@@ -1,6 +1,6 @@
 # Cumulus
 
-Cumulus is a public Next.js app centered on Cumulus DB, the free database for AI agents.
+Cumulus is a public Next.js app for creating Cumulus projects with one command, including Cumulus DB support for AI agents.
 
 The main repo is Apache-2.0. The from-scratch Cumulus Database provider in `apps/cumulus-db` is AGPL-3.0-only. The Cumulus name, logos, and hosted-service branding are covered by `TRADEMARKS.md`.
 

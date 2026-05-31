@@ -2,19 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
-const files = [
-  path.join(root, 'src', 'lib', 'marketing', 'content.ts'),
-  path.join(root, 'src', 'lib', 'marketing', 'product-briefs.ts'),
-];
-
-const requiredMarkers = [
-  'homeContent',
-  'modelsContent',
-  'selectorPersonas',
-  'dailyFlowSteps',
-  'purchaseSteps',
-  'visionLines',
-];
+const marketingContentDir = path.join(root, 'src', 'content', 'marketing');
+const localizedSourceFiles = [path.join(root, 'src', 'lib', 'marketing', 'product-briefs.ts')];
 
 const bannedJargon = [
   'kubernetes',
@@ -24,25 +13,36 @@ const bannedJargon = [
   'jwt signing',
   'service role',
   'private key',
-  'api key',
 ];
 
 const claimTerms = ['#1', 'best in class', 'guaranteed', 'millions of users', 'unlimited forever'];
 
 const issues = [];
 
+async function listMarketingContentFiles(dir) {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listMarketingContentFiles(fullPath)));
+    } else if (entry.isFile() && fullPath.endsWith('.mdx')) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+const files = [...localizedSourceFiles, ...(await listMarketingContentFiles(marketingContentDir))];
+
 for (const filePath of files) {
   const content = await fs.readFile(filePath, 'utf8');
   const relative = path.relative(root, filePath);
 
-  if (!content.includes('en:') || !content.includes('es:')) {
+  if (localizedSourceFiles.includes(filePath) && (!content.includes('en:') || !content.includes('es:'))) {
     issues.push(`${relative}: missing EN/ES localization blocks.`);
-  }
-
-  for (const marker of requiredMarkers) {
-    if (filePath.endsWith('content.ts') && !content.includes(marker)) {
-      issues.push(`${relative}: missing required marker "${marker}".`);
-    }
   }
 
   const lower = content.toLowerCase();

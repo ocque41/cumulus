@@ -2,12 +2,10 @@
 
 import { useRouter } from 'next/navigation'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
+import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 
 import { createClient } from '@/lib/supabase/client'
 
-// Types
-type User = any // Using simple type for now, can be typed strictly with DB types
 type AuthContextType = {
     user: User | null
     signOut: () => Promise<void>
