@@ -1,6 +1,7 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -204,6 +205,9 @@ export function GitHubContributionGraph() {
   const [pinnedDate, setPinnedDate] = useState<string>();
   const frameRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLElement>(null);
+  const pointerFrameRef = useRef<number | undefined>(undefined);
+  const latestPointerRef = useRef<{ clientX: number; clientY: number } | undefined>(undefined);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -226,7 +230,12 @@ export function GitHubContributionGraph() {
         setPayload(undefined);
         setLoadState("fallback");
       });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      if (pointerFrameRef.current !== undefined) {
+        cancelAnimationFrame(pointerFrameRef.current);
+      }
+    };
   }, []);
 
   const calendar = useMemo(
@@ -255,24 +264,69 @@ export function GitHubContributionGraph() {
     [calendar, today],
   );
 
-  const moveFrame = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "touch") return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
-    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+  const applyPointerFrame = useCallback(() => {
+    pointerFrameRef.current = undefined;
+    const frame = frameRef.current;
+    const pointer = latestPointerRef.current;
+    if (!frame || !pointer) return;
+
+    const rect = frame.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, pointer.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, pointer.clientY - rect.top));
     const normalizedX = x / Math.max(rect.width, 1) - 0.5;
     const normalizedY = y / Math.max(rect.height, 1) - 0.5;
-    event.currentTarget.style.setProperty("--graph-rotate-x", `${normalizedY * -5}deg`);
-    event.currentTarget.style.setProperty("--graph-rotate-y", `${normalizedX * 7}deg`);
-    event.currentTarget.style.setProperty("--graph-shift-x", `${normalizedX * 6}px`);
-    event.currentTarget.style.setProperty("--graph-shift-y", `${normalizedY * 5}px`);
-    event.currentTarget.style.setProperty("--popover-x", `${(x / Math.max(rect.width, 1)) * 100}%`);
-    event.currentTarget.style.setProperty("--popover-y", `${(y / Math.max(rect.height, 1)) * 100}%`);
+    const popover = popoverRef.current;
+    const popoverWidth = popover?.offsetWidth ?? 0;
+
+    frame.style.setProperty("--graph-rotate-x", `${normalizedY * -5}deg`);
+    frame.style.setProperty("--graph-rotate-y", `${normalizedX * 7}deg`);
+    frame.style.setProperty("--graph-shift-x", `${normalizedX * 6}px`);
+    frame.style.setProperty("--graph-shift-y", `${normalizedY * 5}px`);
+
+    if (!popover) return;
+    const edge = 16;
+    const gap = 14;
+    const measuredWidth = popoverWidth || Math.min(384, window.innerWidth - 32);
+    const useLeftSide =
+      x >= rect.width * 0.62 || x + gap + measuredWidth > rect.width - edge;
+    const preferredLeft = useLeftSide
+      ? x - measuredWidth - gap
+      : x + gap;
+    const maxLeft = Math.max(edge, rect.width - measuredWidth - edge);
+    const left = Math.max(edge, Math.min(maxLeft, preferredLeft));
+    const top = Math.max(edge, Math.min(Math.max(edge, rect.height - 64), y - 24));
+    const side = useLeftSide ? "left" : "right";
+
+    if (frame.dataset.popoverSide !== side) frame.dataset.popoverSide = side;
+    frame.style.setProperty("--popover-left", `${left}px`);
+    frame.style.setProperty("--popover-top", `${top}px`);
+  }, []);
+
+  const schedulePointerFrame = useCallback(() => {
+    if (pointerFrameRef.current !== undefined || !latestPointerRef.current) return;
+    pointerFrameRef.current = requestAnimationFrame(() => {
+      applyPointerFrame();
+    });
+  }, [applyPointerFrame]);
+
+  useEffect(() => {
+    if (selectedDay) schedulePointerFrame();
+  }, [schedulePointerFrame, selectedDay]);
+
+  const moveFrame = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") return;
+    latestPointerRef.current = { clientX: event.clientX, clientY: event.clientY };
+    schedulePointerFrame();
   };
 
   const resetFrame = () => {
     const frame = frameRef.current;
     if (!frame) return;
+    if (pointerFrameRef.current !== undefined) {
+      cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = undefined;
+    }
+    latestPointerRef.current = undefined;
     frame.style.setProperty("--graph-rotate-x", "0deg");
     frame.style.setProperty("--graph-rotate-y", "0deg");
     frame.style.setProperty("--graph-shift-x", "0px");
@@ -308,6 +362,7 @@ export function GitHubContributionGraph() {
         <div
           className="contribution-frame"
           data-load-state={loadState}
+          data-popover-side="right"
           data-texture="dither"
           onPointerLeave={resetFrame}
           onPointerMove={moveFrame}
@@ -328,7 +383,14 @@ export function GitHubContributionGraph() {
             <div className="contribution-heading">
               <span>CUMULUS / GITHUB</span>
               <strong>Activity field</strong>
-              <small>Hover, focus, or tap a day</small>
+              <small>
+                <span className="contribution-instruction contribution-instruction--pointer">
+                  Hover, focus, or tap a day
+                </span>
+                <span className="contribution-instruction contribution-instruction--touch">
+                  Choose a day below
+                </span>
+              </small>
             </div>
             <div
               aria-label={
@@ -393,7 +455,13 @@ export function GitHubContributionGraph() {
             </label>
 
             {selectedDay ? (
-              <aside aria-live="polite" className="contribution-popover" data-texture="dither">
+              <aside
+                aria-live="polite"
+                className="contribution-popover"
+                data-texture="dither"
+                onPointerMove={(event) => event.stopPropagation()}
+                ref={popoverRef}
+              >
                 <button
                   aria-label="Close activity details"
                   className="contribution-popover__close"

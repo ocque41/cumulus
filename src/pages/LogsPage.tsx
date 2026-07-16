@@ -23,13 +23,7 @@ export function LogsPage() {
     "Search and filter the complete public Cumulus log archive.",
   );
 
-  return (
-    <LogsArchive
-      category={routeCategory}
-      key={`${routeQuery}:${routeCategory}`}
-      query={routeQuery}
-    />
-  );
+  return <LogsArchive category={routeCategory} query={routeQuery} />;
 }
 
 function LogsArchive({
@@ -41,8 +35,14 @@ function LogsArchive({
 }) {
   const routeQuery = initialQuery;
   const routeCategory = initialCategory;
-  const [query, setQuery] = useState(routeQuery);
-  const [category, setCategory] = useState(routeCategory);
+  const [queryDraft, setQueryDraft] = useState({
+    routeQuery,
+    value: routeQuery,
+  });
+  const query = queryDraft.routeQuery === routeQuery
+    ? queryDraft.value
+    : routeQuery;
+  const setQuery = (value: string) => setQueryDraft({ routeQuery, value });
 
   const categories = useMemo(
     () => ["all", ...Array.from(new Set(publishedPosts.map((post) => post.category))).sort()],
@@ -55,12 +55,11 @@ function LogsArchive({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    navigate(searchHref(query, category));
+    navigate(searchHref(query, routeCategory), { scroll: false });
   };
 
   const chooseCategory = (nextCategory: string) => {
-    setCategory(nextCategory);
-    navigate(searchHref(query, nextCategory));
+    navigate(searchHref(query, nextCategory), { scroll: false });
   };
 
   return (
@@ -108,7 +107,7 @@ function LogsArchive({
         <div aria-label="Filter by category" className="category-filter">
           {categories.map((item) => (
             <button
-              aria-pressed={category === item}
+              aria-pressed={routeCategory === item}
               key={item}
               onClick={() => chooseCategory(item)}
               type="button"
@@ -127,8 +126,7 @@ function LogsArchive({
             <button
               onClick={() => {
                 setQuery("");
-                setCategory("all");
-                navigate("/logs");
+                navigate("/logs", { scroll: false });
               }}
               type="button"
             >
@@ -150,8 +148,7 @@ function LogsArchive({
             <button
               onClick={() => {
                 setQuery("");
-                setCategory("all");
-                navigate("/logs");
+                navigate("/logs", { scroll: false });
               }}
               type="button"
             >

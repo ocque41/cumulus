@@ -1,14 +1,16 @@
 import { useState } from "react";
 
-import { AppLink, useRoute } from "@/lib/router";
+import { DitherCloudMark } from "@/components/brand/DitherCloudMark";
+import { AppLink, usePathname } from "@/lib/router";
 
 interface SiteHeaderProps {
   onOpenAuth: () => void;
 }
 
 export function SiteHeader({ onOpenAuth }: SiteHeaderProps) {
-  const { pathname } = useRoute();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const logsCurrent = pathname === "/logs" || pathname.startsWith("/logs/");
 
   return (
     <header className="site-header" data-open={menuOpen || undefined}>
@@ -19,7 +21,9 @@ export function SiteHeader({ onOpenAuth }: SiteHeaderProps) {
           aria-label="Cumulus home"
           onClick={() => setMenuOpen(false)}
         >
-          CUMULUS<span>lab</span>
+          <DitherCloudMark className="wordmark__cloud" decorative />
+          <span className="wordmark__name">CUMULUS</span>
+          <span className="wordmark__lab">lab</span>
         </AppLink>
 
         <button
@@ -38,7 +42,7 @@ export function SiteHeader({ onOpenAuth }: SiteHeaderProps) {
           id="primary-navigation"
         >
           <AppLink
-            aria-current={pathname.startsWith("/logs") ? "page" : undefined}
+            aria-current={logsCurrent ? "page" : undefined}
             href="/logs"
             onClick={() => setMenuOpen(false)}
           >
@@ -50,14 +54,13 @@ export function SiteHeader({ onOpenAuth }: SiteHeaderProps) {
           <AppLink href="/#notify" onClick={() => setMenuOpen(false)}>
             Notifications
           </AppLink>
-          <a
-            href="https://github.com/ocque41?tab=repositories"
+          <AppLink
+            aria-current={pathname === "/work" ? "page" : undefined}
+            href="/work"
             onClick={() => setMenuOpen(false)}
-            rel="noreferrer"
-            target="_blank"
           >
             Public work
-          </a>
+          </AppLink>
           <button
             className="nav-action"
             onClick={() => {

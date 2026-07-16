@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { publishedPosts } from "../../src/content/posts";
+import { publishedPosts, searchPublishedPosts } from "../../src/content/posts";
 
 async function mockContributions(page: Page) {
   await page.route("**/api/github/contributions", async (route) => {
@@ -26,6 +26,7 @@ async function mockContributions(page: Page) {
         ],
         activityDetailStatus: "live",
         contributions: [
+          { count: 0, date: "2025-07-13", level: 0 },
           { count: 4, date: "2026-07-16", level: 3 },
           { count: 1, date: "2026-07-15", level: 1 },
         ],
@@ -62,7 +63,21 @@ test("home exposes the large brand, honest GitHub graph, archive, and auth bound
   if (testInfo.project.name.includes("mobile")) {
     await page.getByLabel("Choose a day").selectOption("2026-07-16");
   } else {
-    await page.getByRole("button", { name: /Thursday, July 16, 2026: 4 contributions; 4 commits, 1 pull request, 1 issue/i }).hover();
+    const selectedCell = page.getByRole("button", { name: /Thursday, July 16, 2026: 4 contributions; 4 commits, 1 pull request, 1 issue/i });
+    await selectedCell.hover();
+    await expect(page.locator(".contribution-frame")).toHaveAttribute("data-popover-side", "left");
+    const sideAwarePlacement = await page.locator(".contribution-popover").evaluate((popover) => {
+      const activeCell = document.querySelector<HTMLElement>('.contribution-cell[data-active="true"]');
+      if (!activeCell) return false;
+      const cellRect = activeCell.getBoundingClientRect();
+      const popoverRect = popover.getBoundingClientRect();
+      return (
+        popover.closest(".contribution-frame")?.getAttribute("data-popover-side") === "left" &&
+        popoverRect.left < cellRect.left &&
+        popoverRect.right <= cellRect.right
+      );
+    });
+    expect(sideAwarePlacement).toBe(true);
   }
   await expect(page.getByRole("heading", { name: "Thursday, July 16, 2026" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Refine the hero activity field" })).toBeVisible();
@@ -88,17 +103,60 @@ test("home exposes the large brand, honest GitHub graph, archive, and auth bound
   await expect(page.getByRole("navigation", { name: "Footer navigation" })).toBeVisible();
 });
 
-test("archive search and category filters are URL-backed", async ({ page }) => {
+test("archive search and category filters update in place with exact results", async ({ page }) => {
   await page.goto("/logs");
   const search = page.getByRole("searchbox", { name: "Search logs" });
-  await search.fill("security");
+  await search.fill("secret");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page).toHaveURL(/q=security/);
-  await expect(page.getByRole("status")).toContainText(/entr|No signal/i);
+  await expect(page).toHaveURL(/q=secret/);
+  await expect(page.getByRole("status")).toHaveText(
+    `${searchPublishedPosts("secret").length} entries matching “secret”`,
+  );
+
+  const rune = page.getByRole("button", { name: "Rune", exact: true });
+  await rune.scrollIntoViewIfNeeded();
+  const scrollBeforeCategory = await page.evaluate(() => window.scrollY);
+  await rune.click();
+  await expect(page).toHaveURL(/q=secret&category=Rune/);
+  await expect(rune).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("status")).toHaveText(
+    `${searchPublishedPosts("secret", "Rune").length} entries matching “secret”`,
+  );
+  await expect(page.locator(".post-index-row")).toHaveCount(2);
+  const scrollAfterCategory = await page.evaluate(() => window.scrollY);
+  expect(Math.abs(scrollAfterCategory - scrollBeforeCategory)).toBeLessThanOrEqual(2);
 
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).toHaveURL(/\/logs$/);
+  await expect(page.getByRole("status")).toHaveText("24 entries");
   await expect(search).toHaveValue("");
+});
+
+test("public work stays inside Cumulus and labels source boundaries", async ({ page }, testInfo) => {
+  await page.goto("/");
+
+  const primaryNavigation = page.getByRole("navigation", { name: "Primary navigation" });
+  const publicWork = primaryNavigation.getByRole("link", { name: "Public work", exact: true });
+  if (!(await publicWork.isVisible())) {
+    await page.getByRole("button", { name: "Menu" }).click();
+  }
+  await publicWork.click();
+
+  await expect(page).toHaveURL(/\/work$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Public work" })).toBeVisible();
+  await expect(page.locator(".work-project")).toHaveCount(10);
+  await expect(page.getByRole("link", { name: /View source/ })).toHaveCount(5);
+  await expect(page.locator("body")).not.toContainText("ocque41");
+
+  const metrics = await page.evaluate(() => ({
+    bodyWidth: document.body.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth,
+  }));
+  expect(metrics.bodyWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+
+  if (testInfo.project.name.includes("mobile")) {
+    await expect(page.locator(".work-index")).toHaveCSS("grid-template-columns", /.+/);
+  }
 });
 
 test("mobile menu is operable and the graph fits the hero width", async ({

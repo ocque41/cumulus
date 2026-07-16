@@ -29,6 +29,7 @@ export function SiteFooter() {
         <nav aria-label="Footer navigation" className="site-footer__links">
           <AppLink href="/">Home</AppLink>
           <AppLink href="/logs">All logs</AppLink>
+          <AppLink href="/work">Public work</AppLink>
           <a href="https://github.com/ocque41" rel="noreferrer" target="_blank">
             GitHub
           </a>
