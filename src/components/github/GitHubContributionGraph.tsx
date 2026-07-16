@@ -182,6 +182,10 @@ function counted(count: number, singular: string, plural = `${singular}s`): stri
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function publicRepositoryLabel(repository: string): string {
+  return repository.split("/").at(-1) ?? repository;
+}
+
 function cellLabel(day: CalendarDay, activity?: ActivityDay): string {
   const contributionText = day.contribution
     ? `${day.contribution.count} contribution${day.contribution.count === 1 ? "" : "s"}`
@@ -335,7 +339,7 @@ export function GitHubContributionGraph() {
               className="contribution-grid"
               data-texture="dither"
               ref={gridRef}
-              role="grid"
+              role="group"
             >
               {calendar.map((day, index) => {
                 const activity = activityByDate.get(day.date);
@@ -343,7 +347,7 @@ export function GitHubContributionGraph() {
                 return (
                   <button
                     aria-label={label}
-                    aria-selected={pinnedDate === day.date}
+                    aria-pressed={pinnedDate === day.date}
                     className="contribution-cell"
                     data-active={activeDate === day.date ? true : undefined}
                     data-density={day.contribution?.level ?? 0}
@@ -354,12 +358,11 @@ export function GitHubContributionGraph() {
                     onClick={() => {
                       const nextPinned = pinnedDate === day.date ? undefined : day.date;
                       setPinnedDate(nextPinned);
-                      setActiveDate(nextPinned ?? day.date);
+                      setActiveDate(nextPinned);
                     }}
                     onFocus={() => setActiveDate(day.date)}
                     onKeyDown={(event) => moveCellFocus(event, index)}
                     onPointerEnter={() => setActiveDate(day.date)}
-                    role="gridcell"
                     tabIndex={index === initialTabIndex ? 0 : -1}
                     title={label}
                     type="button"
@@ -368,8 +371,40 @@ export function GitHubContributionGraph() {
               })}
             </div>
 
+            <label className="contribution-touch-picker">
+              <span>Choose a day</span>
+              <select
+                value={pinnedDate ?? ""}
+                onChange={(event) => {
+                  const nextDate = event.target.value || undefined;
+                  setPinnedDate(nextDate);
+                  setActiveDate(nextDate);
+                }}
+              >
+                <option value="">No day selected</option>
+                {[...calendar.filter((day) => day.date <= today)]
+                  .reverse()
+                  .map((day) => (
+                    <option key={day.date} value={day.date}>
+                      {formattedDate(day.date)} — {day.contribution?.count ?? "—"} contributions
+                    </option>
+                  ))}
+              </select>
+            </label>
+
             {selectedDay ? (
               <aside aria-live="polite" className="contribution-popover" data-texture="dither">
+                <button
+                  aria-label="Close activity details"
+                  className="contribution-popover__close"
+                  onClick={() => {
+                    setPinnedDate(undefined);
+                    setActiveDate(undefined);
+                  }}
+                  type="button"
+                >
+                  ×
+                </button>
                 <p>CUMULUS / GITHUB SIGNAL</p>
                 <h3>{formattedDate(selectedDay.date)}</h3>
                 <div className="contribution-popover__metrics">
@@ -386,7 +421,7 @@ export function GitHubContributionGraph() {
                         {highlight.url ? (
                           <a href={highlight.url} rel="noreferrer" target="_blank">{highlight.title}</a>
                         ) : <strong>{highlight.title}</strong>}
-                        <small>{highlight.repository}</small>
+                        <small>{publicRepositoryLabel(highlight.repository)}</small>
                       </li>
                     ))}
                   </ul>

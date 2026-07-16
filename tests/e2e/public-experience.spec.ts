@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { publishedPosts } from "../../src/content/posts";
+
 async function mockContributions(page: Page) {
   await page.route("**/api/github/contributions", async (route) => {
     await route.fulfill({
@@ -40,13 +42,13 @@ test.beforeEach(async ({ page }) => {
 
 test("home exposes the large brand, honest GitHub graph, archive, and auth boundary", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { level: 1, name: "CUMULUS" })).toBeVisible();
   await expect(page.getByText("lab", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "GitHub activity graph" })).toBeAttached();
-  await expect(page.getByRole("grid", { name: /5 GitHub contributions/i })).toBeVisible();
+  await expect(page.getByRole("group", { name: /5 GitHub contributions/i })).toBeVisible();
   await expect(page.getByText("Public activity", { exact: true })).toHaveCount(0);
   await expect(page.locator(".home-hero .github-panel")).toHaveCount(1);
   await expect(page.locator("body")).not.toContainText("ocque41");
@@ -57,7 +59,11 @@ test("home exposes the large brand, honest GitHub graph, archive, and auth bound
   await expect(
     page.locator('.contribution-grid .contribution-cell[data-texture="dither"]'),
   ).toHaveCount(371);
-  await page.getByRole("gridcell", { name: /Thursday, July 16, 2026: 4 contributions; 4 commits, 1 pull request, 1 issue/i }).hover();
+  if (testInfo.project.name.includes("mobile")) {
+    await page.getByLabel("Choose a day").selectOption("2026-07-16");
+  } else {
+    await page.getByRole("button", { name: /Thursday, July 16, 2026: 4 contributions; 4 commits, 1 pull request, 1 issue/i }).hover();
+  }
   await expect(page.getByRole("heading", { name: "Thursday, July 16, 2026" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Refine the hero activity field" })).toBeVisible();
 
@@ -111,4 +117,29 @@ test("mobile menu is operable and the graph fits the hero width", async ({
     (element) => element.scrollWidth <= element.clientWidth + 1,
   );
   expect(graphFits).toBe(true);
+
+  const dayPicker = page.getByLabel("Choose a day");
+  await expect(dayPicker).toBeVisible();
+  await dayPicker.selectOption("2026-07-16");
+  await expect(page.getByRole("heading", { name: "Thursday, July 16, 2026" })).toBeVisible();
+});
+
+test("every published log resolves directly with its sources and backlinks", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  for (const post of publishedPosts) {
+    const response = await page.goto(`/logs/${post.slug}`);
+    expect(response?.ok(), post.slug).toBe(true);
+    await expect(page.getByRole("heading", { level: 1, name: post.title })).toBeVisible();
+    await expect(page.getByText("Public links", { exact: true })).toBeVisible();
+    await expect(page.locator('.related-logs__grid a[href^="/logs/"]')).toHaveCount(
+      post.relatedSlugs?.length ?? 0,
+    );
+  }
+});
+
+test("an unknown public route renders the real not-found experience", async ({ page }) => {
+  await page.goto("/this-route-does-not-exist");
+  await expect(page.getByRole("heading", { level: 1, name: "This log is not in the field." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open the log index" })).toBeVisible();
 });

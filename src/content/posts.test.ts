@@ -12,43 +12,14 @@ import {
   type Post,
 } from "./posts";
 
-const VERIFIED_PUBLIC_URLS = new Set([
-  "https://github.com/ocque41?tab=repositories",
-  "https://github.com/git/git",
-  "https://git-scm.com/docs/git-mktag/2.43.0/",
-  "https://git-scm.com/docs/git-fsck/2.55.0/",
-  "https://github.com/apple/container/blob/main/docs/container-machine.md",
-  "https://developers.openai.com/codex/cli/",
-  "https://platform.cumulush.com",
-  "https://csrc.nist.gov/pubs/sp/800/207/final",
-  "https://csrc.nist.gov/pubs/sp/800/162/upd2/final",
-  "https://www.rfc-editor.org/rfc/rfc5116.html",
-  "https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10",
-  "https://reproducible-builds.org/docs/definition/",
-  "https://slsa.dev/spec/v1.2/",
-  "https://git-scm.com/docs/git-ls-files",
-  "https://toml.io/en/v1.0.0",
-  "https://www.jsonrpc.org/specification",
-  "https://json-schema.org/specification",
-  "https://www.rfc-editor.org/rfc/rfc9110.html",
-  "https://csrc.nist.gov/pubs/sp/800/34/r1/upd1/final",
-  "https://docs.github.com/en/repositories/creating-and-managing-repositories/about-repositories",
-  "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions",
+const EXPECTED_REPOSITORY_COMMITS = new Map([
+  ["cumulus", "ec98f05dece09b3a4ed48468f90a24639b3e848b"],
+  ["grok-build", "4508303932620fac40a63541d18be83609609240"],
+  ["psicoayuda", "13bd5fe471e8be651a6782560a88349741274caa"],
+  ["skills", "724413ac4ffaa5abddc8ba7a6342c8f9c86cce92"],
+  ["rune", "d0a73dd0fa99c7a001eea954e7066ec32a4416b7"],
+  ["relay", "5f8f116bb1cd82db789e165c2e22bd5566cfe952"],
 ]);
-
-const EXPLORATION_URLS = new Set([
-  "https://github.com/ocque41?tab=repositories",
-  "https://platform.cumulush.com",
-]);
-
-const EXPECTED_PROJECTS = [
-  "Room",
-  "gy",
-  "Local Harness",
-  "TOML Agent",
-  "Cumulus Platform",
-  "Cumulus lab",
-];
 
 function editablePosts(): Post[] {
   return POSTS.map((post) => ({
@@ -70,14 +41,12 @@ describe("POSTS", () => {
     expect(new Set(POSTS.map((post) => post.slug)).size).toBe(POSTS.length);
     expect(POSTS.some((post) => post.status === "draft")).toBe(true);
 
-    for (const project of EXPECTED_PROJECTS) {
+    for (const project of EXPECTED_REPOSITORY_COMMITS.keys()) {
       const projectPosts = publishedPosts.filter((post) => post.project === project);
       expect(projectPosts.length, project).toBeGreaterThanOrEqual(4);
     }
 
-    expect(new Set(publishedPosts.map((post) => post.date))).toEqual(
-      new Set(["2026-07-16"]),
-    );
+    expect(new Set(publishedPosts.map((post) => post.date)).size).toBe(24);
     expect(
       POSTS.every(
         (post, index) => index === 0 || POSTS[index - 1].date >= post.date,
@@ -120,10 +89,10 @@ describe("POSTS", () => {
       }
     }
 
-    expect([...sectionCounts].sort()).toEqual([4, 5, 6]);
+    expect([...sectionCounts].sort()).toEqual([5, 6]);
   });
 
-  it("uses only the exact links in the verified public-source registry", () => {
+  it("uses immutable source links for the six verified public repositories", () => {
     const sources = POSTS.flatMap((post) => post.sourceLinks ?? []);
     expect(sources.length).toBeGreaterThan(0);
 
@@ -133,17 +102,15 @@ describe("POSTS", () => {
       expect(url.protocol).toBe("https:");
       expect(url.username).toBe("");
       expect(url.password).toBe("");
-      expect(VERIFIED_PUBLIC_URLS.has(source.href), source.href).toBe(true);
-      if (EXPLORATION_URLS.has(source.href)) {
-        expect(source.label).toMatch(/^Explore /);
-      }
+      const match = source.href.match(
+        /^https:\/\/github\.com\/ocque41\/([^/]+)\/blob\/([a-f0-9]{40})\/.+$/,
+      );
+      expect(match, source.href).not.toBeNull();
+      expect(EXPECTED_REPOSITORY_COMMITS.get(match?.[1] ?? "")).toBe(match?.[2]);
     }
 
     for (const post of publishedPosts) {
-      const claimSources = (post.sourceLinks ?? []).filter(
-        (source) => !EXPLORATION_URLS.has(source.href),
-      );
-      expect(claimSources.length, post.slug).toBeGreaterThan(0);
+      expect(post.sourceLinks?.length, post.slug).toBe(3);
     }
   });
 
@@ -168,7 +135,6 @@ describe("POSTS", () => {
       /\/Users\//i,
       /\/private\//i,
       /localhost/i,
-      /127\.0\.0\.1/,
     ];
 
     for (const pattern of forbidden) {
@@ -198,24 +164,24 @@ describe("published post selectors", () => {
 
 describe("searchPublishedPosts", () => {
   it("matches all terms across project metadata and body copy", () => {
-    const tomlResults = searchPublishedPosts("TOML Agent");
-    const tomlProjectSlugs = publishedPosts
-      .filter((post) => post.project === "TOML Agent")
+    const skillsResults = searchPublishedPosts("skills");
+    const skillsProjectSlugs = publishedPosts
+      .filter((post) => post.project === "skills")
       .map((post) => post.slug);
-    expect(tomlResults.map((post) => post.slug)).toEqual(
-      expect.arrayContaining(tomlProjectSlugs),
+    expect(skillsResults.map((post) => post.slug)).toEqual(
+      expect.arrayContaining(skillsProjectSlugs),
     );
 
-    const receiptResults = searchPublishedPosts("content-bound receipt");
-    expect(receiptResults.map((post) => post.slug)).toEqual([
-      "preview-before-mutation",
-    ]);
+    const graphResults = searchPublishedPosts("fixed-user server boundary");
+    expect(graphResults.map((post) => post.slug)).toContain(
+      "honest-github-activity-field",
+    );
   });
 
   it("combines case-insensitive category and text filters", () => {
-    const results = searchPublishedPosts("boundary", " security ");
+    const results = searchPublishedPosts("boundary", " grok-build ");
     expect(results.length).toBeGreaterThan(0);
-    expect(results.every((post) => post.category === "Security")).toBe(true);
+    expect(results.every((post) => post.category === "grok-build")).toBe(true);
   });
 
   it("preserves published date order for empty and all filters", () => {

@@ -1,10 +1,10 @@
 # Public release checklist
 
-Use this checklist for Cumulus 0.0.8 before pushing the reference branch, publishing a tag, or promoting a production deployment. A local pass proves only the checked local artifact; it does not prove Vercel linkage, domain state, migration state, or live delivery.
+Use this checklist for Cumulus 0.0.8 before pushing either design branch, publishing a tag, or promoting a production deployment. A local pass proves only the checked local artifact; it does not prove Vercel linkage, domain state, migration state, or live delivery. The selected design is `request/cumulus-original`; `request/jacquard-reference` remains the literal layout study.
 
 ## 1. Scope and provenance
 
-- [ ] The release is based on the literal branch `request/jacquard-reference`.
+- [ ] The release is based on the selected `request/cumulus-original` branch, and shared behavior has been reconciled with `request/jacquard-reference`.
 - [ ] `package.json`, lockfile metadata, visible version text, and any changelog or release notes included in the candidate agree on `0.0.8`.
 - [ ] The tag, if approved, is `0.0.8` rather than `v0.0.8`.
 - [ ] The diff contains no unrelated history, generated local state, or private overlay material.
@@ -72,7 +72,7 @@ npm run test:e2e
 
 - [ ] The authorized operator verified the existing Vercel project and Git integration in the provider UI.
 - [ ] The existing domain association was recorded privately; no domain config was added to Git.
-- [ ] Push approval was given before publishing `request/jacquard-reference`.
+- [ ] Push approval was given before publishing the selected candidate branch.
 - [ ] The branch created a preview on the existing project, not a replacement project.
 - [ ] Preview environment variables and server-only scoping were verified.
 - [ ] The preview passed smoke and end-to-end checks with synthetic data.
@@ -86,4 +86,4 @@ Record the candidate commit, exact checks, preview evidence, skipped checks, mig
 
 ## Assumptions
 
-The Vercel project, Git integration, and domain are external and currently unverified from Git. Main replacement, push, live migration, and production cutover are independent gates and must not be inferred from one another.
+The Vercel project, Git integration, and domain are external and cannot be verified from Git alone. The initial cutover and notification migrations occurred, but every later main update, push, migration, and production promotion remains an independent gate. Production email completion additionally requires a truthful postal address, a Resend webhook signing secret, and controlled lifecycle evidence.

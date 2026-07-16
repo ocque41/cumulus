@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This branch is the public Cumulus 0.0.8 reference build. Treat every tracked file as public: do not add secrets, production identifiers, customer data, private URLs, or operational notes.
+This repository is the public Cumulus 0.0.8 build. Treat every tracked file as public: do not add secrets, production identifiers, customer data, private URLs, or operational notes.
 
 ## Source of truth
 
@@ -18,7 +18,7 @@ If code and documentation disagree, inspect the code, fix the stale side when it
 
 Cumulus is a React and Vite blog for public logs. The only reader identity feature is an email notification preference for new posts. Do not grow it into profiles, social features, paid accounts, or a general authentication system without a new product decision.
 
-The literal reference branch is `request/jacquard-reference`. Keep that name in documentation and deployment instructions. Do not silently substitute `main`.
+The literal layout study is `request/jacquard-reference`. The independently composed and selected production design is `request/cumulus-original`, published through `main`. Shared product, content, accessibility, and security changes must be reconciled across both design branches; visual structure may differ.
 
 ## Public and private boundary
 
@@ -74,9 +74,9 @@ npm run test:e2e
 
 State any changed assumption in the handoff. The current assumptions are:
 
-1. The existing Vercel project, Git integration, and domain are managed externally and should be retained; their live linkage has not been verified from this repository.
+1. The existing Vercel project, Git integration, and domain are managed externally and must be retained; live linkage requires provider evidence rather than inference from Git.
 2. No domain configuration is stored in Git.
-3. Preview deployment of `request/jacquard-reference` precedes any approved `main` cutover.
+3. Candidate deployment and verification precede any approved `main` update; `request/cumulus-original` is the selected visual branch.
 4. Supabase receives an additive migration; existing production objects are not dropped, renamed, or rewritten by this work.
 5. Resend sends only consented new-post notifications.
 6. Production credentials and private legal/operational records live outside the public repository.

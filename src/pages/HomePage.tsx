@@ -19,8 +19,10 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
     "Cumulus is a public laboratory for large-form field notes on systems, interfaces, operations, and the evidence between them.",
   );
 
-  const newest = publishedPosts.filter((post) => post.slug !== featuredPost.slug).slice(0, 8);
-  const fieldNotes = publishedPosts.slice(8, 14);
+  const newest = publishedPosts.filter((post) => post.placement === "recent");
+  const stories = publishedPosts.filter((post) => post.placement === "stories");
+  const research = publishedPosts.filter((post) => post.placement === "research");
+  const business = publishedPosts.filter((post) => post.placement === "build-business");
 
   return (
     <>
@@ -118,13 +120,13 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
         </div>
       </section>
 
-      <section aria-labelledby="field-notes-title" className="home-section page-shell">
+      <section aria-labelledby="stories-title" className="home-section page-shell">
         <div className="section-heading section-heading--wide">
-          <p className="eyebrow">Across the workspace / 004</p>
-          <h2 id="field-notes-title">Different projects. One practice.</h2>
+          <p className="eyebrow">Stories / 004</p>
+          <h2 id="stories-title">Systems told from the inside.</h2>
         </div>
         <div className="field-note-grid">
-          {fieldNotes.map((post, index) => (
+          {stories.map((post, index) => (
             <article className="field-note" key={post.slug}>
               {index === 0 || index === 3 ? (
                 <DitherPlate className="field-note__plate" post={post} />
@@ -139,9 +141,48 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
         </div>
       </section>
 
+      <section aria-labelledby="research-title" className="home-section page-shell">
+        <div className="section-intro section-intro--split">
+          <div>
+            <p className="eyebrow">Latest research / 005</p>
+            <h2 id="research-title">Public source, inspected closely.</h2>
+          </div>
+          <p>
+            Commit-pinned readings of workflow engines, agent coordination, and
+            the limits that keep an implementation claim honest.
+          </p>
+        </div>
+        <div className="post-grid">
+          {research.map((post, index) => (
+            <PostCard index={index + 10} key={post.slug} post={post} />
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="business-title" className="home-section page-shell">
+        <div className="section-heading section-heading--wide">
+          <p className="eyebrow">Business / 006</p>
+          <h2 id="business-title">Authority, identity, and durable operations.</h2>
+        </div>
+        <div className="field-note-grid">
+          {business.map((post, index) => (
+            <article className="field-note" key={post.slug}>
+              {index === 1 || index === 4 ? (
+                <DitherPlate className="field-note__plate" post={post} />
+              ) : null}
+              <p className="eyebrow">{post.category}</p>
+              <h3>
+                <AppLink href={`/logs/${post.slug}`}>{post.title}</AppLink>
+              </h3>
+              <p>{post.excerpt}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section aria-labelledby="notify-title" className="notify-section page-shell" id="notify">
         <div className="notify-section__intro">
-          <p className="eyebrow">Optional dispatch / 005</p>
+          <p className="eyebrow">Optional dispatch / 007</p>
           <h2 id="notify-title">One email when a new log lands.</h2>
           <p>
             No account wall, no digest machinery, no access tier. Sign in by email

@@ -2,17 +2,17 @@
 
 Cumulus 0.0.8 is a public log-style blog built from scratch with React and Vite. It presents a high-contrast Jacquard editorial interface and lets readers opt in to email when a new post is published. Notification signup is the complete reader identity scope; there are no public profiles, social accounts, or content-management credentials in the browser app.
 
-The reference implementation lives on the literal branch `request/jacquard-reference`.
+The selected production design lives on `request/cumulus-original` and is published through `main`. The literal source-layout study remains available on `request/jacquard-reference`; shared product, content, accessibility, and security behavior belongs on both branches.
 
 ## Status and assumptions
 
-This repository defines the fresh public application and its public-safe integration contracts. It does not prove current production state.
+This repository defines the public application and its public-safe integration contracts. Production deployment and provider behavior are recorded separately because a Git commit alone cannot prove external state.
 
-- An authenticated provider inspection verified the existing Vercel `cloud` project and its `cumulush.com` domain association. No provider IDs or domain-control values are stored in Git.
-- The connected Git repository, final deployment commit, and live production behavior still require separate release evidence.
-- The public Supabase migration is additive by design. Running it against a live database is a separate approval gate.
-- Resend is the anticipated delivery provider. Real sender verification, API keys, suppression records, and provider-account details are private operations.
-- Previewing `request/jacquard-reference` is allowed only when publication is authorized; replacing `main`, pushing, migrating production, and cutting over the live domain each require explicit approval.
+- The existing Vercel project and `cumulush.com` domain were retained; no replacement project or domain was created, and no private provider identifiers are stored in Git.
+- `main` is the authorized production branch. The pre-redesign Git state remains preserved on an archive branch, and the two design branches remain reviewable.
+- The additive Supabase notification migrations have been applied and their tables, policies, and indexes inspected. This does not by itself prove a complete email lifecycle.
+- Resend is the delivery provider. Keys and provider-account details stay in the deployment control plane, not this repository.
+- Production notification publishing intentionally fails closed until `NOTIFICATION_POSTAL_ADDRESS` and `RESEND_WEBHOOK_SECRET` are configured and a controlled sign-in, receipt, unsubscribe, and suppression lifecycle is verified.
 
 See [Vercel cutover](docs/vercel-cutover.md) for the gate sequence and [private overlay](docs/private-overlay.md) for the public/private split.
 
@@ -88,20 +88,20 @@ npm run license:check
 npm run test:e2e
 ```
 
-`npm run build` creates the production browser bundle. `npm run test:e2e` may require a local server or an explicitly selected preview URL, depending on the test configuration. Do not point end-to-end tests that create subscriptions or send mail at production without approval and test-recipient safeguards.
+`npm run build` creates the browser bundle plus route-specific static HTML for the home page, archive, every published log, auth callback, unsubscribe page, and 404 response. It also emits `robots.txt` and `sitemap.xml`. `npm run test:e2e` may require a local server or an explicitly selected preview URL, depending on the test configuration. Do not point end-to-end tests that create subscriptions or send mail at production without approval and test-recipient safeguards.
 
 ## Production path
 
-The anticipated production workflow is:
+The production workflow is:
 
 1. Install exactly from the lockfile with `npm ci`.
 2. Run lint, type checking, unit tests, security scanning, license checks, and the production build.
-3. Review the additive SQL under `supabase/migrations/` against a non-production Supabase project.
-4. configure the public and server-only variables in the existing Vercel project's Preview environment;
-5. push `request/jacquard-reference` only after push approval and inspect its Vercel preview;
-6. run end-to-end tests against that preview without using live customer records;
-7. obtain separate approval for the live migration;
-8. obtain separate approval to replace or merge into `main` and promote the proven deployment.
+3. Review additive SQL under `supabase/migrations/` before applying any future migration.
+4. Configure public and server-only variables in the existing Vercel project; never store values in Git.
+5. Publish a candidate branch, inspect its Vercel deployment, and run end-to-end tests without real reader records.
+6. Merge the selected `request/cumulus-original` commit into `main` only with explicit publication approval.
+7. Verify the exact production deployment, direct-route refreshes, static metadata, sitemap, 404 behavior, and domain alias.
+8. Verify sign-in and one controlled Resend lifecycle only after the truthful postal address and webhook signing secret are present.
 
 Do not create a replacement Vercel project merely to deploy this branch. Retaining the same external Vercel project and Git integration is what preserves its project-level settings and domain association. Re-verify the existing project and domain immediately before cutover because a repository commit cannot prove current provider state.
 

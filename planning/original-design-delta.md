@@ -1,6 +1,8 @@
 # Original design branch
 
-`request/cumulus-original` starts from the verified reference branch and keeps its overall editorial structure: a quiet top navigation, a large opening field, an asymmetric featured story, grouped recent work, and a large closing action/footer.
+`request/cumulus-original` starts from the first complete reference implementation and preserves its routes, content, and behavior. Later shared runtime, accessibility, content, and security corrections are reconciled across both branches. Its visible composition is an independent Cumulus treatment: the contribution calendar becomes a continuous shader-backed signal field, orange rules create a different section rhythm, and the closing field uses a restrained orange signal rather than an orange-dominant wordmark.
+
+The original visual delta landed alone in `c9d2b49`: one planning record, the GitHub graph component and test, and the stylesheet. The later commits on the branch are shared security, routing, public-data, and release corrections rather than additions to the design scope.
 
 The original Cumulus pass makes the brand signal its own rather than leaving the reference as the visible endpoint:
 
@@ -8,7 +10,7 @@ The original Cumulus pass makes the brand signal its own rather than leaving the
 - orange rules mark the transition from the hero into the editorial body and frame the full-width signal field;
 - section labels use orange as a navigational signal instead of a decorative fill;
 - the `ocque41` contribution calendar, its activity cells, legend, and unavailable state sit inside one continuous shader-backed dither field;
-- the closing dither footer carries an oversized orange Cumulus wordmark.
+- the closing dither footer keeps the large neutral Cumulus wordmark and uses orange only as a compact signal accent.
 
 Assumptions:
 

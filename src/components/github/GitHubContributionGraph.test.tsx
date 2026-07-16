@@ -63,7 +63,7 @@ describe("GitHubContributionGraph", () => {
       "/api/github/contributions",
       expect.objectContaining({ cache: "no-store", credentials: "same-origin" }),
     );
-    expect(screen.getByRole("grid")).toHaveAccessibleName(
+    expect(screen.getByRole("group")).toHaveAccessibleName(
       /37 GitHub contributions across 1 active day in the reported calendar/i,
     );
     const graphCells = document.querySelectorAll(
@@ -132,6 +132,13 @@ describe("GitHubContributionGraph", () => {
       "https://github.com/cumulus/cloud/pull/12",
     );
     expect(screen.getByRole("heading", { name: "Sunday, July 13, 2025" })).toBeVisible();
+    expect(screen.getAllByText("cloud")).toHaveLength(2);
+    expect(screen.queryByText("cumulus/cloud")).not.toBeInTheDocument();
+
+    fireEvent.click(activeCell);
+    expect(screen.getByRole("button", { name: "Close activity details" })).toBeVisible();
+    fireEvent.click(activeCell);
+    expect(screen.queryByRole("button", { name: "Close activity details" })).not.toBeInTheDocument();
 
     const frame = document.querySelector<HTMLElement>(".contribution-frame");
     expect(frame).not.toBeNull();
@@ -159,7 +166,7 @@ describe("GitHubContributionGraph", () => {
         screen.getByText(/empty grid contains no inferred counts/i),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByRole("grid")).toHaveAccessibleName(
+    expect(screen.getByRole("group")).toHaveAccessibleName(
       /GitHub contribution graph is currently unavailable/i,
     );
     expect(document.querySelector("[data-known='true']")).toBeNull();

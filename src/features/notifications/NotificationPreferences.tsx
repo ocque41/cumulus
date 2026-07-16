@@ -1,4 +1,3 @@
-import { Bell, BellSlash } from "@phosphor-icons/react";
 import { useCallback, useEffect, useId, useState } from "react";
 
 import { useAuth } from "../../components/auth/AuthContext";
@@ -149,9 +148,9 @@ export function NotificationPreferences({
     >
       <div className="auth-preferences-heading">
         {status === "active" ? (
-          <Bell aria-hidden="true" weight="fill" />
+          <span aria-hidden="true" className="ui-glyph ui-glyph--status">●</span>
         ) : (
-          <BellSlash aria-hidden="true" />
+          <span aria-hidden="true" className="ui-glyph ui-glyph--status">○</span>
         )}
         <h3 id={headingId}>New-post notifications</h3>
       </div>
