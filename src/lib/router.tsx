@@ -54,7 +54,7 @@ function subscribe(listener: () => void) {
   };
 }
 
-export function navigate(to: string, options?: { replace?: boolean }) {
+export function navigate(to: string, options?: { replace?: boolean; scroll?: boolean }) {
   const url = new URL(to, window.location.href);
   const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   const next = `${url.pathname}${url.search}${url.hash}`;
@@ -70,6 +70,8 @@ export function navigate(to: string, options?: { replace?: boolean }) {
   browserSnapshot = undefined;
   window.dispatchEvent(new Event("cumulus:navigate"));
 
+  if (options?.scroll === false) return;
+
   if (url.hash) {
     requestAnimationFrame(() => {
       document.getElementById(url.hash.slice(1))?.scrollIntoView();
@@ -83,8 +85,20 @@ export function useRoute(): RouteSnapshot {
   return useSyncExternalStore(subscribe, readBrowserSnapshot, () => serverSnapshot);
 }
 
+export function usePathname(): string {
+  return useSyncExternalStore(
+    subscribe,
+    () => window.location.pathname,
+    () => serverSnapshot.pathname,
+  );
+}
+
 export function useSearchParams(): URLSearchParams {
-  const { search } = useRoute();
+  const search = useSyncExternalStore(
+    subscribe,
+    () => window.location.search,
+    () => serverSnapshot.search,
+  );
   return useMemo(() => new URLSearchParams(search), [search]);
 }
 
@@ -112,6 +126,12 @@ export function AppLink({ children, href, onClick, target, ...props }: AppLinkPr
       const url = new URL(href, window.location.href);
       if (url.origin !== window.location.origin) return;
 
+      const sameDocumentHash =
+        Boolean(url.hash) &&
+        url.pathname === window.location.pathname &&
+        url.search === window.location.search;
+      if (sameDocumentHash) return;
+
       event.preventDefault();
       navigate(`${url.pathname}${url.search}${url.hash}`);
     },
@@ -126,7 +146,7 @@ export function AppLink({ children, href, onClick, target, ...props }: AppLinkPr
 }
 
 export function useDocumentMeta(title: string, description?: string) {
-  const { pathname } = useRoute();
+  const pathname = usePathname();
 
   useEffect(() => {
     const previousTitle = document.title;

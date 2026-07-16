@@ -63,6 +63,11 @@ const publicRoutes = [
     description: "Browse every public Cumulus field note, with project filters, source trails, and related reading.",
     title: "Log index — Cumulus lab",
   },
+  {
+    canonicalPath: "/work",
+    description: "Explore current Cumulus lab projects, their latest verified work, public status, and source boundaries.",
+    title: "Public work — Cumulus lab",
+  },
   ...publishedPosts.map((post) => ({
     canonicalPath: `/logs/${post.slug}`,
     description: post.excerpt,

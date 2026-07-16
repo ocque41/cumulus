@@ -58,6 +58,12 @@ Keep long lines around 55–72 characters. Test the smallest body and metadata r
 - Make the primary reading column comfortable rather than full viewport width.
 - Preserve the source reference's hierarchy on desktop and mobile; do not collapse the visual identity into a generic card stack.
 
+## Brand mark
+
+The Cumulus mark is a code-native cloud silhouette filled with an ordered dot dither and a restrained orange broken outline. Use the compact mark beside the navigation wordmark and the oversized mark as a low-contrast hero field. It must remain a neutral-gray and orange derivative of the dither system: do not replace it with an emoji, icon-library cloud, gradient logo, photographic cloud, or a second font.
+
+The compact mark is decorative when the visible `CUMULUS lab` wordmark is present. A standalone mark needs the accessible name “Cumulus dither cloud.” Keep the mark static or nearly static at small sizes and honor `prefers-reduced-motion` for oversized treatments.
+
 ## Component vocabulary
 
 The allowed component system is limited to:

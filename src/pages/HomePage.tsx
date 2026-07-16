@@ -1,3 +1,4 @@
+import { DitherCloudMark } from "@/components/brand/DitherCloudMark";
 import { GitHubContributionGraph } from "@/components/github/GitHubContributionGraph";
 import {
   DitherPlate,
@@ -27,16 +28,7 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
   return (
     <>
       <section aria-labelledby="home-title" className="home-hero">
-        <HeroDither
-          className="home-hero__dither"
-          fallbackClassName="home-hero__fallback"
-          frame={124}
-          maxPixelCount={980_000}
-          shape="sphere"
-          size={2}
-          speed={0.16}
-          type="8x8"
-        />
+        <DitherCloudMark className="home-hero__cloud" decorative />
         <div className="home-hero__veil" aria-hidden="true" />
         <div className="home-hero__content">
           <div className="home-hero__type page-shell">

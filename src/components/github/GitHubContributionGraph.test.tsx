@@ -142,19 +142,46 @@ describe("GitHubContributionGraph", () => {
 
     const frame = document.querySelector<HTMLElement>(".contribution-frame");
     expect(frame).not.toBeNull();
+    if (!frame) throw new Error("Expected the contribution frame");
+    vi.spyOn(frame, "getBoundingClientRect").mockReturnValue({
+      bottom: 240,
+      height: 240,
+      left: 0,
+      right: 1_000,
+      top: 0,
+      width: 1_000,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    fireEvent.pointerEnter(activeCell);
+    const popover = document.querySelector<HTMLElement>(".contribution-popover");
+    if (!popover) throw new Error("Expected the activity popover");
+    Object.defineProperty(popover, "offsetWidth", { configurable: true, value: 384 });
+
     fireEvent.pointerMove(frame as HTMLElement, {
-      clientX: 10,
-      clientY: 10,
+      clientX: 900,
+      clientY: 100,
       pointerType: "mouse",
     });
+    await waitFor(() => expect(frame).toHaveAttribute("data-popover-side", "left"));
     expect(frame?.style.getPropertyValue("--graph-rotate-y")).not.toBe("0deg");
+    expect(Number.parseFloat(frame.style.getPropertyValue("--popover-left"))).toBeLessThan(900);
+
+    fireEvent.pointerMove(frame, {
+      clientX: 100,
+      clientY: 100,
+      pointerType: "mouse",
+    });
+    await waitFor(() => expect(frame).toHaveAttribute("data-popover-side", "right"));
+    expect(Number.parseFloat(frame.style.getPropertyValue("--popover-left"))).toBeGreaterThan(100);
 
     fireEvent.focus(activeCell);
     fireEvent.keyDown(activeCell, { key: "ArrowRight" });
     expect(document.activeElement).toBe(
       document.querySelector('button[data-index="7"]'),
     );
-  });
+  }, 10_000);
 
   it("renders an honest no-data graph when the server boundary fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
