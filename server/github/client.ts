@@ -6,7 +6,10 @@ import {
 } from "./types.js";
 
 const GITHUB_GRAPHQL_ENDPOINT = "https://api.github.com/graphql";
+export const GITHUB_PUBLIC_CONTRIBUTIONS_ENDPOINT =
+  "https://github.com/users/ocque41/contributions";
 const MAXIMUM_UPSTREAM_BYTES = 256 * 1024;
+const MAXIMUM_PUBLIC_HTML_BYTES = 512 * 1024;
 const MINIMUM_CALENDAR_WEEKS = 52;
 const MAXIMUM_CALENDAR_WEEKS = 53;
 const MINIMUM_CALENDAR_DAYS = 364;
@@ -206,13 +209,17 @@ function parseCalendar(
   };
 }
 
-async function readBoundedJson(response: Response): Promise<unknown> {
+async function readBoundedText(
+  response: Response,
+  maximumBytes = MAXIMUM_UPSTREAM_BYTES,
+  signal?: AbortSignal,
+): Promise<string> {
   const contentLength = response.headers.get("content-length");
   if (contentLength !== null) {
     const parsedLength = Number(contentLength);
     if (
       Number.isFinite(parsedLength)
-      && parsedLength > MAXIMUM_UPSTREAM_BYTES
+      && parsedLength > maximumBytes
     ) {
       throw new GithubContributionUpstreamError(
         "github_response_too_large",
@@ -220,21 +227,170 @@ async function readBoundedJson(response: Response): Promise<unknown> {
     }
   }
 
-  let text: string;
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+
+  const decoder = new TextDecoder();
+  let receivedBytes = 0;
+  let text = "";
   try {
-    text = await response.text();
-  } catch {
-    throw new GithubContributionUpstreamError("github_invalid_response");
+    while (true) {
+      const chunk = await readStreamChunk(reader, signal);
+      if (chunk.done) break;
+      receivedBytes += chunk.value.byteLength;
+      if (receivedBytes > maximumBytes) {
+        await reader.cancel();
+        throw new GithubContributionUpstreamError(
+          "github_response_too_large",
+        );
+      }
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+    text += decoder.decode();
+  } catch (error) {
+    if (error instanceof GithubContributionUpstreamError) throw error;
+    throw new GithubContributionUpstreamError(
+      signal?.aborted ? "github_network_error" : "github_invalid_response",
+    );
+  } finally {
+    reader.releaseLock();
   }
-  if (new TextEncoder().encode(text).byteLength > MAXIMUM_UPSTREAM_BYTES) {
-    throw new GithubContributionUpstreamError("github_response_too_large");
+
+  return text;
+}
+
+async function readStreamChunk(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  signal?: AbortSignal,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  if (!signal) return reader.read();
+  if (signal.aborted) {
+    await reader.cancel();
+    throw new GithubContributionUpstreamError("github_network_error");
   }
+
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      void reader.cancel();
+      reject(new GithubContributionUpstreamError("github_network_error"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    void reader.read().then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", abort);
+    });
+  });
+}
+
+async function readBoundedJson(
+  response: Response,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const text = await readBoundedText(response, MAXIMUM_UPSTREAM_BYTES, signal);
 
   try {
     return JSON.parse(text) as unknown;
   } catch {
     throw new GithubContributionUpstreamError("github_invalid_response");
   }
+}
+
+function htmlAttribute(source: string, name: string): string | undefined {
+  const match = source.match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`, "i"));
+  return match?.[1];
+}
+
+function parsePublicCalendar(
+  html: string,
+  fetchedAt: string,
+): GithubContributionsPayload {
+  const pairPattern =
+    /<td\b([^>]*)>\s*<\/td>\s*<tool-tip\b([^>]*)>([^<]*)<\/tool-tip>/gi;
+  const contributions: ContributionDay[] = [];
+  const seenDates = new Set<string>();
+  const seenIds = new Set<string>();
+
+  for (const match of html.matchAll(pairPattern)) {
+    const cellAttributes = match[1] ?? "";
+    const tooltipAttributes = match[2] ?? "";
+    const tooltipText = match[3] ?? "";
+    const classes = htmlAttribute(cellAttributes, "class")?.split(/\s+/) ?? [];
+    if (!classes.includes("ContributionCalendar-day")) continue;
+
+    const date = htmlAttribute(cellAttributes, "data-date");
+    const id = htmlAttribute(cellAttributes, "id");
+    const rawLevel = htmlAttribute(cellAttributes, "data-level");
+    const tooltipFor = htmlAttribute(tooltipAttributes, "for");
+    const countMatch = tooltipText.trim().match(
+      /^(No|[0-9][0-9,]*) contributions? on\b/i,
+    );
+    if (
+      !isCanonicalDate(date)
+      || !id
+      || id.length > 128
+      || !/^[A-Za-z0-9_-]+$/.test(id)
+      || tooltipFor !== id
+      || !/^[0-4]$/.test(rawLevel ?? "")
+      || !countMatch
+      || seenDates.has(date)
+      || seenIds.has(id)
+    ) {
+      throw new GithubContributionUpstreamError("github_invalid_response");
+    }
+
+    const level = Number(rawLevel) as ContributionLevel;
+    const rawCount = countMatch[1] ?? "";
+    if (
+      rawCount.toLowerCase() !== "no"
+      && !/^(?:0|[1-9]\d*|[1-9]\d{0,2}(?:,\d{3})+)$/.test(rawCount)
+    ) {
+      throw new GithubContributionUpstreamError("github_invalid_response");
+    }
+    const count = rawCount.toLowerCase() === "no"
+      ? 0
+      : Number(rawCount.replaceAll(",", ""));
+    if (
+      !isSafeCount(count)
+      || (count === 0) !== (level === 0)
+    ) {
+      throw new GithubContributionUpstreamError("github_invalid_response");
+    }
+
+    seenDates.add(date);
+    seenIds.add(id);
+    contributions.push({ date, count, level });
+  }
+
+  contributions.sort((left, right) => left.date.localeCompare(right.date));
+  if (
+    contributions.length < MINIMUM_CALENDAR_DAYS
+    || contributions.length > MAXIMUM_CALENDAR_DAYS
+  ) {
+    throw new GithubContributionUpstreamError("github_invalid_response");
+  }
+
+  let totalContributions = 0;
+  let previousTimestamp: number | undefined;
+  for (const day of contributions) {
+    const timestamp = Date.parse(`${day.date}T00:00:00.000Z`);
+    if (
+      previousTimestamp !== undefined
+      && timestamp - previousTimestamp !== 86_400_000
+    ) {
+      throw new GithubContributionUpstreamError("github_invalid_response");
+    }
+    previousTimestamp = timestamp;
+    totalContributions += day.count;
+    if (!Number.isSafeInteger(totalContributions)) {
+      throw new GithubContributionUpstreamError("github_invalid_response");
+    }
+  }
+
+  return {
+    username: GITHUB_CONTRIBUTION_USERNAME,
+    contributions,
+    totalContributions,
+    fetchedAt,
+  };
 }
 
 export async function fetchGithubContributionCalendar(
@@ -246,9 +402,8 @@ export async function fetchGithubContributionCalendar(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  let response: Response;
   try {
-    response = await fetcher(GITHUB_GRAPHQL_ENDPOINT, {
+    const response = await fetcher(GITHUB_GRAPHQL_ENDPOINT, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -259,20 +414,60 @@ export async function fetchGithubContributionCalendar(
       body: JSON.stringify({ query: GITHUB_CONTRIBUTION_QUERY }),
       signal: controller.signal,
     });
-  } catch {
+    if (!response.ok) {
+      throw new GithubContributionUpstreamError("github_http_error");
+    }
+
+    const fetchedAt = now();
+    if (Number.isNaN(fetchedAt.getTime())) {
+      throw new GithubContributionUpstreamError("github_invalid_response");
+    }
+    const value = await readBoundedJson(response, controller.signal);
+    return parseCalendar(value, fetchedAt.toISOString());
+  } catch (error) {
+    if (error instanceof GithubContributionUpstreamError) throw error;
     throw new GithubContributionUpstreamError("github_network_error");
   } finally {
     clearTimeout(timeout);
   }
+}
 
-  if (!response.ok) {
-    throw new GithubContributionUpstreamError("github_http_error");
-  }
+export async function fetchPublicGithubContributionCalendar(
+  options: Omit<FetchGithubContributionCalendarOptions, "accessToken">,
+): Promise<GithubContributionsPayload> {
+  const fetcher = options.fetcher ?? fetch;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const now = options.now ?? (() => new Date());
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  const fetchedAt = now();
-  if (Number.isNaN(fetchedAt.getTime())) {
-    throw new GithubContributionUpstreamError("github_invalid_response");
+  try {
+    const response = await fetcher(GITHUB_PUBLIC_CONTRIBUTIONS_ENDPOINT, {
+      method: "GET",
+      headers: {
+        Accept: "text/html; charset=utf-8",
+        "User-Agent": "cumulus-contribution-calendar",
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new GithubContributionUpstreamError("github_http_error");
+    }
+
+    const fetchedAt = now();
+    if (Number.isNaN(fetchedAt.getTime())) {
+      throw new GithubContributionUpstreamError("github_invalid_response");
+    }
+    const html = await readBoundedText(
+      response,
+      MAXIMUM_PUBLIC_HTML_BYTES,
+      controller.signal,
+    );
+    return parsePublicCalendar(html, fetchedAt.toISOString());
+  } catch (error) {
+    if (error instanceof GithubContributionUpstreamError) throw error;
+    throw new GithubContributionUpstreamError("github_network_error");
+  } finally {
+    clearTimeout(timeout);
   }
-  const value = await readBoundedJson(response);
-  return parseCalendar(value, fetchedAt.toISOString());
 }

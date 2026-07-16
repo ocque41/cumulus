@@ -20,6 +20,12 @@ type ParsedPost =
   | { ok: true; token: string; oneClick: boolean }
   | { ok: false; status: number };
 
+type ParsedPostFailure = Extract<ParsedPost, { ok: false }>;
+
+function isParsedPostFailure(value: ParsedPost): value is ParsedPostFailure {
+  return value.ok === false;
+}
+
 async function parsePost(request: Request): Promise<ParsedPost> {
   const contentType = request.headers.get("content-type") ?? "";
   const queryToken = new URL(request.url).searchParams.get("token")?.trim() ?? "";
@@ -103,7 +109,7 @@ export function createUnsubscribeHandler(
     }
 
     const parsed = await parsePost(request);
-    if (!parsed.ok) {
+    if (isParsedPostFailure(parsed)) {
       return unsubscribeJsonResponse(
         { ok: false, error: "invalid_request" },
         { status: parsed.status },

@@ -23,6 +23,12 @@ const CLAIM_DISPOSITIONS = new Set<ClaimDisposition>([
   "content_mismatch",
 ]);
 
+type DeliveryFailureStatus = "retryable" | "failed" | null;
+
+function isDeliveryFailureStatus(value: unknown): value is DeliveryFailureStatus {
+  return value === null || value === "retryable" || value === "failed";
+}
+
 export class NotificationStoreError extends Error {
   readonly code: string;
 
@@ -305,7 +311,7 @@ export class SupabaseNotificationStore implements NotificationStore {
       requested_retryable: input.retryable,
       requested_retry_after_seconds: input.retryAfterSeconds,
     });
-    if (value !== null && value !== "retryable" && value !== "failed") {
+    if (!isDeliveryFailureStatus(value)) {
       throw new NotificationStoreError("delivery_failure_invalid");
     }
     return value;

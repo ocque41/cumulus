@@ -15,8 +15,8 @@ Use this checklist for Cumulus 0.0.8 before pushing the reference branch, publis
 - [ ] `.env.example` contains placeholders only.
 - [ ] No `.env.local`, token, cookie, key, database dump, subscriber address, delivery payload, private URL, real project ID, or dashboard screenshot is tracked.
 - [ ] Browser bundles contain only approved `NEXT_PUBLIC_*` values.
-- [ ] `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_POSTAL_ADDRESS`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` remain server-only.
-- [ ] `GITHUB_ACCESS_TOKEN` belongs to a separate least-privilege viewer identity with no private-repository access, and the endpoint matches the public profile.
+- [ ] `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, optional `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_POSTAL_ADDRESS`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` remain server-only.
+- [ ] If configured, `GITHUB_ACCESS_TOKEN` belongs to a separate least-privilege viewer identity with no private-repository access; otherwise the endpoint uses only the fixed public profile. In both cases, the endpoint matches the public profile.
 - [ ] Test fixtures use synthetic identities.
 
 ## 3. Brand and third-party material

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { GITHUB_CONTRIBUTION_QUERY } from "./client";
+import {
+  GITHUB_CONTRIBUTION_QUERY,
+  GITHUB_PUBLIC_CONTRIBUTIONS_ENDPOINT,
+} from "./client";
 import {
   createGithubContributionsHandler,
   GITHUB_CONTRIBUTIONS_CACHE_CONTROL,
@@ -71,6 +74,33 @@ function githubFixture(input: {
   };
 }
 
+function publicHtmlFixture(input: {
+  start?: string;
+  days?: number;
+  mutate?: (cells: string[]) => void;
+} = {}): string {
+  const start = new Date(`${input.start ?? "2025-01-01"}T00:00:00.000Z`);
+  const dayCount = input.days ?? 365;
+  const days = Array.from({ length: dayCount }, (_, index) => {
+    const date = new Date(start.getTime() + index * 86_400_000);
+    const count = index % 5;
+    const id = `contribution-day-${index}`;
+    const countLabel = count === 0 ? "No" : String(count);
+    return {
+      cell: `<td data-date="${isoDate(date)}" id="${id}" data-level="${count}" class="ContributionCalendar-day"></td><tool-tip for="${id}">${countLabel} ${count === 1 ? "contribution" : "contributions"} on ${isoDate(date)}.</tool-tip>`,
+      date,
+    };
+  });
+
+  // GitHub's public table is row-major by weekday rather than chronological.
+  days.sort((left, right) =>
+    left.date.getUTCDay() - right.date.getUTCDay()
+    || left.date.getTime() - right.date.getTime());
+  const cells = days.map((day) => day.cell);
+  input.mutate?.(cells);
+  return `<table>${cells.join("")}</table>`;
+}
+
 function jsonFetcher(value: unknown, status = 200): typeof fetch {
   return vi.fn(async () => new Response(JSON.stringify(value), {
     status,
@@ -82,13 +112,14 @@ function handlerWith(
   fetcher: typeof fetch,
   overrides: {
     env?: Record<string, string | undefined>;
+    now?: () => Date;
     timeoutMs?: number;
   } = {},
 ) {
   return createGithubContributionsHandler({
     env: overrides.env ?? { GITHUB_ACCESS_TOKEN: TEST_TOKEN },
     fetcher,
-    now: () => FIXED_NOW,
+    now: overrides.now ?? (() => FIXED_NOW),
     timeoutMs: overrides.timeoutMs,
   });
 }
@@ -127,18 +158,39 @@ describe("GitHub contribution calendar endpoint", () => {
     {},
     { GITHUB_ACCESS_TOKEN: "" },
     { GITHUB_ACCESS_TOKEN: "token with whitespace" },
-  ])("fails closed when server authentication is missing or invalid", async (env) => {
-    const fetcher = jsonFetcher(githubFixture());
+  ])("uses the fixed public calendar when server authentication is missing or invalid", async (env) => {
+    let requestedUrl = "";
+    let requestedInit: RequestInit | undefined;
+    const fetcher = vi.fn(async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      requestedUrl = String(input);
+      requestedInit = init;
+      return new Response(publicHtmlFixture(), { status: 200 });
+    }) as unknown as typeof fetch;
     const response = await handlerWith(fetcher, { env })(new Request(
       "https://cumulush.com/api/github/contributions",
     ));
 
-    expect(response.status).toBe(503);
-    expect(response.headers.get("cache-control")).toBe("no-store");
-    await expect(response.json()).resolves.toEqual({
-      error: "github_contributions_unavailable",
-    });
-    expect(fetcher).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(requestedUrl).toBe(GITHUB_PUBLIC_CONTRIBUTIONS_ENDPOINT);
+    expect(requestedInit?.method).toBe("GET");
+    expect(new Headers(requestedInit?.headers).has("authorization")).toBe(false);
+    const body = await response.json() as {
+      username: string;
+      contributions: Array<{ date: string; count: number; level: number }>;
+      totalContributions: number;
+    };
+    expect(body.username).toBe("ocque41");
+    expect(body.contributions).toHaveLength(365);
+    expect(body.contributions.slice(0, 2)).toEqual([
+      { date: "2025-01-01", count: 0, level: 0 },
+      { date: "2025-01-02", count: 1, level: 1 },
+    ]);
+    expect(body.totalContributions).toBe(
+      body.contributions.reduce((sum, day) => sum + day.count, 0),
+    );
   });
 
   it("maps GitHub's GraphQL calendar into the fixed public contract", async () => {
@@ -209,7 +261,29 @@ describe("GitHub contribution calendar endpoint", () => {
     expect(body.contributions).toHaveLength(364);
   });
 
-  it("returns a stable redacted error for non-success upstream responses", async () => {
+  it("falls back to the public fixed-user calendar when authenticated GitHub fails", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("Bad credentials", { status: 401 }))
+      .mockResolvedValueOnce(new Response(publicHtmlFixture(), { status: 200 }));
+    const fetcher = fetchMock as unknown as typeof fetch;
+    const response = await handlerWith(fetcher)(new Request(
+      "https://cumulush.com/api/github/contributions",
+    ));
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("https://api.github.com/graphql");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
+      GITHUB_PUBLIC_CONTRIBUTIONS_ENDPOINT,
+    );
+    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).has("authorization"))
+      .toBe(false);
+    const body = await response.json() as { username: string; contributions: unknown[] };
+    expect(body.username).toBe("ocque41");
+    expect(body.contributions).toHaveLength(365);
+  });
+
+  it("returns a stable redacted error when both upstream sources fail", async () => {
     const rawUpstreamError = `Bad credentials: ${TEST_TOKEN}`;
     const fetcher = vi.fn(async () => new Response(rawUpstreamError, {
       status: 401,
@@ -297,9 +371,92 @@ describe("GitHub contribution calendar endpoint", () => {
     expect(text).not.toContain(TEST_TOKEN);
   });
 
+  it.each([
+    () => new Response("<html>not a calendar</html>", { status: 200 }),
+    () => new Response(publicHtmlFixture({ days: 363 }), { status: 200 }),
+    () => new Response(publicHtmlFixture({
+      mutate(cells) {
+        cells.splice(50, 1);
+      },
+    }), { status: 200 }),
+    () => new Response(
+      publicHtmlFixture().replace('data-level="0"', 'data-level="1"'),
+      { status: 200 },
+    ),
+    () => new Response(
+      publicHtmlFixture().replace(
+        'for="contribution-day-0"',
+        'for="different-contribution-day"',
+      ),
+      { status: 200 },
+    ),
+    () => new Response(
+      publicHtmlFixture().replace(
+        ">1 contribution on",
+        ">1,,0 contributions on",
+      ),
+      { status: 200 },
+    ),
+    () => new Response("", {
+      status: 200,
+      headers: { "Content-Length": String(512 * 1024 + 1) },
+    }),
+  ])("rejects malformed or unbounded public calendar HTML", async (responseFactory) => {
+    const fetcher = vi.fn(async () => responseFactory()) as unknown as typeof fetch;
+    const response = await handlerWith(fetcher, { env: {} })(new Request(
+      "https://cumulush.com/api/github/contributions",
+    ));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({
+      error: "github_contributions_unavailable",
+    });
+  });
+
+  it("stops reading a public response that streams beyond the byte limit", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(512 * 1024 + 1));
+        controller.close();
+      },
+    });
+    const fetcher = vi.fn(async () => new Response(body, { status: 200 })) as
+      unknown as typeof fetch;
+    const response = await handlerWith(fetcher, { env: {} })(new Request(
+      "https://cumulush.com/api/github/contributions",
+    ));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "github_contributions_unavailable",
+    });
+  });
+
+  it("keeps the timeout active while a public response body is stalled", async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const fetcher = vi.fn(async () => new Response(body, { status: 200 })) as
+      unknown as typeof fetch;
+    const response = await handlerWith(fetcher, {
+      env: {},
+      timeoutMs: 5,
+    })(new Request("https://cumulush.com/api/github/contributions"));
+
+    expect(response.status).toBe(503);
+    expect(cancelled).toBe(true);
+  });
+
   it("publishes daily cache controls and honors weak conditional ETags", async () => {
     const fetcher = jsonFetcher(githubFixture());
-    const handler = handlerWith(fetcher);
+    let observation = 0;
+    const handler = handlerWith(fetcher, {
+      now: () => new Date(FIXED_NOW.getTime() + observation++ * 60_000),
+    });
     const first = await handler(new Request(
       "https://cumulush.com/api/github/contributions",
     ));

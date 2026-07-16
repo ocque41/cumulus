@@ -39,7 +39,7 @@ Do not commit a sanitized-looking copy of live data. Use synthetic addresses suc
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser-visible | Vercel environment or local `.env.local` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only current secret/server key or legacy service-role JWT | Vercel encrypted environment |
 | `RESEND_API_KEY` | Server-only | Vercel encrypted environment |
-| `GITHUB_ACCESS_TOKEN` | Server-only, separate least-privilege public-profile viewer | Vercel encrypted environment |
+| `GITHUB_ACCESS_TOKEN` | Optional server-only, separate least-privilege public-profile viewer | Vercel encrypted environment |
 | `NOTIFICATION_FROM_EMAIL` | Server-only configuration | Vercel encrypted environment |
 | `NOTIFICATION_POSTAL_ADDRESS` | Server-only configuration rendered in email | Vercel encrypted environment |
 | `NOTIFICATION_PUBLISH_SECRET` | Server-only privileged secret | Vercel encrypted environment or approved secret manager |
@@ -47,7 +47,7 @@ Do not commit a sanitized-looking copy of live data. Use synthetic addresses suc
 
 The `NEXT_PUBLIC_*` compatibility prefix is intentionally exposed by Vite. Do not put a secret behind that prefix. Conversely, never mirror a server-only value into a public alias to work around a client/server boundary.
 
-The GitHub token must belong to a separate least-privilege viewer identity and must not inherit owner-wide or private-repository access. Compare the returned calendar with the public profile before release; the public endpoint must reveal only what that viewer is intended to see.
+If configured, the GitHub token must belong to a separate least-privilege viewer identity and must not inherit owner-wide or private-repository access. Without one, the fixed-user endpoint reads and strictly validates the public contribution calendar. Compare the returned calendar with the public profile before release.
 
 Deployment credentials are not runtime configuration. Keep them out of `.env.example`, Vercel app variables, browser code, CI logs, and repository secrets unless a narrowly scoped CI workflow explicitly requires them.
 

@@ -56,7 +56,7 @@ In the existing project's Preview environment, configure:
 - `RESEND_API_KEY` for test delivery;
 - `NOTIFICATION_FROM_EMAIL` for a provider-approved test sender;
 - `NOTIFICATION_POSTAL_ADDRESS` for the valid sender postal address rendered in every notification;
-- `GITHUB_ACCESS_TOKEN` for the server-side `ocque41` contribution-graph request;
+- optional `GITHUB_ACCESS_TOKEN` for the server-side `ocque41` GraphQL request; omit it to use the bounded public-profile calendar;
 - independent preview values for `NOTIFICATION_PUBLISH_SECRET` and `NOTIFICATION_UNSUBSCRIBE_SECRET`.
 
 The `NEXT_PUBLIC_*` variables are injected into the browser bundle by Vite and are visible to users. All other values must remain server-only. Do not copy production reader data into preview.

@@ -33,7 +33,7 @@ This is not a Next.js application. The `NEXT_PUBLIC_*` environment names are com
 
 Requirements:
 
-- a current Node.js LTS release and npm;
+- Node.js 24 LTS and npm;
 - a Supabase project or local Supabase environment if testing persisted subscriptions;
 - a Resend test key only when testing delivery from a server environment.
 
@@ -67,11 +67,13 @@ The following values are server-only and must never be referenced through `impor
 
 `NOTIFICATION_POSTAL_ADDRESS` is private operational configuration, but it is rendered in every notification footer. Supply a truthful address that satisfies the operator's applicable email rules; the server fails closed when it is missing. Do not put a fabricated address in Production.
 
-`GITHUB_ACCESS_TOKEN` authorizes only the server-side contribution-calendar request for the fixed `ocque41` profile. Use a separate least-privilege viewer identity with no private-repository access, then compare the result with the public profile. Do not use an owner-wide `ocque41` credential.
+`GITHUB_ACCESS_TOKEN` is optional. When a valid token is present, it authorizes only the server-side GraphQL request for the fixed `ocque41` profile. If it is absent or GitHub rejects that request, the endpoint uses GitHub's public fixed-user contribution calendar and accepts only bounded, sequential date/count/density data. Never use an owner-wide, private-repository, or workflow credential for this public display.
 
 ## Commands
 
 Use the focused checks during development and run the complete set before a release or production preview:
+
+`npm run typecheck` runs both the strict application compiler and a separate NodeNext pass that mirrors Vercel's isolated function compiler. Keep both: Vercel's non-strict function pass narrows some discriminated unions differently from the strict application build.
 
 ```bash
 npm run dev
