@@ -52,6 +52,9 @@ describe("Resend adapter", () => {
         "List-Unsubscribe": `<${message.oneClickUnsubscribeUrl}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
+      tags: [
+        { name: "category", value: "cumulus_blog_notification" },
+      ],
     });
     expect(String(url)).not.toContain(API_KEY);
     expect(String(init?.body)).not.toContain(API_KEY);

@@ -191,6 +191,47 @@ describe("Supabase notification adapter", () => {
     });
   });
 
+  it("maps provider messages and processes only bounded suppression events", async () => {
+    const responses = [USER_ID, "suppressed"];
+    const fetcher = vi.fn(async () => new Response(
+      JSON.stringify(responses.shift()),
+      { status: 200 },
+    )) as unknown as typeof fetch;
+    const adapter = store(fetcher);
+
+    await expect(adapter.findDeliveryOwner("provider-message-id")).resolves.toBe(
+      USER_ID,
+    );
+    await expect(adapter.processProviderSuppressionEvent({
+      providerEventId: "msg_provider-event-id",
+      providerMessageId: "provider-message-id",
+      eventType: "email.complained",
+      userId: USER_ID,
+      recipientMatches: true,
+    })).resolves.toBe("suppressed");
+
+    expect(vi.mocked(fetcher).mock.calls.map(([input]) => String(input))).toEqual([
+      "https://project.supabase.co/rest/v1/rpc/find_blog_notification_delivery_owner",
+      "https://project.supabase.co/rest/v1/rpc/process_blog_notification_resend_event",
+    ]);
+    expect(JSON.parse(String(vi.mocked(fetcher).mock.calls[1][1]?.body))).toEqual({
+      requested_provider_event_id: "msg_provider-event-id",
+      requested_provider_message_id: "provider-message-id",
+      requested_event_type: "email.complained",
+      requested_user_id: USER_ID,
+      requested_recipient_matches: true,
+    });
+  });
+
+  it("rejects malformed provider identifiers before making a request", async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    const adapter = store(fetcher);
+    await expect(adapter.findDeliveryOwner("bad/id")).rejects.toMatchObject({
+      code: "delivery_owner_invalid_input",
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("applies a deadline and redacts transport failures", async () => {
     const fetcher = vi.fn<typeof fetch>(async (_input, init) => {
       expect(init?.signal).toBeInstanceOf(AbortSignal);

@@ -5,7 +5,7 @@ These gates separate local correctness, preview readiness, and production readin
 ## Gate A — repository safety
 
 - The browser may receive only intentionally public site and Supabase values.
-- `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, optional `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` are credentials or signing material and are server-only.
+- `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, optional `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` are credentials or signing material and are server-only.
 - `NOTIFICATION_POSTAL_ADDRESS` is server-rendered compliance content. Its deployed value is intentionally disclosed in notification email, but it must not be committed, injected into the browser bundle, or copied into unrelated logs and screenshots.
 - Secret values must not appear in Git, patches, test fixtures, screenshots, command arguments, shell history, build output, browser assets, error responses, analytics, or logs.
 - `.env.example` contains names and non-secret placeholders only. Local secret files remain ignored.
@@ -34,7 +34,7 @@ Proof: focused auth tests, RLS tests, consent walkthrough, unsubscribe walkthrou
 - Resend receives a deterministic idempotency key.
 - Email HTML and text include an absolute post URL, sender identity, and one-click unsubscribe URL.
 - Logs contain opaque identifiers and failure classes, not addresses, tokens, or provider credentials.
-- Any webhook-driven status update verifies the provider signature before processing.
+- Any webhook-driven status update verifies the provider signature against the raw body before processing, rejects replay through a durable event ledger, and never logs or stores the recipient address from the payload.
 
 Proof: database constraint/RPC review, concurrent claim tests, crash-and-retry tests, render snapshots, API tests, and sanitized provider test-delivery evidence.
 
@@ -42,7 +42,7 @@ Proof: database constraint/RPC review, concurrent claim tests, crash-and-retry t
 
 1. Verify the existing Vercel project identity and its Git connection without changing either.
 2. Verify the configured domain and sender identity in their provider control planes; do not infer configuration from a successful DNS lookup alone.
-3. Use an authenticated Vercel integration or control plane to set each secret directly in the Preview environment. Never place the value in a committed file or a command shown in logs. Configure the public site and Supabase values plus the server-only Supabase, Resend, GitHub, notification sender, postal-address, publish-secret, and unsubscribe-secret values required by the final code contract.
+3. Use an authenticated Vercel integration or control plane to set each secret directly in the Preview environment. Never place the value in a committed file or a command shown in logs. Configure the public site and Supabase values plus the server-only Supabase, Resend API and webhook secrets, GitHub, notification sender, postal-address, publish-secret, and unsubscribe-secret values required by the final code contract.
 4. Keep Preview Supabase data isolated from production subscribers.
 5. Restrict preview delivery to an allowlisted test recipient and use a non-customer test post.
 6. Deploy the reference branch preview and verify direct routes, auth callback, preference changes, publication, receipt, source links, and unsubscribe.
@@ -57,7 +57,7 @@ Proof: redacted provider inspection, preview deployment checks, allowlisted deli
 Production changes are permitted only when the current user authorization covers the exact action. Treat these as separate operations even when one tool can perform several:
 
 1. apply the reviewed additive Supabase migration;
-2. inject or rotate production runtime secrets through the existing Vercel project;
+2. create or update the Resend webhook for `/api/notifications/resend-webhook` and inject its signing secret through the existing Vercel project;
 3. push or merge the selected branch;
 4. create or promote a deployment;
 5. attach, move, or change the live domain;

@@ -55,6 +55,7 @@ The following values are server-only and must never be referenced through `impor
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `RESEND_API_KEY`
+- `RESEND_WEBHOOK_SECRET`
 - `GITHUB_ACCESS_TOKEN`
 - `NOTIFICATION_FROM_EMAIL`
 - `NOTIFICATION_POSTAL_ADDRESS`

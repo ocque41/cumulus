@@ -19,7 +19,7 @@ The server should normalize an address consistently, validate it conservatively,
 
 A repeated request for the same active address is idempotent: it returns a neutral success response without adding another active subscription. A previously unsubscribed address may be reactivated only after a new explicit opt-in and a new consent timestamp.
 
-Store only what the notification function needs, such as normalized address, state, consent timestamp/version, unsubscribe-token metadata, and delivery/idempotency state. Do not add profile or behavioral fields by convenience.
+Keep the address authoritative in Supabase Auth. The public notification tables store only the Auth user ID, state, consent timestamp/version, and minimal delivery/idempotency metadata; they do not copy the address or provider payload. Do not add profile or behavioral fields by convenience.
 
 Responses should not make address enumeration easy. Rate-limit by appropriate privacy-preserving request signals and record abuse without logging raw secrets or unnecessary personal data.
 
@@ -56,6 +56,15 @@ Before each send or retry:
 
 Handle partial failure explicitly. A provider timeout is an unknown result until reconciled; do not blindly resend. Bounces and complaints must suppress future sends according to provider guidance and the operator's policy.
 
+Every Cumulus delivery is tagged `category=cumulus_blog_notification`. The Resend webhook at `/api/notifications/resend-webhook` accepts only `email.bounced`, `email.complained`, and `email.suppressed` for that tag. It verifies the Svix signature against the unmodified raw request body before parsing or processing data, then:
+
+1. maps the provider message ID to a completed Cumulus delivery;
+2. compares the signed recipient with the current authoritative Supabase Auth address;
+3. records the provider event ID in a server-only replay ledger;
+4. atomically unsubscribes a matching subscriber and cancels queued work that has not started at the provider.
+
+The raw provider payload and recipient address are never written to the public schema or application logs. A valid event for another tag is acknowledged and ignored. A tagged event whose delivery row is not visible yet returns a retryable error so a provider race cannot become a silent loss. A verified event for a delivery whose current Auth address differs is recorded as ignored rather than suppressing a newly changed address.
+
 The publish endpoint is a bounded dispatcher, not a single unbounded fanout request. It reserves globally paced provider slots, makes at most 40 provider attempts, and stops early when its 50-second internal runtime budget cannot safely contain another provider attempt and final database write. An HTTP `202` response with `hasMore: true` and `incomplete: true` means an authorized operator or private dispatcher must wait for the `Retry-After` interval and repeat the same bearer-authenticated publish request. Continue until the endpoint returns HTTP `200` with both fields false. The ledger and Resend idempotency key make repeated calls safe. Do not change the post, recipient, sender, origin, template, postal address, or unsubscribe signing key during an incomplete retry sequence; the persisted payload fingerprint fails closed if that identity changes.
 
 ## Environment contract
@@ -67,6 +76,7 @@ The publish endpoint is a bounded dispatcher, not a single unbounded fanout requ
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public row-level-security credential | Browser-visible |
 | `SUPABASE_SERVICE_ROLE_KEY` | Compatibility name for a current Supabase secret/server key or legacy service-role JWT | Server-only |
 | `RESEND_API_KEY` | Delivery provider authorization | Server-only |
+| `RESEND_WEBHOOK_SECRET` | Svix signing secret for authenticated Resend event verification | Server-only secret |
 | `NOTIFICATION_FROM_EMAIL` | Verified sender identity | Server-only configuration |
 | `NOTIFICATION_POSTAL_ADDRESS` | Truthful sender postal address rendered in each message | Server-only configuration |
 | `NOTIFICATION_PUBLISH_SECRET` | Privileged publication authorization | Server-only secret |
@@ -81,10 +91,10 @@ Real values belong in the deployment provider or private overlay, never in Git. 
 - Provide a process for address deletion and correction.
 - Back up only what is required and protect backups like the live subscriber store.
 - Monitor send volume, errors, bounces, complaints, and unusual publish attempts.
-- Configure authenticated Resend webhook handling or an equivalent private process before Production so bounces and complaints suppress future sends.
+- Configure the authenticated Resend webhook for `email.bounced`, `email.complained`, and `email.suppressed` before Production so provider suppressions stop future sends.
 - Test with synthetic addresses and approved recipients, not customer data.
 - Treat logs, suppression lists, and provider events as private production records.
 
 ## Assumptions and legal gate
 
-This reference establishes explicit opt-in, one-click unsubscribe, and a fail-closed postal-address footer contract, but it does not claim that one consent flow satisfies every jurisdiction or sender-policy regime. Production remains gated on a truthful `NOTIFICATION_POSTAL_ADDRESS`, verified sender/domain, suppression handling for bounces and complaints, and operator review of confirmed/double opt-in, disclosures, and retention. Those real values and provider operations belong in the private production overlay.
+This reference establishes explicit opt-in, one-click unsubscribe, authenticated suppression handling, and a fail-closed postal-address footer contract, but it does not claim that one consent flow satisfies every jurisdiction or sender-policy regime. Production remains gated on a truthful `NOTIFICATION_POSTAL_ADDRESS`, verified sender/domain, a configured webhook and signing secret, and operator review of confirmed/double opt-in, disclosures, and retention. Those real values and provider operations belong in the private production overlay.

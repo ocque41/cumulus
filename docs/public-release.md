@@ -15,7 +15,7 @@ Use this checklist for Cumulus 0.0.8 before pushing the reference branch, publis
 - [ ] `.env.example` contains placeholders only.
 - [ ] No `.env.local`, token, cookie, key, database dump, subscriber address, delivery payload, private URL, real project ID, or dashboard screenshot is tracked.
 - [ ] Browser bundles contain only approved `NEXT_PUBLIC_*` values.
-- [ ] `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, optional `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_POSTAL_ADDRESS`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` remain server-only.
+- [ ] `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, optional `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_POSTAL_ADDRESS`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` remain server-only.
 - [ ] If configured, `GITHUB_ACCESS_TOKEN` belongs to a separate least-privilege viewer identity with no private-repository access; otherwise the endpoint uses only the fixed public profile. In both cases, the endpoint matches the public profile.
 - [ ] Test fixtures use synthetic identities.
 
@@ -57,7 +57,8 @@ npm run test:e2e
 - [ ] Repeated unsubscribe is safe and an unsubscribed address is excluded from sends and retries.
 - [ ] A stable publication-event idempotency key prevents duplicate delivery.
 - [ ] The privileged publish action rejects missing or invalid authorization.
-- [ ] Rate limiting plus authenticated bounce/complaint suppression handling are configured for production.
+- [ ] The authenticated Resend webhook verifies raw-body signatures and handles bounced, complained, and suppressed events in Production.
+- [ ] Duplicate webhook delivery is idempotent, an unknown Cumulus-tagged message retries, and a changed Auth address is not suppressed by an older delivery.
 
 ## 6. Database gate
 

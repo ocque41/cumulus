@@ -97,6 +97,9 @@ export class ResendMailer implements NotificationMailer {
             "List-Unsubscribe": `<${message.oneClickUnsubscribeUrl}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           },
+          tags: [
+            { name: "category", value: "cumulus_blog_notification" },
+          ],
         }),
       });
     } catch {

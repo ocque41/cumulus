@@ -23,6 +23,13 @@ const rlsPerformance = readFileSync(
   ),
   "utf8",
 );
+const resendWebhookSuppression = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260716171203_resend_webhook_suppression.sql",
+  ),
+  "utf8",
+);
 
 describe("notification migration contract", () => {
   it("keeps addresses out of public tables and uses auth user ownership", () => {
@@ -118,5 +125,39 @@ describe("notification migration contract", () => {
     expect(rlsPerformance).toContain("for update");
     expect(rlsPerformance.match(/with check \(/g)).toHaveLength(2);
     expect(rlsPerformance.match(/not coalesce\(/g)).toHaveLength(4);
+  });
+
+  it("records verified provider events without storing recipient addresses", () => {
+    expect(resendWebhookSuppression).toContain(
+      "create table public.blog_notification_webhook_events",
+    );
+    expect(resendWebhookSuppression).toContain(
+      "process_blog_notification_resend_event",
+    );
+    expect(resendWebhookSuppression).toContain(
+      "find_blog_notification_delivery_owner",
+    );
+    expect(resendWebhookSuppression).toContain(
+      "alter table public.blog_notification_webhook_events enable row level security",
+    );
+    expect(resendWebhookSuppression).toContain(
+      "alter table public.blog_notification_webhook_events force row level security",
+    );
+    expect(resendWebhookSuppression).toContain(
+      "from public, anon, authenticated, service_role",
+    );
+    expect(resendWebhookSuppression).toContain(
+      "on conflict (provider_event_id) do nothing",
+    );
+    expect(resendWebhookSuppression).toContain("return 'unmatched'");
+    expect(resendWebhookSuppression).toContain("status = 'unsubscribed'");
+    expect(resendWebhookSuppression).toContain(
+      "delivery.provider_started_at is null",
+    );
+    expect(resendWebhookSuppression).not.toMatch(/\bemail\s+(?:text|varchar)/i);
+    expect(resendWebhookSuppression).not.toContain("requested_recipient_email");
+    expect(resendWebhookSuppression).not.toMatch(
+      /grant .*blog_notification_webhook_events\s+to authenticated/i,
+    );
   });
 });

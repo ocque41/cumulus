@@ -36,6 +36,21 @@ export function unsubscribeJsonResponse(
   });
 }
 
+export function webhookJsonResponse(
+  body: unknown,
+  init: ResponseInit = {},
+): Response {
+  return jsonResponse(body, {
+    ...init,
+    headers: {
+      "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+      "Referrer-Policy": "no-referrer",
+      "X-Robots-Tag": "noindex, nofollow",
+      ...init.headers,
+    },
+  });
+}
+
 export function unsubscribeEmptyResponse(status = 200): Response {
   return new Response(null, {
     status,
