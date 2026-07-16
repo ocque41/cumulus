@@ -164,7 +164,7 @@ export function GitHubContributionGraph() {
           speed={0.12}
           type="8x8"
         />
-        <div className="contribution-surface">
+        <div className="contribution-surface" data-texture="dither">
           <div
             aria-label={
               payload
@@ -172,6 +172,7 @@ export function GitHubContributionGraph() {
                 : `The GitHub contribution graph for ${USERNAME} is currently unavailable. Use the profile link for the current record.`
             }
             className="contribution-grid"
+            data-texture="dither"
             role="img"
           >
             {calendar.map((day) => (

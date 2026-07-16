@@ -65,6 +65,12 @@ describe("GitHubContributionGraph", () => {
       document.querySelector('.contribution-legend[data-texture="dither"]'),
     ).not.toBeNull();
     expect(
+      document.querySelector('.contribution-surface[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('.contribution-grid[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(
       document.querySelector('.contribution-status[data-texture="dither"]'),
     ).not.toBeNull();
     expect(STYLES).toMatch(
@@ -75,6 +81,18 @@ describe("GitHubContributionGraph", () => {
     );
     expect(STYLES).toMatch(
       /\.contribution-status\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-surface\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-grid\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-grid\s*\{[\s\S]*?mask-image:\s*linear-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-legend\s*\{[\s\S]*?background-image:\s*radial-gradient/,
     );
     expect(
       screen.getByLabelText("Contribution density from quiet to active"),
