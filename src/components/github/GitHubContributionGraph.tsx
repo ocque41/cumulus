@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 const USERNAME = "ocque41";
 const ENDPOINT = "/api/github/contributions";
 const DAY = 86_400_000;
-const WEEK_COUNT = 52;
+// GitHub renders 53 Sunday-to-Saturday columns. The final column can include
+// future days, so the visual has 371 slots while the payload has observed days.
+const WEEK_COUNT = 53;
 
 interface Contribution {
   count: number;
@@ -33,7 +35,22 @@ function buildCalendar(contributions: readonly Contribution[]): CalendarDay[] {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const end = new Date(today.getTime() + (6 - today.getUTCDay()) * DAY);
-  const start = new Date(end.getTime() - (WEEK_COUNT * 7 - 1) * DAY);
+  const fallbackStart = new Date(
+    end.getTime() - (WEEK_COUNT * 7 - 1) * DAY,
+  );
+  const earliestObservedDate = contributions.reduce<string | undefined>(
+    (earliest, item) =>
+      earliest === undefined || item.date < earliest ? item.date : earliest,
+    undefined,
+  );
+  const earliestObserved = earliestObservedDate
+    ? new Date(`${earliestObservedDate}T00:00:00.000Z`)
+    : undefined;
+  const start = earliestObserved
+    ? new Date(
+        earliestObserved.getTime() - earliestObserved.getUTCDay() * DAY,
+      )
+    : fallbackStart;
   const byDate = new Map(contributions.map((item) => [item.date, item]));
 
   return Array.from({ length: WEEK_COUNT * 7 }, (_, index) => {
@@ -128,7 +145,7 @@ export function GitHubContributionGraph() {
         </p>
       </div>
 
-      <div className="contribution-frame">
+      <div className="contribution-frame" data-load-state={loadState}>
         <div
           aria-label={
             payload

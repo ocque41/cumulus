@@ -30,7 +30,7 @@ test("home exposes the large brand, honest GitHub graph, archive, and auth bound
   await expect(page.getByText("lab", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "ocque41, in public" })).toBeVisible();
   await expect(page.getByRole("img", { name: /5 GitHub contributions/i })).toBeVisible();
-  await expect(page.locator(".contribution-cell")).toHaveCount(364);
+  await expect(page.locator(".contribution-grid .contribution-cell")).toHaveCount(371);
 
   await page.getByRole("button", { name: "Sign in" }).first().click();
   await expect(page.getByRole("dialog", { name: "New log notifications" })).toBeVisible();
