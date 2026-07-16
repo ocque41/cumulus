@@ -9,9 +9,9 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/check-vercel-config.mjs && npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.vercel.json",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",

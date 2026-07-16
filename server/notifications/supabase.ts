@@ -1,12 +1,12 @@
-import { isRecord } from "./http";
-import { isUuid } from "./security";
+import { isRecord } from "./http.js";
+import { isUuid } from "./security.js";
 import type {
   AuthoritativeRecipient,
   ClaimDisposition,
   DeliveryClaim,
   NotificationStore,
   NotificationSubscription,
-} from "./types";
+} from "./types.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CONTENT_HASH_PATTERN = /^[a-f0-9]{64}$/;

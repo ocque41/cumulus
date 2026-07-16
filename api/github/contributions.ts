@@ -1,4 +1,4 @@
-import { createGithubContributionsHandler } from "../../server/github/handler";
+import { createGithubContributionsHandler } from "../../server/github/handler.js";
 
 const handler = createGithubContributionsHandler({ env: process.env });
 

@@ -5,9 +5,9 @@ import {
   RequestBodyError,
   unsubscribeEmptyResponse,
   unsubscribeJsonResponse,
-} from "./http";
-import { verifyUnsubscribeToken } from "./security";
-import type { NotificationStore, SafeLogger } from "./types";
+} from "./http.js";
+import { verifyUnsubscribeToken } from "./security.js";
+import type { NotificationStore, SafeLogger } from "./types.js";
 
 interface UnsubscribeHandlerOptions {
   unsubscribeSecret: string;

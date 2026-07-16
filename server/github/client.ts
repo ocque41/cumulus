@@ -3,7 +3,7 @@ import {
   type ContributionDay,
   type ContributionLevel,
   type GithubContributionsPayload,
-} from "./types";
+} from "./types.js";
 
 const GITHUB_GRAPHQL_ENDPOINT = "https://api.github.com/graphql";
 const MAXIMUM_UPSTREAM_BYTES = 256 * 1024;

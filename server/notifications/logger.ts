@@ -1,4 +1,4 @@
-import type { SafeLogger } from "./types";
+import type { SafeLogger } from "./types.js";
 
 export const consoleSafeLogger: SafeLogger = {
   info(event, fields) {

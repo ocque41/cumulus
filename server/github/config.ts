@@ -1,4 +1,4 @@
-import type { GithubContributionConfig } from "./types";
+import type { GithubContributionConfig } from "./types.js";
 
 const MAXIMUM_TOKEN_LENGTH = 1024;
 

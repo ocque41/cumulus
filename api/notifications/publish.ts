@@ -1,13 +1,13 @@
-import { getPublishedPostBySlug } from "../../src/content/posts";
-import { readNotificationConfig } from "../../server/notifications/config";
-import { jsonResponse } from "../../server/notifications/http";
-import { consoleSafeLogger } from "../../server/notifications/logger";
+import { getPublishedPostBySlug } from "../../src/content/posts.js";
+import { readNotificationConfig } from "../../server/notifications/config.js";
+import { jsonResponse } from "../../server/notifications/http.js";
+import { consoleSafeLogger } from "../../server/notifications/logger.js";
 import {
   createPublishHandler,
   publishPostNotifications,
-} from "../../server/notifications/publish";
-import { ResendMailer } from "../../server/notifications/resend";
-import { SupabaseNotificationStore } from "../../server/notifications/supabase";
+} from "../../server/notifications/publish.js";
+import { ResendMailer } from "../../server/notifications/resend.js";
+import { SupabaseNotificationStore } from "../../server/notifications/supabase.js";
 
 export default {
   async fetch(request: Request): Promise<Response> {

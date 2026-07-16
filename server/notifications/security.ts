@@ -1,5 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import type { PublishablePost } from "./types";
+import type { PublishablePost } from "./types.js";
 
 const TOKEN_VERSION = "v1";
 const TOKEN_DOMAIN = "cumulus:blog-unsubscribe";
