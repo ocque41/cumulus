@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Post Research"
+  short_description: "Research projects and publish evidence-backed posts"
+  default_prompt: "Use $project-post-research to research a project and draft a source-grounded Cumulus post."

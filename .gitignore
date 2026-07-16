@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+.vite/
+.npm-cache/
+.agents/skills/
+.vercel/
+supabase/.temp/
+.env*
+!.env.example
+*.log
+*.tsbuildinfo
+.DS_Store
+.vercel
