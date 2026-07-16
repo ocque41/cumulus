@@ -498,7 +498,14 @@ canvas {
 }
 
 .contribution-frame {
-  background: var(--canvas);
+  background-color: var(--canvas);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(95, 95, 95, 0.34) 0 0.8px,
+    transparent 0.9px
+  );
+  background-position: center;
+  background-size: 6px 6px;
   border-bottom: 1px solid var(--divider);
   border-top: 1px solid var(--divider);
   isolation: isolate;
@@ -537,7 +544,16 @@ canvas {
 }
 
 .contribution-cell {
-  background: rgba(0, 0, 0, 0.72);
+  --contribution-cell-base: rgba(0, 0, 0, 0.64);
+  --contribution-cell-dot: rgba(95, 95, 95, 0.58);
+
+  background-color: var(--contribution-cell-base);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    var(--contribution-cell-dot) 0 0.8px,
+    transparent 0.9px
+  );
+  background-size: 4px 4px;
   border: 1px solid rgba(95, 95, 95, 0.46);
   display: block;
   min-height: 5px;
@@ -545,23 +561,29 @@ canvas {
 }
 
 .contribution-cell[data-known="true"][data-density="0"] {
-  background: rgba(42, 42, 42, 0.68);
+  --contribution-cell-base: rgba(24, 24, 24, 0.66);
+  --contribution-cell-dot: rgba(118, 118, 118, 0.7);
 }
 
 .contribution-cell[data-density="1"] {
-  background: rgba(255, 77, 0, 0.2);
+  --contribution-cell-base: rgba(255, 77, 0, 0.12);
+  --contribution-cell-dot: rgba(255, 77, 0, 0.52);
 }
 
 .contribution-cell[data-density="2"] {
-  background: rgba(255, 77, 0, 0.38);
+  --contribution-cell-base: rgba(255, 77, 0, 0.24);
+  --contribution-cell-dot: rgba(255, 77, 0, 0.7);
 }
 
 .contribution-cell[data-density="3"] {
-  background: rgba(255, 77, 0, 0.62);
+  --contribution-cell-base: rgba(255, 77, 0, 0.4);
+  --contribution-cell-dot: rgba(255, 77, 0, 0.86);
 }
 
 .contribution-cell[data-density="4"] {
-  background: rgba(255, 77, 0, 0.9);
+  --contribution-cell-base: rgba(255, 77, 0, 0.62);
+  --contribution-cell-dot: rgba(255, 77, 0, 1);
+
   border-color: var(--signal);
 }
 
@@ -585,7 +607,13 @@ canvas {
 }
 
 .contribution-status {
-  background: rgba(0, 0, 0, 0.74);
+  background-color: rgba(0, 0, 0, 0.76);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(255, 77, 0, 0.32) 0 0.75px,
+    transparent 0.85px
+  );
+  background-size: 5px 5px;
   border-left: 1px solid var(--signal);
   align-items: baseline;
   display: flex;

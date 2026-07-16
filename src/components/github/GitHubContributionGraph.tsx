@@ -5,7 +5,10 @@ import { HeroDither } from "@/components/visual/HeroDither";
 const USERNAME = "ocque41";
 const ENDPOINT = "/api/github/contributions";
 const DAY = 86_400_000;
-const WEEK_COUNT = 52;
+// GitHub's calendar spans 53 Sunday-to-Saturday columns. The current week can
+// contain future days, so the rendered grid intentionally includes 371 slots
+// while the API payload contains only observed dates.
+const WEEK_COUNT = 53;
 
 interface Contribution {
   count: number;
@@ -35,7 +38,22 @@ function buildCalendar(contributions: readonly Contribution[]): CalendarDay[] {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const end = new Date(today.getTime() + (6 - today.getUTCDay()) * DAY);
-  const start = new Date(end.getTime() - (WEEK_COUNT * 7 - 1) * DAY);
+  const fallbackStart = new Date(
+    end.getTime() - (WEEK_COUNT * 7 - 1) * DAY,
+  );
+  const earliestObservedDate = contributions.reduce<string | undefined>(
+    (earliest, item) =>
+      earliest === undefined || item.date < earliest ? item.date : earliest,
+    undefined,
+  );
+  const earliestObserved = earliestObservedDate
+    ? new Date(`${earliestObservedDate}T00:00:00.000Z`)
+    : undefined;
+  const start = earliestObserved
+    ? new Date(
+        earliestObserved.getTime() - earliestObserved.getUTCDay() * DAY,
+      )
+    : fallbackStart;
   const byDate = new Map(contributions.map((item) => [item.date, item]));
 
   return Array.from({ length: WEEK_COUNT * 7 }, (_, index) => {
@@ -130,9 +148,14 @@ export function GitHubContributionGraph() {
         </p>
       </div>
 
-      <div className="contribution-frame" data-load-state={loadState}>
+      <div
+        className="contribution-frame"
+        data-load-state={loadState}
+        data-texture="dither"
+      >
         <HeroDither
           className="contribution-dither"
+          fade
           fallbackClassName="contribution-dither__fallback"
           frame={841}
           maxPixelCount={520_000}
@@ -157,6 +180,7 @@ export function GitHubContributionGraph() {
                 className="contribution-cell"
                 data-density={day.contribution?.level ?? 0}
                 data-known={day.contribution ? true : undefined}
+                data-texture="dither"
                 key={day.date}
                 title={
                   day.contribution
@@ -167,17 +191,50 @@ export function GitHubContributionGraph() {
             ))}
           </div>
 
-          <div className="contribution-legend" aria-label="Contribution density from quiet to active">
+          <div
+            aria-label="Contribution density from quiet to active"
+            className="contribution-legend"
+            data-texture="dither"
+          >
             <span>Quiet</span>
-            <span aria-hidden="true" className="contribution-cell" data-density="0" />
-            <span aria-hidden="true" className="contribution-cell" data-density="1" />
-            <span aria-hidden="true" className="contribution-cell" data-density="2" />
-            <span aria-hidden="true" className="contribution-cell" data-density="3" />
-            <span aria-hidden="true" className="contribution-cell" data-density="4" />
+            <span
+              aria-hidden="true"
+              className="contribution-cell"
+              data-density="0"
+              data-texture="dither"
+            />
+            <span
+              aria-hidden="true"
+              className="contribution-cell"
+              data-density="1"
+              data-texture="dither"
+            />
+            <span
+              aria-hidden="true"
+              className="contribution-cell"
+              data-density="2"
+              data-texture="dither"
+            />
+            <span
+              aria-hidden="true"
+              className="contribution-cell"
+              data-density="3"
+              data-texture="dither"
+            />
+            <span
+              aria-hidden="true"
+              className="contribution-cell"
+              data-density="4"
+              data-texture="dither"
+            />
             <span>Active</span>
           </div>
 
-          <div aria-live="polite" className="contribution-status">
+          <div
+            aria-live="polite"
+            className="contribution-status"
+            data-texture="dither"
+          >
             <p>
               {loadState === "loading" && "Loading the contribution calendar…"}
               {loadState === "live" &&

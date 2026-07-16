@@ -1,7 +1,11 @@
+import { readFileSync } from "node:fs";
+
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GitHubContributionGraph } from "./GitHubContributionGraph";
+
+const STYLES = readFileSync("src/styles.css", "utf8");
 
 afterEach(() => {
   cleanup();
@@ -15,7 +19,7 @@ describe("GitHubContributionGraph", () => {
         JSON.stringify({
           username: "ocque41",
           contributions: [
-            { count: 3, date: new Date().toISOString().slice(0, 10), level: 2 },
+            { count: 3, date: "2025-07-13", level: 2 },
           ],
           totalContributions: 37,
           fetchedAt: "2026-07-16T10:00:00.000Z",
@@ -26,6 +30,9 @@ describe("GitHubContributionGraph", () => {
     vi.stubGlobal("fetch", fetcher);
 
     render(<GitHubContributionGraph />);
+    expect(
+      document.querySelector('.contribution-frame[data-load-state="loading"]'),
+    ).toHaveAttribute("data-texture", "dither");
 
     await waitFor(() =>
       expect(screen.getByText("37 contributions in the reported calendar.")).toBeInTheDocument(),
@@ -37,8 +44,38 @@ describe("GitHubContributionGraph", () => {
     expect(screen.getByRole("img")).toHaveAccessibleName(
       /37 GitHub contributions across 1 active day for ocque41/i,
     );
-    expect(document.querySelectorAll(".contribution-grid .contribution-cell")).toHaveLength(364);
-    expect(document.querySelector(".contribution-frame [data-slot='hero-dither']")).not.toBeNull();
+    const graphCells = document.querySelectorAll(
+      ".contribution-grid .contribution-cell",
+    );
+    expect(graphCells).toHaveLength(371);
+    expect(
+      document.querySelectorAll(
+        '.contribution-grid .contribution-cell[data-texture="dither"]',
+      ),
+    ).toHaveLength(371);
+    const dither = document.querySelector<HTMLElement>(
+      ".contribution-frame [data-slot='hero-dither']",
+    );
+    expect(dither).not.toBeNull();
+    expect(dither?.style.maskImage).toContain("radial-gradient");
+    expect(
+      document.querySelector('.contribution-frame[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('.contribution-legend[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('.contribution-status[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(STYLES).toMatch(
+      /\.contribution-cell\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-frame\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-status\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
     expect(
       screen.getByLabelText("Contribution density from quiet to active"),
     ).toBeInTheDocument();
@@ -59,6 +96,14 @@ describe("GitHubContributionGraph", () => {
     );
     expect(document.querySelector("[data-known='true']")).toBeNull();
     expect(document.querySelector(".contribution-dither")).not.toBeNull();
+    expect(
+      document.querySelector('.contribution-frame[data-load-state="fallback"]'),
+    ).toHaveAttribute("data-texture", "dither");
+    expect(
+      document.querySelectorAll(
+        '.contribution-grid .contribution-cell[data-texture="dither"]',
+      ),
+    ).toHaveLength(371);
     expect(screen.getByRole("link", { name: /complete GitHub profile/i })).toHaveAttribute(
       "href",
       "https://github.com/ocque41",
@@ -89,5 +134,46 @@ describe("GitHubContributionGraph", () => {
       ).toBeInTheDocument(),
     );
     expect(document.querySelector("[data-known='true']")).toBeNull();
+  });
+
+  it("anchors all 53 weeks to the earliest observed GitHub week", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            username: "ocque41",
+            contributions: [
+              { count: 0, date: "2025-07-13", level: 0 },
+              { count: 49, date: "2026-07-16", level: 2 },
+            ],
+            totalContributions: 4_139,
+            fetchedAt: "2026-07-16T15:14:08.132Z",
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    render(<GitHubContributionGraph />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("4139 contributions in the reported calendar."),
+      ).toBeInTheDocument(),
+    );
+    const cells = document.querySelectorAll<HTMLElement>(
+      ".contribution-grid .contribution-cell",
+    );
+    expect(cells).toHaveLength(371);
+    expect(cells[0]).toHaveAttribute("title", "2025-07-13: 0 contributions");
+    expect(cells[368]).toHaveAttribute(
+      "title",
+      "2026-07-16: 49 contributions",
+    );
+    expect(cells[370]).toHaveAttribute(
+      "title",
+      "2026-07-18: contribution data unavailable",
+    );
   });
 });
