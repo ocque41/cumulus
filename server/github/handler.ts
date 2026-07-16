@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { readGithubContributionConfig } from "./config";
-import { fetchGithubContributionCalendar } from "./client";
+import { readGithubContributionConfig } from "./config.js";
+import { fetchGithubContributionCalendar } from "./client.js";
 
 export const GITHUB_CONTRIBUTIONS_CACHE_CONTROL =
   "public, max-age=300, s-maxage=21600, stale-while-revalidate=86400, stale-if-error=604800";

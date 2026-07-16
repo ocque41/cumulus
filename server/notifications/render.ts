@@ -1,4 +1,4 @@
-import type { NotificationEmail, PublishablePost } from "./types";
+import type { NotificationEmail, PublishablePost } from "./types.js";
 
 function escapeHtml(value: string): string {
   return value

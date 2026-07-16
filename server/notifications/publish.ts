@@ -1,18 +1,18 @@
-import { isRecord, jsonResponse, readSmallJson, RequestBodyError } from "./http";
-import { renderPostNotification } from "./render";
+import { isRecord, jsonResponse, readSmallJson, RequestBodyError } from "./http.js";
+import { renderPostNotification } from "./render.js";
 import {
   createUnsubscribeToken,
   deliveryIdempotencyKey,
   hashDeliveryPayloadIdentity,
   verifyBearerAuthorization,
-} from "./security";
+} from "./security.js";
 import type {
   NotificationMailer,
   NotificationStore,
   PublishablePost,
   PublishResult,
   SafeLogger,
-} from "./types";
+} from "./types.js";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_PROVIDER_ATTEMPTS = 40;

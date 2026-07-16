@@ -1,5 +1,5 @@
-import { isRecord } from "./http";
-import type { MailResult, NotificationEmail, NotificationMailer } from "./types";
+import { isRecord } from "./http.js";
+import type { MailResult, NotificationEmail, NotificationMailer } from "./types.js";
 
 interface ResendMailerOptions {
   apiKey: string;

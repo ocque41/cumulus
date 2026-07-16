@@ -1,8 +1,8 @@
-import { readUnsubscribeConfig } from "../../server/notifications/config";
-import { unsubscribeJsonResponse } from "../../server/notifications/http";
-import { consoleSafeLogger } from "../../server/notifications/logger";
-import { SupabaseNotificationStore } from "../../server/notifications/supabase";
-import { createUnsubscribeHandler } from "../../server/notifications/unsubscribe";
+import { readUnsubscribeConfig } from "../../server/notifications/config.js";
+import { unsubscribeJsonResponse } from "../../server/notifications/http.js";
+import { consoleSafeLogger } from "../../server/notifications/logger.js";
+import { SupabaseNotificationStore } from "../../server/notifications/supabase.js";
+import { createUnsubscribeHandler } from "../../server/notifications/unsubscribe.js";
 
 export default {
   async fetch(request: Request): Promise<Response> {
