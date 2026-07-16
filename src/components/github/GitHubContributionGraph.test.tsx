@@ -42,7 +42,7 @@ describe("GitHubContributionGraph", () => {
       expect.objectContaining({ cache: "no-store", credentials: "same-origin" }),
     );
     expect(screen.getByRole("img")).toHaveAccessibleName(
-      /37 GitHub contributions across 1 active day for ocque41/i,
+      /37 GitHub contributions across 1 active day in the reported calendar/i,
     );
     const graphCells = document.querySelectorAll(
       ".contribution-grid .contribution-cell",
@@ -110,7 +110,7 @@ describe("GitHubContributionGraph", () => {
       ).toBeInTheDocument(),
     );
     expect(screen.getByRole("img")).toHaveAccessibleName(
-      /contribution graph for ocque41 is currently unavailable/i,
+      /GitHub contribution graph is currently unavailable/i,
     );
     expect(document.querySelector("[data-known='true']")).toBeNull();
     expect(document.querySelector(".contribution-dither")).not.toBeNull();
@@ -122,7 +122,7 @@ describe("GitHubContributionGraph", () => {
         '.contribution-grid .contribution-cell[data-texture="dither"]',
       ),
     ).toHaveLength(371);
-    expect(screen.getByRole("link", { name: /complete GitHub profile/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /open GitHub/i })).toHaveAttribute(
       "href",
       "https://github.com/ocque41",
     );

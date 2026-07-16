@@ -28,8 +28,13 @@ test("home exposes the large brand, honest GitHub graph, archive, and auth bound
 
   await expect(page.getByRole("heading", { level: 1, name: "CUMULUS" })).toBeVisible();
   await expect(page.getByText("lab", { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "ocque41, in public" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Public activity" })).toBeVisible();
   await expect(page.getByRole("img", { name: /5 GitHub contributions/i })).toBeVisible();
+  await expect(page.locator(".home-hero .github-panel")).toHaveCount(1);
+  await expect(page.locator("body")).not.toContainText("ocque41");
+  await expect(
+    page.locator('.home-hero__footer a[href="https://github.com/ocque41"]'),
+  ).toHaveText("GitHub");
   await expect(page.locator(".contribution-grid .contribution-cell")).toHaveCount(371);
   await expect(
     page.locator('.contribution-grid .contribution-cell[data-texture="dither"]'),

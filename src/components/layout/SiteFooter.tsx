@@ -30,7 +30,7 @@ export function SiteFooter() {
           <AppLink href="/">Home</AppLink>
           <AppLink href="/logs">All logs</AppLink>
           <a href="https://github.com/ocque41" rel="noreferrer" target="_blank">
-            ocque41 on GitHub
+            GitHub
           </a>
           <a href="mailto:hi@cumulush.com">hi@cumulush.com</a>
         </nav>

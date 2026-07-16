@@ -139,7 +139,7 @@ export function GitHubContributionGraph() {
       <div className="section-intro section-intro--split">
         <div>
           <p className="eyebrow">Open work / 001</p>
-          <h2 id="github-title">ocque41, in public</h2>
+          <h2 id="github-title">Public activity</h2>
         </div>
         <p>
           The GitHub contribution calendar, fetched through a same-origin server
@@ -168,8 +168,8 @@ export function GitHubContributionGraph() {
           <div
             aria-label={
               payload
-                ? `${payload.totalContributions} GitHub contributions across ${activeDays} active day${activeDays === 1 ? "" : "s"} for ${USERNAME}.`
-                : `The GitHub contribution graph for ${USERNAME} is currently unavailable. Use the profile link for the current record.`
+                ? `${payload.totalContributions} GitHub contributions across ${activeDays} active day${activeDays === 1 ? "" : "s"} in the reported calendar.`
+                : "The GitHub contribution graph is currently unavailable. Use the profile link for the current record."
             }
             className="contribution-grid"
             data-texture="dither"
@@ -249,7 +249,7 @@ export function GitHubContributionGraph() {
               </p>
             ) : null}
             <a href={`https://github.com/${USERNAME}`} rel="noreferrer" target="_blank">
-              Open the complete GitHub profile
+              Open GitHub
             </a>
           </div>
         </div>

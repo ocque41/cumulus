@@ -16,7 +16,7 @@ interface HomePageProps {
 export function HomePage({ onOpenAuth }: HomePageProps) {
   useDocumentMeta(
     "Cumulus lab — Field notes from the build",
-    "Cumulus is ocque41's public laboratory: large-form field notes on systems, interfaces, operations, and the evidence between them.",
+    "Cumulus is a public laboratory for large-form field notes on systems, interfaces, operations, and the evidence between them.",
   );
 
   const newest = publishedPosts.filter((post) => post.slug !== featuredPost.slug).slice(0, 8);
@@ -36,14 +36,21 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           type="8x8"
         />
         <div className="home-hero__veil" aria-hidden="true" />
-        <div className="home-hero__type page-shell">
-          <p className="eyebrow">Systems / Interfaces / Evidence</p>
-          <h1 id="home-title">CUMULUS</h1>
-          <p className="home-hero__lab">lab</p>
-        </div>
-        <div className="home-hero__footer page-shell">
-          <p>Independent research and build logs by ocque41.</p>
-          <a href="#github">Trace the public work</a>
+        <div className="home-hero__content">
+          <div className="home-hero__type page-shell">
+            <p className="eyebrow">Systems / Interfaces / Evidence</p>
+            <h1 id="home-title">CUMULUS</h1>
+            <p className="home-hero__lab">lab</p>
+          </div>
+          <div className="home-hero__graph page-shell">
+            <GitHubContributionGraph />
+          </div>
+          <div className="home-hero__footer page-shell">
+            <p>Independent research and build logs.</p>
+            <a href="https://github.com/ocque41" rel="noreferrer" target="_blank">
+              GitHub
+            </a>
+          </div>
         </div>
       </section>
 
@@ -64,10 +71,6 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           </p>
         </div>
       </section>
-
-      <div className="page-shell">
-        <GitHubContributionGraph />
-      </div>
 
       <section aria-labelledby="featured-title" className="home-section page-shell">
         <div className="section-heading">

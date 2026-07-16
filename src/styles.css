@@ -348,7 +348,7 @@ canvas {
 
 .home-hero__dither,
 .home-hero__veil,
-.home-hero__type {
+.home-hero__content {
   grid-area: 1 / 1;
 }
 
@@ -367,13 +367,19 @@ canvas {
   z-index: 1;
 }
 
+.home-hero__content {
+  display: grid;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+}
+
 .home-hero__type {
   align-content: center;
   display: grid;
-  padding-bottom: clamp(6rem, 11vh, 10rem);
-  padding-top: clamp(5rem, 12vh, 11rem);
+  padding-bottom: clamp(2.5rem, 5vh, 5rem);
+  padding-top: clamp(5rem, 11vh, 9rem);
   position: relative;
-  z-index: 2;
 }
 
 .home-hero__type .eyebrow {
@@ -382,7 +388,7 @@ canvas {
 }
 
 .home-hero h1 {
-  font-size: clamp(6.1rem, 21vw, 22rem);
+  font-size: clamp(5.4rem, 15vw, 15rem);
   letter-spacing: -0.075em;
   line-height: 0.67;
   margin: 0;
@@ -394,21 +400,23 @@ canvas {
 .home-hero__lab {
   color: var(--signal);
   font-family: var(--font-label);
-  font-size: clamp(0.9rem, 1.2vw, 1.25rem);
+  font-size: clamp(1.6rem, 3vw, 3rem);
   justify-self: end;
-  letter-spacing: 0.14em;
-  margin: 1.25rem 3.5vw 0 0;
+  letter-spacing: 0.1em;
+  margin: 1.35rem 2.5vw 0 0;
+}
+
+.home-hero__graph {
+  min-width: 0;
 }
 
 .home-hero__footer {
-  align-self: end;
   align-items: end;
   display: flex;
-  grid-area: 1 / 1;
   justify-content: space-between;
   padding-bottom: 2rem;
+  padding-top: clamp(2rem, 4vw, 4rem);
   position: relative;
-  z-index: 3;
 }
 
 .home-hero__footer p,
@@ -1660,7 +1668,7 @@ canvas {
   }
 
   .home-hero h1 {
-    font-size: 21.5vw;
+    font-size: 17vw;
   }
 
   .home-hero__footer {
