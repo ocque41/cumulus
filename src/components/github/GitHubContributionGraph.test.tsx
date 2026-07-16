@@ -37,7 +37,11 @@ describe("GitHubContributionGraph", () => {
     expect(screen.getByRole("img")).toHaveAccessibleName(
       /37 GitHub contributions across 1 active day for ocque41/i,
     );
-    expect(document.querySelectorAll(".contribution-cell")).toHaveLength(364);
+    expect(document.querySelectorAll(".contribution-grid .contribution-cell")).toHaveLength(364);
+    expect(document.querySelector(".contribution-frame [data-slot='hero-dither']")).not.toBeNull();
+    expect(
+      screen.getByLabelText("Contribution density from quiet to active"),
+    ).toBeInTheDocument();
   });
 
   it("renders an honest no-data graph when the server boundary fails", async () => {
@@ -54,6 +58,7 @@ describe("GitHubContributionGraph", () => {
       /contribution graph for ocque41 is currently unavailable/i,
     );
     expect(document.querySelector("[data-known='true']")).toBeNull();
+    expect(document.querySelector(".contribution-dither")).not.toBeNull();
     expect(screen.getByRole("link", { name: /complete GitHub profile/i })).toHaveAttribute(
       "href",
       "https://github.com/ocque41",

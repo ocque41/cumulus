@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { HeroDither } from "@/components/visual/HeroDither";
+
 const USERNAME = "ocque41";
 const ENDPOINT = "/api/github/contributions";
 const DAY = 86_400_000;
@@ -128,48 +130,70 @@ export function GitHubContributionGraph() {
         </p>
       </div>
 
-      <div className="contribution-frame">
-        <div
-          aria-label={
-            payload
-              ? `${payload.totalContributions} GitHub contributions across ${activeDays} active day${activeDays === 1 ? "" : "s"} for ${USERNAME}.`
-              : `The GitHub contribution graph for ${USERNAME} is currently unavailable. Use the profile link for the current record.`
-          }
-          className="contribution-grid"
-          role="img"
-        >
-          {calendar.map((day) => (
-            <span
-              aria-hidden="true"
-              className="contribution-cell"
-              data-density={day.contribution?.level ?? 0}
-              data-known={day.contribution ? true : undefined}
-              key={day.date}
-              title={
-                day.contribution
-                  ? `${day.date}: ${day.contribution.count} contribution${day.contribution.count === 1 ? "" : "s"}`
-                  : `${day.date}: contribution data unavailable`
-              }
-            />
-          ))}
-        </div>
+      <div className="contribution-frame" data-load-state={loadState}>
+        <HeroDither
+          className="contribution-dither"
+          fallbackClassName="contribution-dither__fallback"
+          frame={841}
+          maxPixelCount={520_000}
+          shape="ripple"
+          size={1.7}
+          speed={0.12}
+          type="8x8"
+        />
+        <div className="contribution-surface">
+          <div
+            aria-label={
+              payload
+                ? `${payload.totalContributions} GitHub contributions across ${activeDays} active day${activeDays === 1 ? "" : "s"} for ${USERNAME}.`
+                : `The GitHub contribution graph for ${USERNAME} is currently unavailable. Use the profile link for the current record.`
+            }
+            className="contribution-grid"
+            role="img"
+          >
+            {calendar.map((day) => (
+              <span
+                aria-hidden="true"
+                className="contribution-cell"
+                data-density={day.contribution?.level ?? 0}
+                data-known={day.contribution ? true : undefined}
+                key={day.date}
+                title={
+                  day.contribution
+                    ? `${day.date}: ${day.contribution.count} contribution${day.contribution.count === 1 ? "" : "s"}`
+                    : `${day.date}: contribution data unavailable`
+                }
+              />
+            ))}
+          </div>
 
-        <div aria-live="polite" className="contribution-status">
-          <p>
-            {loadState === "loading" && "Loading the contribution calendar…"}
-            {loadState === "live" &&
-              `${payload?.totalContributions ?? 0} contributions in the reported calendar.`}
-            {loadState === "fallback" &&
-              "Live contribution data is unavailable; this empty grid contains no inferred counts."}
-          </p>
-          {payload ? (
+          <div className="contribution-legend" aria-label="Contribution density from quiet to active">
+            <span>Quiet</span>
+            <span aria-hidden="true" className="contribution-cell" data-density="0" />
+            <span aria-hidden="true" className="contribution-cell" data-density="1" />
+            <span aria-hidden="true" className="contribution-cell" data-density="2" />
+            <span aria-hidden="true" className="contribution-cell" data-density="3" />
+            <span aria-hidden="true" className="contribution-cell" data-density="4" />
+            <span>Active</span>
+          </div>
+
+          <div aria-live="polite" className="contribution-status">
             <p>
-              Observed {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(payload.fetchedAt))}
+              {loadState === "loading" && "Loading the contribution calendar…"}
+              {loadState === "live" &&
+                `${payload?.totalContributions ?? 0} contributions in the reported calendar.`}
+              {loadState === "fallback" &&
+                "Live contribution data is unavailable; this empty grid contains no inferred counts."}
             </p>
-          ) : null}
-          <a href={`https://github.com/${USERNAME}`} rel="noreferrer" target="_blank">
-            Open the complete GitHub profile
-          </a>
+            {payload ? (
+              <p>
+                Observed {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(payload.fetchedAt))}
+              </p>
+            ) : null}
+            <a href={`https://github.com/${USERNAME}`} rel="noreferrer" target="_blank">
+              Open the complete GitHub profile
+            </a>
+          </div>
         </div>
       </div>
 
