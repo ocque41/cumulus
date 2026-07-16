@@ -272,6 +272,7 @@ canvas {
 .site-header__inner {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 2rem;
   justify-content: space-between;
   margin-inline: auto;
@@ -300,7 +301,11 @@ canvas {
 .primary-navigation {
   align-items: center;
   display: flex;
+  flex: 1 1 28rem;
+  flex-wrap: wrap;
   gap: clamp(1rem, 2.5vw, 2.6rem);
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .primary-navigation a {
@@ -712,9 +717,9 @@ canvas {
   background-size: 5px 5px;
   align-items: center;
   border-left: 3px solid var(--signal);
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem 2rem;
-  grid-template-columns: auto 1fr auto;
   padding: 0.65rem clamp(0.75rem, 2vw, 2rem);
 }
 
@@ -722,6 +727,7 @@ canvas {
   color: var(--muted);
   font-family: var(--font-label);
   font-size: 0.72rem;
+  flex: 1 1 18rem;
   letter-spacing: 0.04em;
   margin: 0;
   text-align: center;
@@ -730,6 +736,8 @@ canvas {
 
 .contribution-links {
   display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
@@ -737,6 +745,7 @@ canvas {
   color: var(--text);
   font-family: var(--font-label);
   font-size: 0.72rem;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
 }
 
@@ -920,6 +929,7 @@ canvas {
 .post-card h3 a,
 .field-note h3 a,
 .post-index-row h2 a {
+  overflow-wrap: anywhere;
   text-decoration: none;
 }
 
@@ -997,6 +1007,8 @@ canvas {
   color: var(--muted);
   font-family: var(--font-label);
   font-size: 0.78rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 0.35rem 0.55rem;
   text-transform: uppercase;
 }
@@ -1798,6 +1810,24 @@ canvas {
 
   .field-note-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .post-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .post-card,
+  .post-card:nth-child(even) {
+    border-left: 0;
+    border-right: 0;
+    min-width: 0;
+    padding: 2rem 0 3rem;
+  }
+
+  .post-card__body,
+  .post-card__body > p {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .field-note:nth-child(3n + 1) {
