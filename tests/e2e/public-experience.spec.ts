@@ -6,6 +6,23 @@ async function mockContributions(page: Page) {
       contentType: "application/json",
       json: {
         username: "ocque41",
+        activityDays: [
+          {
+            commits: 4,
+            date: "2026-07-16",
+            highlights: [
+              {
+                kind: "pull-request",
+                repository: "cumulus/cloud",
+                title: "Refine the hero activity field",
+                url: "https://github.com/cumulus/cloud/pull/12",
+              },
+            ],
+            issues: 1,
+            pullRequests: 1,
+          },
+        ],
+        activityDetailStatus: "live",
         contributions: [
           { count: 4, date: "2026-07-16", level: 3 },
           { count: 1, date: "2026-07-15", level: 1 },
@@ -28,8 +45,9 @@ test("home exposes the large brand, honest GitHub graph, archive, and auth bound
 
   await expect(page.getByRole("heading", { level: 1, name: "CUMULUS" })).toBeVisible();
   await expect(page.getByText("lab", { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Public activity" })).toBeVisible();
-  await expect(page.getByRole("img", { name: /5 GitHub contributions/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "GitHub activity graph" })).toBeAttached();
+  await expect(page.getByRole("grid", { name: /5 GitHub contributions/i })).toBeVisible();
+  await expect(page.getByText("Public activity", { exact: true })).toHaveCount(0);
   await expect(page.locator(".home-hero .github-panel")).toHaveCount(1);
   await expect(page.locator("body")).not.toContainText("ocque41");
   await expect(
@@ -39,6 +57,9 @@ test("home exposes the large brand, honest GitHub graph, archive, and auth bound
   await expect(
     page.locator('.contribution-grid .contribution-cell[data-texture="dither"]'),
   ).toHaveCount(371);
+  await page.getByRole("gridcell", { name: /Thursday, July 16, 2026: 4 contributions; 4 commits, 1 pull request, 1 issue/i }).hover();
+  await expect(page.getByRole("heading", { name: "Thursday, July 16, 2026" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Refine the hero activity field" })).toBeVisible();
 
   await page.getByRole("button", { name: "Sign in" }).first().click();
   await expect(page.getByRole("dialog", { name: "New log notifications" })).toBeVisible();
@@ -74,7 +95,7 @@ test("archive search and category filters are URL-backed", async ({ page }) => {
   await expect(search).toHaveValue("");
 });
 
-test("mobile menu is operable and the page contains horizontal graph overflow", async ({
+test("mobile menu is operable and the graph fits the hero width", async ({
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Mobile layout assertion");
@@ -86,5 +107,8 @@ test("mobile menu is operable and the page contains horizontal graph overflow", 
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
   await expect(page.locator("body")).toHaveCSS("overflow-x", "hidden");
 
-  await expect(page.locator(".contribution-frame")).toHaveCSS("overflow-x", "auto");
+  const graphFits = await page.locator(".contribution-grid").evaluate(
+    (element) => element.scrollWidth <= element.clientWidth + 1,
+  );
+  expect(graphFits).toBe(true);
 });

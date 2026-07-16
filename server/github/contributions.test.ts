@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   GITHUB_CONTRIBUTION_QUERY,
+  GITHUB_PUBLIC_ACTIVITY_ENDPOINT,
   GITHUB_PUBLIC_CONTRIBUTIONS_ENDPOINT,
 } from "./client";
 import {
@@ -159,14 +160,25 @@ describe("GitHub contribution calendar endpoint", () => {
     { GITHUB_ACCESS_TOKEN: "" },
     { GITHUB_ACCESS_TOKEN: "token with whitespace" },
   ])("uses the fixed public calendar when server authentication is missing or invalid", async (env) => {
-    let requestedUrl = "";
-    let requestedInit: RequestInit | undefined;
+    const requests: Array<{ init?: RequestInit; url: string }> = [];
     const fetcher = vi.fn(async (
       input: string | URL | Request,
       init?: RequestInit,
     ) => {
-      requestedUrl = String(input);
-      requestedInit = init;
+      requests.push({ init, url: String(input) });
+      if (String(input) === GITHUB_PUBLIC_ACTIVITY_ENDPOINT) {
+        return new Response("[]", {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (String(input).startsWith("https://api.github.com/search/commits?")) {
+        return new Response(JSON.stringify({
+          incomplete_results: false,
+          items: [],
+          total_count: 0,
+        }), { status: 200 });
+      }
       return new Response(publicHtmlFixture(), { status: 200 });
     }) as unknown as typeof fetch;
     const response = await handlerWith(fetcher, { env })(new Request(
@@ -174,9 +186,13 @@ describe("GitHub contribution calendar endpoint", () => {
     ));
 
     expect(response.status).toBe(200);
-    expect(requestedUrl).toBe(GITHUB_PUBLIC_CONTRIBUTIONS_ENDPOINT);
-    expect(requestedInit?.method).toBe("GET");
-    expect(new Headers(requestedInit?.headers).has("authorization")).toBe(false);
+    expect(requests).toHaveLength(3);
+    expect(requests[0]?.url).toBe(GITHUB_PUBLIC_CONTRIBUTIONS_ENDPOINT);
+    expect(requests[1]?.url).toBe(GITHUB_PUBLIC_ACTIVITY_ENDPOINT);
+    expect(requests[2]?.url).toMatch(/^https:\/\/api\.github\.com\/search\/commits\?/);
+    expect(requests.every((request) => request.init?.method === "GET")).toBe(true);
+    expect(requests.every((request) => !new Headers(request.init?.headers).has("authorization")))
+      .toBe(true);
     const body = await response.json() as {
       username: string;
       contributions: Array<{ date: string; count: number; level: number }>;
@@ -193,10 +209,156 @@ describe("GitHub contribution calendar endpoint", () => {
     );
   });
 
+  it("merges verified recent public GitHub interactions into the calendar fallback", async () => {
+    const events = [
+      {
+        id: "1001",
+        type: "PushEvent",
+        actor: { login: "ocque41" },
+        repo: { name: "cumulus/cloud" },
+        payload: { ref: "refs/heads/main", size: 3 },
+        public: true,
+        created_at: "2026-07-15T09:00:00Z",
+      },
+      {
+        id: "1002",
+        type: "PullRequestEvent",
+        actor: { login: "ocque41" },
+        repo: { name: "cumulus/cloud" },
+        payload: {
+          action: "opened",
+          pull_request: {
+            html_url: "https://github.com/cumulus/cloud/pull/12",
+            number: 12,
+            title: "Build the activity field",
+          },
+        },
+        public: true,
+        created_at: "2026-07-15T10:00:00Z",
+      },
+      {
+        id: "1003",
+        type: "IssuesEvent",
+        actor: { login: "ocque41" },
+        repo: { name: "cumulus/cloud" },
+        payload: {
+          action: "closed",
+          issue: {
+            html_url: "https://github.com/cumulus/cloud/issues/4",
+            number: 4,
+            title: "Keep the data honest",
+          },
+        },
+        public: true,
+        created_at: "2026-07-15T11:00:00Z",
+      },
+    ];
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === GITHUB_PUBLIC_ACTIVITY_ENDPOINT) {
+        return new Response(JSON.stringify(events), { status: 200 });
+      }
+      if (url.startsWith("https://api.github.com/search/commits?")) {
+        return new Response(JSON.stringify({
+          incomplete_results: false,
+          total_count: 1,
+          items: [
+            {
+              sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              author: { login: "ocque41" },
+              repository: { full_name: "cumulus/cloud" },
+              html_url: "https://github.com/cumulus/cloud/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              commit: {
+                author: { date: "2026-07-15T09:30:00Z" },
+                message: "Render real commit detail\n\nLonger body is not exposed.",
+              },
+            },
+          ],
+        }), { status: 200 });
+      }
+      return new Response(publicHtmlFixture(), { status: 200 });
+    }) as unknown as typeof fetch;
+    const response = await handlerWith(fetcher, { env: {} })(new Request(
+      "https://cumulush.com/api/github/contributions",
+    ));
+    const body = await response.json() as {
+      activityDays: Array<Record<string, unknown>>;
+      activityDetailStatus: string;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.activityDetailStatus).toBe("live");
+    expect(body.activityDays).toEqual([
+      {
+        commits: 1,
+        date: "2026-07-15",
+        highlights: [
+          {
+            kind: "commit",
+            repository: "cumulus/cloud",
+            title: "Render real commit detail",
+            url: "https://github.com/cumulus/cloud/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          },
+          {
+            kind: "pull-request",
+            repository: "cumulus/cloud",
+            title: "opened: Build the activity field",
+            url: "https://github.com/cumulus/cloud/pull/12",
+          },
+          {
+            kind: "issue",
+            repository: "cumulus/cloud",
+            title: "closed: Keep the data honest",
+            url: "https://github.com/cumulus/cloud/issues/4",
+          },
+        ],
+        issues: 1,
+        pullRequests: 1,
+      },
+    ]);
+  });
+
   it("maps GitHub's GraphQL calendar into the fixed public contract", async () => {
     let requestedUrl = "";
     let requestedInit: RequestInit | undefined;
     const fixture = githubFixture();
+    const data = fixture.data as Record<string, unknown>;
+    const user = data.user as Record<string, unknown>;
+    const collection = user.contributionsCollection as Record<string, unknown>;
+    Object.assign(collection, {
+      commitContributionsByRepository: [
+        {
+          repository: { nameWithOwner: "cumulus/cloud" },
+          contributions: {
+            nodes: [{ commitCount: 3, occurredAt: "2026-07-15T12:00:00Z" }],
+          },
+        },
+      ],
+      issueContributions: {
+        nodes: [
+          {
+            occurredAt: "2026-07-15T13:00:00Z",
+            issue: {
+              title: "Keep the graph honest",
+              url: "https://github.com/cumulus/cloud/issues/4",
+              repository: { nameWithOwner: "cumulus/cloud" },
+            },
+          },
+        ],
+      },
+      pullRequestContributions: {
+        nodes: [
+          {
+            occurredAt: "2026-07-15T14:00:00Z",
+            pullRequest: {
+              title: "Add dither interaction detail",
+              url: "https://github.com/cumulus/cloud/pull/12",
+              repository: { nameWithOwner: "cumulus/cloud" },
+            },
+          },
+        ],
+      },
+    });
     const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       requestedUrl = String(input);
       requestedInit = init;
@@ -221,18 +383,52 @@ describe("GitHub contribution calendar endpoint", () => {
     expect(upstreamBody.variables).toBeUndefined();
 
     const body = await response.json() as {
+      activityDays: Array<{
+        commits: number;
+        date: string;
+        highlights: Array<{ kind: string; title: string; url?: string }>;
+        issues: number;
+        pullRequests: number;
+      }>;
+      activityDetailStatus: string;
       username: string;
       contributions: Array<{ date: string; count: number; level: number }>;
       totalContributions: number;
       fetchedAt: string;
     };
     expect(Object.keys(body)).toEqual([
+      "activityDays",
+      "activityDetailStatus",
       "username",
       "contributions",
       "totalContributions",
       "fetchedAt",
     ]);
     expect(body.username).toBe("ocque41");
+    expect(body.activityDetailStatus).toBe("live");
+    expect(body.activityDays).toEqual([
+      {
+        commits: 3,
+        date: "2026-07-15",
+        highlights: [
+          { kind: "commit", repository: "cumulus/cloud", title: "3 commits" },
+          {
+            kind: "issue",
+            repository: "cumulus/cloud",
+            title: "Keep the graph honest",
+            url: "https://github.com/cumulus/cloud/issues/4",
+          },
+          {
+            kind: "pull-request",
+            repository: "cumulus/cloud",
+            title: "Add dither interaction detail",
+            url: "https://github.com/cumulus/cloud/pull/12",
+          },
+        ],
+        issues: 1,
+        pullRequests: 1,
+      },
+    ]);
     expect(body.contributions).toHaveLength(365);
     expect(body.contributions.slice(0, 5)).toEqual([
       { date: "2025-01-01", count: 0, level: 0 },
@@ -264,17 +460,29 @@ describe("GitHub contribution calendar endpoint", () => {
   it("falls back to the public fixed-user calendar when authenticated GitHub fails", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response("Bad credentials", { status: 401 }))
-      .mockResolvedValueOnce(new Response(publicHtmlFixture(), { status: 200 }));
+      .mockResolvedValueOnce(new Response(publicHtmlFixture(), { status: 200 }))
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        incomplete_results: false,
+        items: [],
+        total_count: 0,
+      }), { status: 200 }));
     const fetcher = fetchMock as unknown as typeof fetch;
     const response = await handlerWith(fetcher)(new Request(
       "https://cumulush.com/api/github/contributions",
     ));
 
     expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe("https://api.github.com/graphql");
     expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
       GITHUB_PUBLIC_CONTRIBUTIONS_ENDPOINT,
+    );
+    expect(String(fetchMock.mock.calls[2]?.[0])).toBe(
+      GITHUB_PUBLIC_ACTIVITY_ENDPOINT,
+    );
+    expect(String(fetchMock.mock.calls[3]?.[0])).toMatch(
+      /^https:\/\/api\.github\.com\/search\/commits\?/,
     );
     expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).has("authorization"))
       .toBe(false);

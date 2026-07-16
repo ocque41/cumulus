@@ -42,7 +42,7 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
             <h1 id="home-title">CUMULUS</h1>
             <p className="home-hero__lab">lab</p>
           </div>
-          <div className="home-hero__graph page-shell">
+          <div className="home-hero__graph">
             <GitHubContributionGraph />
           </div>
           <div className="home-hero__footer page-shell">

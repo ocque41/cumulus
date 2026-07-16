@@ -2,8 +2,11 @@ import { createHash } from "node:crypto";
 import { readGithubContributionConfig } from "./config.js";
 import {
   fetchGithubContributionCalendar,
+  fetchPublicGithubActivity,
+  fetchPublicGithubCommitActivity,
   fetchPublicGithubContributionCalendar,
 } from "./client.js";
+import type { GithubContributionsPayload } from "./types.js";
 
 export const GITHUB_CONTRIBUTIONS_CACHE_CONTROL =
   "public, max-age=300, s-maxage=21600, stale-while-revalidate=86400, stale-if-error=604800";
@@ -83,7 +86,7 @@ export function createGithubContributionsHandler(
     }
 
     try {
-      let payload;
+      let payload: GithubContributionsPayload;
       try {
         const config = readGithubContributionConfig(options.env);
         payload = await fetchGithubContributionCalendar({
@@ -101,9 +104,51 @@ export function createGithubContributionsHandler(
           now: options.now,
           timeoutMs: options.timeoutMs,
         });
+        try {
+          const activity = await fetchPublicGithubActivity({
+            fetcher: options.fetcher,
+            now: options.now,
+            timeoutMs: options.timeoutMs,
+          });
+          payload = { ...payload, ...activity };
+        } catch {
+          // The verified aggregate calendar remains useful if GitHub's
+          // short public-events window is unavailable or rate limited.
+        }
+        try {
+          const commitDays = await fetchPublicGithubCommitActivity({
+            fetcher: options.fetcher,
+            now: options.now,
+            timeoutMs: options.timeoutMs,
+          });
+          const days = new Map(payload.activityDays.map((day) => [day.date, day]));
+          for (const commitDay of commitDays) {
+            const existing = days.get(commitDay.date);
+            days.set(commitDay.date, existing
+              ? {
+                  ...existing,
+                  commits: commitDay.commits,
+                  highlights: [
+                    ...commitDay.highlights,
+                    ...existing.highlights.filter((item) => item.kind !== "commit"),
+                  ].slice(0, 6),
+                }
+              : commitDay);
+          }
+          payload = {
+            ...payload,
+            activityDays: [...days.values()].sort((left, right) => left.date.localeCompare(right.date)),
+            activityDetailStatus: "live",
+          };
+        } catch {
+          // Push events still expose the real repository/ref interaction even
+          // when the stricter public commit search is temporarily unavailable.
+        }
       }
       const body = JSON.stringify(payload);
       const etag = entityTag(JSON.stringify({
+        activityDays: payload.activityDays,
+        activityDetailStatus: payload.activityDetailStatus,
         username: payload.username,
         contributions: payload.contributions,
         totalContributions: payload.totalContributions,
