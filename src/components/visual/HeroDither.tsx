@@ -14,6 +14,8 @@ type PaperDitheringProps = React.ComponentProps<typeof Dithering>;
 
 export interface HeroDitherProps
   extends Omit<React.ComponentPropsWithoutRef<"div">, "children"> {
+  /** Apply the fallback's radial fade to the whole visual, including WebGL. */
+  fade?: boolean;
   shape?: PaperDitheringProps["shape"];
   type?: PaperDitheringProps["type"];
   size?: PaperDitheringProps["size"];
@@ -64,6 +66,12 @@ const EMPTY_DIMENSIONS: Dimensions = { height: 0, width: 0 };
 const DEFAULT_MAX_PIXEL_RATIO = 1.5;
 const DEFAULT_MAX_PIXEL_COUNT = 1_000_000;
 const NEAR_VIEWPORT_MARGIN = "240px 0px";
+const DITHER_FADE =
+  "radial-gradient(ellipse at center, black 0%, rgba(0,0,0,0.82) 42%, transparent 78%)";
+const DITHER_FADE_STYLE: React.CSSProperties = {
+  maskImage: DITHER_FADE,
+  WebkitMaskImage: DITHER_FADE,
+};
 // A successful probe is stable for a document. Failed probes are deliberately
 // retried: browser context pressure can be transient, and a null context does
 // not allocate a resource that needs to be shared or released.
@@ -197,6 +205,7 @@ function safePositive(value: number, fallback: number) {
  */
 export function HeroDither({
   className,
+  fade = false,
   fallbackClassName,
   frame = 0,
   maxPixelCount = DEFAULT_MAX_PIXEL_COUNT,
@@ -204,6 +213,7 @@ export function HeroDither({
   shape = "swirl",
   size = 2,
   speed = 0.35,
+  style,
   type = "4x4",
   ...props
 }: HeroDitherProps) {
@@ -276,10 +286,7 @@ export function HeroDither({
           "radial-gradient(circle, rgba(95,95,95,0.72) 0 1px, transparent 1.2px)",
         backgroundPosition: "center",
         backgroundSize: "6px 6px",
-        maskImage:
-          "radial-gradient(ellipse at center, black 0%, rgba(0,0,0,0.82) 42%, transparent 78%)",
-        WebkitMaskImage:
-          "radial-gradient(ellipse at center, black 0%, rgba(0,0,0,0.82) 42%, transparent 78%)",
+        ...(fade ? undefined : DITHER_FADE_STYLE),
       }}
     />
   );
@@ -302,6 +309,7 @@ export function HeroDither({
       )}
       data-slot="hero-dither"
       ref={containerRef}
+      style={fade ? { ...DITHER_FADE_STYLE, ...style } : style}
     >
       {fallback}
       {canMountShader ? (

@@ -126,6 +126,8 @@ export function AppLink({ children, href, onClick, target, ...props }: AppLinkPr
 }
 
 export function useDocumentMeta(title: string, description?: string) {
+  const { pathname } = useRoute();
+
   useEffect(() => {
     const previousTitle = document.title;
     document.title = title;
@@ -142,11 +144,43 @@ export function useDocumentMeta(title: string, description?: string) {
       meta.content = description;
     }
 
+    const canonicalUrl = new URL(pathname, "https://cumulush.com").toString();
+    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.append(canonical);
+    }
+    canonical.href = canonicalUrl;
+
+    const setMeta = (selector: string, attribute: "name" | "property", key: string, content: string) => {
+      let element = document.querySelector<HTMLMetaElement>(selector);
+      if (!element) {
+        element = document.createElement("meta");
+        element.setAttribute(attribute, key);
+        document.head.append(element);
+      }
+      element.content = content;
+    };
+    setMeta('meta[property="og:title"]', "property", "og:title", title);
+    setMeta('meta[property="og:url"]', "property", "og:url", canonicalUrl);
+    setMeta(
+      'meta[property="og:type"]',
+      "property",
+      "og:type",
+      pathname.startsWith("/logs/") ? "article" : "website",
+    );
+    setMeta('meta[name="twitter:title"]', "name", "twitter:title", title);
+    if (description) {
+      setMeta('meta[property="og:description"]', "property", "og:description", description);
+      setMeta('meta[name="twitter:description"]', "name", "twitter:description", description);
+    }
+
     return () => {
       document.title = previousTitle;
       if (meta && previousDescription !== undefined) {
         meta.content = previousDescription;
       }
     };
-  }, [description, title]);
+  }, [description, pathname, title]);
 }

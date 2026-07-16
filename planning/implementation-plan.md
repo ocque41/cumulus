@@ -8,7 +8,7 @@ Build Cumulus from an empty Git root as a large, dither-led React and Vite log s
 
 1. The existing Vercel project, domain, and Git integration are externally managed. They must be inspected before cutover and must not be recreated.
 2. Production provider state is not proven by repository files or by a statement in this plan.
-3. `request/jacquard-reference` is the literal-layout implementation branch. The independently structured branch must be created from a verified reference implementation, not from the legacy application.
+3. `request/jacquard-reference` is the literal-layout implementation branch. `request/cumulus-original` was forked from the first complete reference implementation, not from the legacy application; later shared corrections must remain synchronized between the two branches.
 4. Local project research is read-only. Only facts that are safe for a public site and corroborated by public sources may be published.
 5. `ocque41` is the authorized public GitHub identity for the activity graph and public repository backlinks.
 6. Sign-in exists only to confirm and manage post-notification consent. Cumulus does not add public profiles, social features, or content-authoring accounts.
@@ -17,7 +17,7 @@ Build Cumulus from an empty Git root as a large, dither-led React and Vite log s
 
 ## Phase 0 — establish the safe baseline
 
-Status: **in progress; revalidate before relying on it**.
+Status: **complete and revalidated on 2026-07-16**.
 
 1. Preserve the legacy checkout and any user-owned dirty files.
 2. Prove that the fresh base branch has a parentless empty root commit.
@@ -29,7 +29,7 @@ Required evidence: Git branch and commit graph, clean-scope review, dependency m
 
 ## Phase 1 — implement the shared product foundation
 
-Status: **implementation exists in parts; integrated verification is pending**.
+Status: **complete on the selected branch; final shared-change reconciliation with the reference branch is in progress**.
 
 1. Define pure black surfaces, neutral gray text roles, and one minimal high-contrast orange accent.
 2. Load only the supplied non-charted Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 font files. Do not author a second typography family.
@@ -42,7 +42,7 @@ Required evidence: source inspection, focused unit tests, font network review, d
 
 ## Phase 2 — research projects and produce the log corpus
 
-Status: **not yet accepted as complete**.
+Status: **complete: 24 published posts with exact claim-ledger parity**.
 
 1. Use the repository skill at [`skills/project-post-research/SKILL.md`](../skills/project-post-research/SKILL.md).
 2. Inventory authorized projects under a configurable local projects root using read-only commands.
@@ -57,7 +57,7 @@ Required evidence: public-safe project inventory, per-post claim/source ledger, 
 
 ## Phase 3 — finish the literal reference experience
 
-Status: **visual verification pending**.
+Status: **implementation complete; final reconciliation and renewed branch-specific browser proof are in progress**.
 
 1. Reproduce the supplied reference image's macro layout, order, spacing rhythm, large grid, and editorial density without copying third-party text or branded media.
 2. Make the home page intentionally large and lead with oversized `CUMULUS`, a very small `lab`, and the `ocque41` GitHub contribution/activity graph.
@@ -69,7 +69,7 @@ Required evidence: the complete [design checklist](design-verification-checklist
 
 ## Phase 4 — complete notification-only identity and email
 
-Status: **code paths exist; live behavior is not proven**.
+Status: **code and database behavior are complete; live delivery remains gated**.
 
 1. Implement Supabase magic-link or OTP sign-in with the existing public callback path.
 2. Capture explicit new-post consent and store a versioned consent record protected by user-scoped RLS.
@@ -83,9 +83,9 @@ Required evidence: database migration review, RLS tests, API tests, auth callbac
 
 ## Phase 5 — create the independently structured branch
 
-Status: **pending**.
+Status: **complete on `request/cumulus-original`; current release hash is recorded after final verification**.
 
-1. Create the second design branch from the fully verified reference branch so both variants share the same content, product behavior, security rules, and tests.
+1. Create the second design branch from the first complete reference implementation so both variants begin with the same content, product behavior, security rules, and tests; reconcile later shared corrections explicitly.
 2. Change visual structure only. Preserve routes, data contracts, accessibility, notification semantics, public sources, and release gates.
 3. Produce an original information hierarchy and page composition while staying inside the same palette, supplied fonts, and approved dither component vocabulary.
 4. Run the entire design, content, behavior, and release verification suite on the second branch independently.
@@ -94,7 +94,7 @@ Required evidence: branch graph, scope diff showing visual-only structural chang
 
 ## Phase 6 — completion audit and release decision
 
-Status: **pending**.
+Status: **in progress; only the production notification lifecycle remains open**.
 
 1. Re-run all repository checks from a clean install.
 2. Walk every public route and every notification state at desktop and mobile widths.

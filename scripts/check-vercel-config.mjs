@@ -5,10 +5,10 @@ import { URL } from "node:url";
 const config = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
 
 assert.equal(config.cleanUrls, true, "Vercel clean URLs must remain enabled");
-assert.deepEqual(
+assert.equal(
   config.rewrites,
-  [{ source: "/((?!api/).*)", destination: "/index" }],
-  "The SPA fallback must be extensionless and must not catch /api routes",
+  undefined,
+  "Static public routes and 404.html must not be replaced by a catch-all SPA rewrite",
 );
 
 const headersBySource = new Map(config.headers.map((entry) => [entry.source, entry.headers]));

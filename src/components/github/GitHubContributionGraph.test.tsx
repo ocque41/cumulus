@@ -1,7 +1,11 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GitHubContributionGraph } from "./GitHubContributionGraph";
+
+const STYLES = readFileSync("src/styles.css", "utf8");
 
 afterEach(() => {
   cleanup();
@@ -14,6 +18,28 @@ describe("GitHubContributionGraph", () => {
       new Response(
         JSON.stringify({
           username: "ocque41",
+          activityDays: [
+            {
+              commits: 3,
+              date: "2025-07-13",
+              highlights: [
+                {
+                  kind: "commit",
+                  repository: "cumulus/cloud",
+                  title: "3 commits",
+                },
+                {
+                  kind: "pull-request",
+                  repository: "cumulus/cloud",
+                  title: "Fix the activity field",
+                  url: "https://github.com/cumulus/cloud/pull/12",
+                },
+              ],
+              issues: 1,
+              pullRequests: 1,
+            },
+          ],
+          activityDetailStatus: "live",
           contributions: [
             { count: 3, date: "2025-07-13", level: 2 },
           ],
@@ -28,7 +54,7 @@ describe("GitHubContributionGraph", () => {
     render(<GitHubContributionGraph />);
     expect(
       document.querySelector('.contribution-frame[data-load-state="loading"]'),
-    ).not.toBeNull();
+    ).toHaveAttribute("data-texture", "dither");
 
     await waitFor(() =>
       expect(screen.getByText("37 contributions in the reported calendar.")).toBeInTheDocument(),
@@ -37,12 +63,97 @@ describe("GitHubContributionGraph", () => {
       "/api/github/contributions",
       expect.objectContaining({ cache: "no-store", credentials: "same-origin" }),
     );
-    expect(screen.getByRole("img")).toHaveAccessibleName(
-      /37 GitHub contributions across 1 active day for ocque41/i,
+    expect(screen.getByRole("group")).toHaveAccessibleName(
+      /37 GitHub contributions across 1 active day in the reported calendar/i,
+    );
+    const graphCells = document.querySelectorAll(
+      ".contribution-grid .contribution-cell",
+    );
+    expect(graphCells).toHaveLength(371);
+    expect(
+      document.querySelectorAll(
+        '.contribution-grid .contribution-cell[data-texture="dither"]',
+      ),
+    ).toHaveLength(371);
+    const dither = document.querySelector<HTMLElement>(
+      ".contribution-frame [data-slot='hero-dither']",
+    );
+    expect(dither).not.toBeNull();
+    expect(dither?.style.maskImage).toContain("radial-gradient");
+    expect(
+      document.querySelector('.contribution-frame[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('.contribution-legend[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('.contribution-surface[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('.contribution-grid[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('.contribution-meta[data-texture="dither"]'),
+    ).not.toBeNull();
+    expect(STYLES).toMatch(
+      /\.contribution-cell\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-frame\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-meta\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-surface\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-grid\s*\{[\s\S]*?background-image:\s*radial-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-grid\s*\{[\s\S]*?mask-image:\s*linear-gradient/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-legend\s*\{[\s\S]*?background-image:\s*radial-gradient/,
     );
     expect(
-      document.querySelectorAll(".contribution-grid .contribution-cell"),
-    ).toHaveLength(371);
+      screen.getByLabelText("Contribution density from quiet to active"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Public activity")).not.toBeInTheDocument();
+
+    const activeCell = document.querySelector<HTMLButtonElement>('button[data-index="0"]');
+    expect(activeCell).toHaveAccessibleName(
+      /Sunday, July 13, 2025: 3 contributions; 3 commits, 1 pull request, 1 issue/i,
+    );
+    if (!activeCell) throw new Error("Expected the first contribution cell");
+    fireEvent.pointerEnter(activeCell);
+    expect(screen.getByText("Fix the activity field")).toHaveAttribute(
+      "href",
+      "https://github.com/cumulus/cloud/pull/12",
+    );
+    expect(screen.getByRole("heading", { name: "Sunday, July 13, 2025" })).toBeVisible();
+    expect(screen.getAllByText("cloud")).toHaveLength(2);
+    expect(screen.queryByText("cumulus/cloud")).not.toBeInTheDocument();
+
+    fireEvent.click(activeCell);
+    expect(screen.getByRole("button", { name: "Close activity details" })).toBeVisible();
+    fireEvent.click(activeCell);
+    expect(screen.queryByRole("button", { name: "Close activity details" })).not.toBeInTheDocument();
+
+    const frame = document.querySelector<HTMLElement>(".contribution-frame");
+    expect(frame).not.toBeNull();
+    fireEvent.pointerMove(frame as HTMLElement, {
+      clientX: 10,
+      clientY: 10,
+      pointerType: "mouse",
+    });
+    expect(frame?.style.getPropertyValue("--graph-rotate-y")).not.toBe("0deg");
+
+    fireEvent.focus(activeCell);
+    fireEvent.keyDown(activeCell, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(
+      document.querySelector('button[data-index="7"]'),
+    );
   });
 
   it("renders an honest no-data graph when the server boundary fails", async () => {
@@ -55,14 +166,20 @@ describe("GitHubContributionGraph", () => {
         screen.getByText(/empty grid contains no inferred counts/i),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByRole("img")).toHaveAccessibleName(
-      /contribution graph for ocque41 is currently unavailable/i,
+    expect(screen.getByRole("group")).toHaveAccessibleName(
+      /GitHub contribution graph is currently unavailable/i,
     );
     expect(document.querySelector("[data-known='true']")).toBeNull();
+    expect(document.querySelector(".contribution-dither")).not.toBeNull();
     expect(
       document.querySelector('.contribution-frame[data-load-state="fallback"]'),
-    ).not.toBeNull();
-    expect(screen.getByRole("link", { name: /complete GitHub profile/i })).toHaveAttribute(
+    ).toHaveAttribute("data-texture", "dither");
+    expect(
+      document.querySelectorAll(
+        '.contribution-grid .contribution-cell[data-texture="dither"]',
+      ),
+    ).toHaveLength(371);
+    expect(screen.getByRole("link", { name: /^GitHub/i })).toHaveAttribute(
       "href",
       "https://github.com/ocque41",
     );
@@ -124,14 +241,14 @@ describe("GitHubContributionGraph", () => {
       ".contribution-grid .contribution-cell",
     );
     expect(cells).toHaveLength(371);
-    expect(cells[0]).toHaveAttribute("title", "2025-07-13: 0 contributions");
+    expect(cells[0]).toHaveAttribute("title", expect.stringContaining("Sunday, July 13, 2025: 0 contributions"));
     expect(cells[368]).toHaveAttribute(
       "title",
-      "2026-07-16: 49 contributions",
+      expect.stringContaining("Thursday, July 16, 2026: 49 contributions"),
     );
     expect(cells[370]).toHaveAttribute(
       "title",
-      "2026-07-18: contribution data unavailable",
+      expect.stringContaining("Saturday, July 18, 2026: contribution count unavailable"),
     );
   });
 });

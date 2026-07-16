@@ -1,8 +1,3 @@
-import {
-  CheckCircle,
-  EnvelopeOpen,
-  WarningCircle,
-} from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 
 import { upsertNotificationSubscription } from "../../features/notifications/subscription";
@@ -148,11 +143,11 @@ export function AuthCallbackPage({ onComplete }: AuthCallbackPageProps) {
 
         <div className={`auth-callback-state auth-callback-state-${state}`}>
           {state === "success" ? (
-            <CheckCircle aria-hidden="true" weight="fill" />
+            <span aria-hidden="true" className="ui-glyph ui-glyph--status">✓</span>
           ) : state === "ready" || state === "saving" ? (
-            <EnvelopeOpen aria-hidden="true" />
+            <span aria-hidden="true" className="ui-glyph ui-glyph--status">@</span>
           ) : state === "error" || state === "unavailable" ? (
-            <WarningCircle aria-hidden="true" />
+            <span aria-hidden="true" className="ui-glyph ui-glyph--status">!</span>
           ) : null}
           <p role="status" aria-live="polite">
             {message}

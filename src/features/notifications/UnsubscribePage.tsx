@@ -1,4 +1,3 @@
-import { BellSlash, CheckCircle, WarningCircle } from "@phosphor-icons/react";
 import { useState } from "react";
 
 export interface UnsubscribePageProps {
@@ -69,11 +68,11 @@ export function UnsubscribePage({
         <p className="auth-eyebrow">Email preference</p>
         <div className="auth-page-heading">
           {state === "success" ? (
-            <CheckCircle aria-hidden="true" weight="fill" />
+            <span aria-hidden="true" className="ui-glyph ui-glyph--status">✓</span>
           ) : state === "error" || state === "invalid" ? (
-            <WarningCircle aria-hidden="true" />
+            <span aria-hidden="true" className="ui-glyph ui-glyph--status">!</span>
           ) : (
-            <BellSlash aria-hidden="true" />
+            <span aria-hidden="true" className="ui-glyph ui-glyph--status">○</span>
           )}
           <h1 id="unsubscribe-title" className="auth-page-title">
             {state === "success"

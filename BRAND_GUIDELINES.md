@@ -77,6 +77,7 @@ Before copying third-party source, verify its redistribution terms and record th
 ## Dither and blur
 
 - Dither belongs on artwork or a dedicated visual layer, never on body text or controls.
+- The GitHub contribution cells are the one data-pixel exception: their native buttons visually form the dither field on fine-pointer devices. On coarse pointers the visual cells do not receive input and a labeled 44px day selector exposes the same data.
 - Keep captions outside filtered containers so they remain crisp.
 - Edge Blur must not intercept pointer input and must stay outside the scrolling element it decorates.
 - Keep shader movement calm and stop or simplify it for `prefers-reduced-motion`.

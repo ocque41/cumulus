@@ -71,6 +71,21 @@ describe("AuthDialog", () => {
     expect(opener).toHaveFocus();
   });
 
+  it("keeps keyboard focus inside the open dialog", async () => {
+    const user = userEvent.setup();
+    const { client, mocks } = createMockSupabase();
+    render(<DialogHarness client={client} />);
+    await waitFor(() => expect(mocks.getSession).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: "Open notifications" }));
+    const email = await screen.findByLabelText("Email address");
+    expect(email).toHaveFocus();
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(screen.getByRole("button", { name: "Close notification settings" })).toHaveFocus();
+    await user.tab();
+    expect(email).toHaveFocus();
+  });
+
   it("does not request a link until the disclosure is acknowledged", async () => {
     const user = userEvent.setup();
     const { client, mocks } = createMockSupabase();

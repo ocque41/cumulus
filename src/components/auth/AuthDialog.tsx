@@ -1,4 +1,3 @@
-import { EnvelopeSimple, SignOut, X } from "@phosphor-icons/react";
 import {
   useEffect,
   useRef,
@@ -30,6 +29,7 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
   const [message, setMessage] = useState("");
   const emailRef = useRef<HTMLInputElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -47,6 +47,25 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
+        return;
+      }
+
+      if (event.key === "Tab") {
+        const focusable = Array.from(
+          dialogRef.current?.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ) ?? [],
+        ).filter((element) => !element.hidden);
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        if (!first || !last) return;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
 
@@ -93,6 +112,7 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
     >
       <section
         className="auth-dialog"
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-dialog-title"
@@ -105,7 +125,7 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
           onClick={onClose}
           aria-label="Close notification settings"
         >
-          <X aria-hidden="true" />
+          <span aria-hidden="true" className="ui-glyph">×</span>
         </button>
 
         <p className="auth-eyebrow">Optional reader setting</p>
@@ -142,7 +162,7 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
               disabled={submitting}
               onClick={() => void handleSignOut()}
             >
-              <SignOut aria-hidden="true" />
+              <span aria-hidden="true" className="ui-glyph">↗</span>
               {submitting ? "Signing out…" : "Sign out"}
             </button>
           </div>
@@ -153,7 +173,7 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
                 Email address
               </label>
               <div className="field-input-wrap">
-                <EnvelopeSimple aria-hidden="true" />
+                <span aria-hidden="true" className="ui-glyph">@</span>
                 <input
                   ref={emailRef}
                   className="field-input"

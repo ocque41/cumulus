@@ -1,15 +1,15 @@
 # Vercel preview and cutover
 
-This runbook preserves an existing Vercel project and its domain association while replacing the application code with Cumulus 0.0.8. It does not create a new project and it does not treat Git as proof of provider state.
+This runbook preserves the existing Vercel project and domain association while releasing Cumulus 0.0.8. The initial cutover has occurred; use the same gates for later releases. It does not create a new project and it does not treat Git as proof of provider state.
 
 ## Known state and assumptions
 
-- An authenticated provider inspection verified the existing Vercel `cloud` project and its `cumulush.com` production domain association.
-- The connected Git repository, production branch, and commit-to-deployment linkage have not yet been proven for this candidate.
+- An authenticated provider inspection verified the existing Vercel project and its `cumulush.com` production domain association.
+- `main` is the production branch and `request/cumulus-original` is the selected design source. Verify the exact commit-to-deployment linkage again for every candidate.
 - No Vercel project ID, team ID, domain, dashboard link, or domain configuration is stored in Git.
-- The literal reference branch is `request/jacquard-reference`.
-- The intended production branch remains `main` unless an authorized operator explicitly chooses another cutover mechanism.
-- Pushing the reference branch, changing project-wide build settings, applying a live migration, replacing `main`, and promoting production are separate gates.
+- The literal layout study remains `request/jacquard-reference`; it is not the selected production composition.
+- The prior application history is retained on `archive/pre-redesign-20260716` as the Git rollback record. Vercel deployment rollback remains an external provider operation.
+- Pushing a candidate, changing project-wide settings, applying a migration, updating `main`, and promoting production remain separate gates.
 
 If any assumption is wrong, stop and update this runbook before changing external state.
 
@@ -46,9 +46,9 @@ Do not paste private identifiers or dashboard links into this public repository 
 
 If project-wide settings still assume the old application and are incompatible with Vite, capture the old values and request approval before changing them. A project-wide setting can affect production even when the immediate goal is a preview.
 
-## Gate 2: configure preview safely
+## Gate 2: configure a candidate safely
 
-In the existing project's Preview environment, configure:
+In the existing project's Preview environment, configure candidate values. Production uses the same contract with independently scoped production values:
 
 - `NEXT_PUBLIC_SITE_URL` for the preview's public origin;
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for a non-production Supabase project;
@@ -63,9 +63,9 @@ The `NEXT_PUBLIC_*` variables are injected into the browser bundle by Vite and a
 
 The server requires the `cumulush.com` site origin and sender domain only when Vercel reports the Production environment. Preview may use its actual HTTPS preview origin and a provider-approved test sender. Verify both branches independently; do not configure Preview with a production origin merely to bypass a rejected value.
 
-## Gate 3: publish the reference preview
+## Gate 3: publish a candidate deployment
 
-Only after explicit push approval, publish `request/jacquard-reference` to the already connected Git repository. Confirm that Vercel creates a Preview deployment inside the existing project.
+Only after explicit push approval, publish the candidate branch to the already connected Git repository. Confirm that Vercel creates a Preview deployment inside the existing project. For the current selected composition, that branch is `request/cumulus-original`.
 
 Do not:
 
@@ -101,6 +101,8 @@ Record the preview deployment identifier privately and the test outcome publicly
 
 ## Gate 5: live database migration
 
+The Cumulus 0.0.8 notification migrations are applied in the current production project. Future migrations still use this independent gate; a successful prior application does not authorize another.
+
 The production Supabase migration is independent from the web deployment. Before applying it:
 
 1. review that it is additive and does not alter unrelated objects;
@@ -114,6 +116,8 @@ The production Supabase migration is independent from the web deployment. Before
 Do not claim this gate complete because migration SQL exists in Git.
 
 ## Gate 6: main and production cutover
+
+The initial design cutover to `main` was explicitly authorized. Each later `main` update and production promotion still requires a verified candidate and current authorization.
 
 After preview and migration evidence is accepted, obtain explicit approval for the chosen `main` transition. The approved operation may be a reviewed merge or a controlled replacement, but it must preserve an auditable pre-cutover commit and must not be inferred from preview approval.
 
@@ -133,4 +137,4 @@ Check the homepage, direct routes, font assets, notification opt-in, one control
 
 If the browser application fails, restore the retained Vercel deployment while preserving evidence. If the additive database change causes a problem, prefer a reviewed forward fix unless the prepared database rollback is proven safe. Rotating or removing notification secrets is an incident action and should not be improvised as a normal web rollback.
 
-Document what actually happened: candidate commit, approvals, provider verification, migration result, production deployment, checks, and any remaining uncertainty.
+Document what actually happened: candidate commit, approvals, provider verification, migration result, production deployment, checks, and any remaining uncertainty. For the current release, notification publication remains intentionally unavailable until the truthful postal address and Resend webhook signing secret are configured and a controlled lifecycle proves sign-in, receipt, unsubscribe, and later suppression.
