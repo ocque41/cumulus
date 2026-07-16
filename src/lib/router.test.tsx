@@ -28,4 +28,30 @@ describe("client navigation", () => {
     expect(window.location.pathname).toBe("/");
     expect(window.location.search).toBe("");
   });
+
+  it("preserves scroll position for in-place filter navigation", () => {
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    window.history.replaceState({}, "", "/logs");
+
+    navigate("/logs?q=security", { scroll: false });
+
+    expect(window.location.search).toBe("?q=security");
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("leaves same-document hash links to native browser navigation", () => {
+    window.history.replaceState({}, "", "/work");
+    const navigated = vi.fn();
+    const preventJsdomNavigation = (event: Event) => event.preventDefault();
+    window.addEventListener("cumulus:navigate", navigated);
+    window.addEventListener("click", preventJsdomNavigation);
+    render(<AppLink href="#work-cumulus">Cumulus project</AppLink>);
+
+    const link = screen.getByRole("link", { name: "Cumulus project" });
+    fireEvent.click(link);
+
+    expect(navigated).not.toHaveBeenCalled();
+    window.removeEventListener("cumulus:navigate", navigated);
+    window.removeEventListener("click", preventJsdomNavigation);
+  });
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 
 import {
   AuthCallbackPage,
@@ -8,11 +8,15 @@ import {
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { getPublishedPostBySlug } from "@/content/posts";
 import { UnsubscribePage } from "@/features/notifications";
-import { navigate, useRoute } from "@/lib/router";
+import { navigate, usePathname } from "@/lib/router";
 import { HomePage } from "@/pages/HomePage";
 import { LogsPage } from "@/pages/LogsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PostPage } from "@/pages/PostPage";
+
+const WorkPage = lazy(() =>
+  import("@/pages/WorkPage").then((module) => ({ default: module.WorkPage })),
+);
 
 function normalizePath(pathname: string): string {
   const normalized = pathname.replace(/\/+$/, "");
@@ -28,7 +32,7 @@ function decodeSlug(value: string): string | undefined {
 }
 
 function PublicRoutes() {
-  const { pathname } = useRoute();
+  const pathname = usePathname();
   const [authOpen, setAuthOpen] = useState(false);
   const path = normalizePath(pathname);
 
@@ -50,6 +54,18 @@ function PublicRoutes() {
     const slug = decodeSlug(path.slice("/logs/".length));
     const post = slug ? getPublishedPostBySlug(slug) : undefined;
     page = post ? <PostPage post={post} /> : <NotFoundPage />;
+  } else if (path === "/work") {
+    page = (
+      <Suspense
+        fallback={(
+          <main className="route-pending page-shell" role="status">
+            Loading the project field…
+          </main>
+        )}
+      >
+        <WorkPage />
+      </Suspense>
+    );
   } else {
     page = <NotFoundPage />;
   }
