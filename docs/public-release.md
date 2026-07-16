@@ -86,4 +86,4 @@ Record the candidate commit, exact checks, preview evidence, skipped checks, mig
 
 ## Assumptions
 
-The Vercel project, Git integration, and domain are external and cannot be verified from Git alone. The initial cutover and notification migrations occurred, but every later main update, push, migration, and production promotion remains an independent gate. Production email completion additionally requires a truthful postal address, a Resend webhook signing secret, and controlled lifecycle evidence.
+The Vercel project, Git integration, and domain are external and cannot be verified from Git alone. The initial cutover and notification migrations occurred, but every later main update, push, migration, and production promotion remains an independent gate. The production Resend webhook and its sensitive Vercel signing-secret variable are configured, but production email completion still requires a truthful postal address and controlled magic-link, receipt, unsubscribe, and suppression evidence.
