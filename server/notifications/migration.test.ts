@@ -9,6 +9,20 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const advisorHardening = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260716150000_blog_notifications_advisor_hardening.sql",
+  ),
+  "utf8",
+);
+const rlsPerformance = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260716153000_blog_notification_rls_performance.sql",
+  ),
+  "utf8",
+);
 
 describe("notification migration contract", () => {
   it("keeps addresses out of public tables and uses auth user ownership", () => {
@@ -71,5 +85,38 @@ describe("notification migration contract", () => {
     expect(migration).toContain("subscription.status = 'unsubscribed'");
     expect(migration).not.toContain("cancel_blog_notification_pending_deliveries");
     expect(migration).toContain("delivery.provider_started_at is null");
+  });
+
+  it("makes the server-only tables and delivery foreign-key index explicit", () => {
+    expect(advisorHardening).toContain(
+      "create index blog_notification_deliveries_user_id_idx",
+    );
+    expect(advisorHardening).toContain("to anon, authenticated");
+    expect(advisorHardening.match(/using \(false\)/g)).toHaveLength(2);
+    expect(advisorHardening.match(/with check \(false\)/g)).toHaveLength(2);
+    expect(advisorHardening).not.toMatch(/grant\s+/i);
+  });
+
+  it("caches Supabase Auth helpers without changing subscription policy semantics", () => {
+    const policyNames = [
+      "Users can read their own notification subscription",
+      "Users can create their own notification subscription",
+      "Users can update their own notification subscription",
+    ];
+
+    for (const policyName of policyNames) {
+      expect(rlsPerformance).toContain(`drop policy if exists "${policyName}"`);
+      expect(rlsPerformance).toContain(`create policy "${policyName}"`);
+    }
+
+    expect(rlsPerformance.match(/\(select auth\.uid\(\)\) = user_id/g)).toHaveLength(4);
+    expect(rlsPerformance.match(/\(select auth\.jwt\(\)\)/g)).toHaveLength(4);
+    expect(rlsPerformance).not.toMatch(/(?<!select )auth\.(?:uid|jwt)\(\)/);
+    expect(rlsPerformance.match(/to authenticated/g)).toHaveLength(3);
+    expect(rlsPerformance).toContain("for select");
+    expect(rlsPerformance).toContain("for insert");
+    expect(rlsPerformance).toContain("for update");
+    expect(rlsPerformance.match(/with check \(/g)).toHaveLength(2);
+    expect(rlsPerformance.match(/not coalesce\(/g)).toHaveLength(4);
   });
 });
