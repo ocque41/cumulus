@@ -29,7 +29,7 @@ Required evidence: Git branch and commit graph, clean-scope review, dependency m
 
 ## Phase 1 — implement the shared product foundation
 
-Status: **complete on the selected branch; final shared-change reconciliation with the reference branch is in progress**.
+Status: **complete on both design branches**.
 
 1. Define pure black surfaces, neutral gray text roles, and one minimal high-contrast orange accent.
 2. Load only the supplied non-charted Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 font files. Do not author a second typography family.
@@ -57,7 +57,7 @@ Required evidence: public-safe project inventory, per-post claim/source ledger, 
 
 ## Phase 3 — finish the literal reference experience
 
-Status: **implementation complete; final reconciliation and renewed branch-specific browser proof are in progress**.
+Status: **complete on `request/jacquard-reference`; renewed local desktop/mobile browser proof passes**.
 
 1. Reproduce the supplied reference image's macro layout, order, spacing rhythm, large grid, and editorial density without copying third-party text or branded media.
 2. Make the home page intentionally large and lead with oversized `CUMULUS`, a very small `lab`, and the `ocque41` GitHub contribution/activity graph.
