@@ -54,6 +54,7 @@ In the existing project's Preview environment, configure candidate values. Produ
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for a non-production Supabase project;
 - `SUPABASE_SERVICE_ROLE_KEY` for that same non-production project;
 - `RESEND_API_KEY` for test delivery;
+- `RESEND_WEBHOOK_SECRET` from a preview-only Resend webhook targeting `/api/notifications/resend-webhook`;
 - `NOTIFICATION_FROM_EMAIL` for a provider-approved test sender;
 - `NOTIFICATION_POSTAL_ADDRESS` for the valid sender postal address rendered in every notification;
 - optional `GITHUB_ACCESS_TOKEN` for the server-side `ocque41` GraphQL request; omit it to use the bounded public-profile calendar;

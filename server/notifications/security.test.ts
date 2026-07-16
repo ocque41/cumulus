@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { readNotificationConfig, readUnsubscribeConfig } from "./config";
+import {
+  readNotificationConfig,
+  readResendWebhookConfig,
+  readUnsubscribeConfig,
+} from "./config";
 import {
   createUnsubscribeToken,
   deliveryIdempotencyKey,
@@ -200,5 +204,22 @@ describe("notification configuration", () => {
       supabaseServiceRoleKey: validEnv.SUPABASE_SERVICE_ROLE_KEY,
       unsubscribeSecret: validEnv.NOTIFICATION_UNSUBSCRIBE_SECRET,
     });
+  });
+
+  it("keeps webhook verification independent from mail-sending configuration", () => {
+    expect(readResendWebhookConfig({
+      NEXT_PUBLIC_SUPABASE_URL: validEnv.NEXT_PUBLIC_SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: validEnv.SUPABASE_SERVICE_ROLE_KEY,
+      RESEND_WEBHOOK_SECRET: "w".repeat(32),
+    })).toEqual({
+      supabaseUrl: "https://project.supabase.co",
+      supabaseServiceRoleKey: validEnv.SUPABASE_SERVICE_ROLE_KEY,
+      webhookSecret: "w".repeat(32),
+    });
+    expect(() => readResendWebhookConfig({
+      NEXT_PUBLIC_SUPABASE_URL: validEnv.NEXT_PUBLIC_SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: validEnv.SUPABASE_SERVICE_ROLE_KEY,
+      RESEND_WEBHOOK_SECRET: "short",
+    })).toThrow();
   });
 });

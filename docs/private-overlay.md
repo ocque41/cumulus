@@ -22,7 +22,7 @@ Keep these in Vercel, Supabase, Resend, an approved secret manager, or a private
 - Vercel project IDs, team IDs, deployment tokens, dashboard links, and domain-control records;
 - Supabase project references, service-role keys, access tokens, database backups, and live subscriber data;
 - Resend API keys, verified sender/domain records, suppression lists, delivery events, and provider-account details;
-- real `NOTIFICATION_PUBLISH_SECRET` and `NOTIFICATION_UNSUBSCRIBE_SECRET` values;
+- real `RESEND_WEBHOOK_SECRET`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` values;
 - the truthful `NOTIFICATION_POSTAL_ADDRESS` rendered in outgoing messages;
 - customer or reader support records, deletion requests, incident notes, and audit evidence containing personal data;
 - internal publisher tools, release approvals, recovery runbooks, and named operator access;
@@ -39,6 +39,7 @@ Do not commit a sanitized-looking copy of live data. Use synthetic addresses suc
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser-visible | Vercel environment or local `.env.local` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only current secret/server key or legacy service-role JWT | Vercel encrypted environment |
 | `RESEND_API_KEY` | Server-only | Vercel encrypted environment |
+| `RESEND_WEBHOOK_SECRET` | Server-only provider signing secret | Vercel encrypted environment |
 | `GITHUB_ACCESS_TOKEN` | Optional server-only, separate least-privilege public-profile viewer | Vercel encrypted environment |
 | `NOTIFICATION_FROM_EMAIL` | Server-only configuration | Vercel encrypted environment |
 | `NOTIFICATION_POSTAL_ADDRESS` | Server-only configuration rendered in email | Vercel encrypted environment |

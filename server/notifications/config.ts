@@ -15,6 +15,12 @@ export interface UnsubscribeConfig {
   unsubscribeSecret: string;
 }
 
+export interface ResendWebhookConfig {
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+  webhookSecret: string;
+}
+
 export class NotificationConfigurationError extends Error {
   readonly code = "notification_configuration_error";
 
@@ -166,5 +172,21 @@ export function readUnsubscribeConfig(
       env,
       "NOTIFICATION_UNSUBSCRIBE_SECRET",
     ),
+  };
+}
+
+export function readResendWebhookConfig(
+  env: Record<string, string | undefined>,
+): ResendWebhookConfig {
+  return {
+    supabaseUrl: normalizeOrigin(
+      requireValue(env, "NEXT_PUBLIC_SUPABASE_URL"),
+      false,
+    ),
+    supabaseServiceRoleKey: requireSecret(
+      env,
+      "SUPABASE_SERVICE_ROLE_KEY",
+    ),
+    webhookSecret: requireSecret(env, "RESEND_WEBHOOK_SECRET"),
   };
 }

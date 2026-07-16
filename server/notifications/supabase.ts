@@ -6,11 +6,14 @@ import type {
   DeliveryClaim,
   NotificationStore,
   NotificationSubscription,
+  ProviderSuppressionDisposition,
+  ProviderSuppressionEventType,
 } from "./types.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CONTENT_HASH_PATTERN = /^[a-f0-9]{64}$/;
 const FAILURE_CODE_PATTERN = /^[a-z0-9_]{1,64}$/;
+const PROVIDER_ID_PATTERN = /^[A-Za-z0-9_-]{1,255}$/;
 const PAGE_SIZE = 500;
 const REQUEST_TIMEOUT_MS = 5_000;
 const CLAIM_DISPOSITIONS = new Set<ClaimDisposition>([
@@ -21,6 +24,12 @@ const CLAIM_DISPOSITIONS = new Set<ClaimDisposition>([
   "sent",
   "terminal",
   "content_mismatch",
+]);
+const SUPPRESSION_DISPOSITIONS = new Set<ProviderSuppressionDisposition>([
+  "suppressed",
+  "ignored",
+  "duplicate",
+  "unmatched",
 ]);
 
 type DeliveryFailureStatus = "retryable" | "failed" | null;
@@ -336,5 +345,50 @@ export class SupabaseNotificationStore implements NotificationStore {
     if (!Number.isInteger(cancelled) || (cancelled as number) < 0) {
       throw new NotificationStoreError("unsubscribe_cancel_invalid");
     }
+  }
+
+  async findDeliveryOwner(providerMessageId: string): Promise<string | null> {
+    if (!PROVIDER_ID_PATTERN.test(providerMessageId)) {
+      throw new NotificationStoreError("delivery_owner_invalid_input");
+    }
+    const value = await this.rpc("find_blog_notification_delivery_owner", {
+      requested_provider_message_id: providerMessageId,
+    });
+    if (value === null) return null;
+    if (typeof value !== "string" || !isUuid(value)) {
+      throw new NotificationStoreError("delivery_owner_invalid");
+    }
+    return value;
+  }
+
+  async processProviderSuppressionEvent(input: {
+    providerEventId: string;
+    providerMessageId: string;
+    eventType: ProviderSuppressionEventType;
+    userId: string;
+    recipientMatches: boolean;
+  }): Promise<ProviderSuppressionDisposition> {
+    if (
+      !PROVIDER_ID_PATTERN.test(input.providerEventId)
+      || !PROVIDER_ID_PATTERN.test(input.providerMessageId)
+      || !isUuid(input.userId)
+      || typeof input.recipientMatches !== "boolean"
+    ) {
+      throw new NotificationStoreError("provider_event_invalid_input");
+    }
+    const value = await this.rpc("process_blog_notification_resend_event", {
+      requested_provider_event_id: input.providerEventId,
+      requested_provider_message_id: input.providerMessageId,
+      requested_event_type: input.eventType,
+      requested_user_id: input.userId,
+      requested_recipient_matches: input.recipientMatches,
+    });
+    if (
+      typeof value !== "string"
+      || !SUPPRESSION_DISPOSITIONS.has(value as ProviderSuppressionDisposition)
+    ) {
+      throw new NotificationStoreError("provider_event_invalid");
+    }
+    return value as ProviderSuppressionDisposition;
   }
 }

@@ -9,7 +9,7 @@ The browser serves the public logs and submits notification preferences with the
 The trust boundary is important:
 
 - browser: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY` only;
-- server: Supabase service role, Resend key, dedicated public-profile GitHub token, postal address, publish secret, and unsubscribe signing secret;
+- server: Supabase service role, Resend API and webhook-signing secrets, dedicated public-profile GitHub token, postal address, publish secret, and unsubscribe signing secret;
 - operator: deployment credentials, provider dashboards, live migration approval, and production data.
 
 ## 1. Build locally
@@ -59,11 +59,13 @@ In a private provider account:
 
 1. verify the sender domain or use the provider's approved test sender;
 2. create a narrowly scoped API key;
-3. set `RESEND_API_KEY`, `NOTIFICATION_FROM_EMAIL`, and a truthful `NOTIFICATION_POSTAL_ADDRESS` only in the server environment;
-4. configure authenticated bounce and complaint suppression handling before sending to real readers;
-5. send a test to an approved test recipient and inspect the postal footer plus unsubscribe link.
+3. create a webhook pointing to `https://your-public-origin.example/api/notifications/resend-webhook` and select `email.bounced`, `email.complained`, and `email.suppressed`;
+4. set `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `NOTIFICATION_FROM_EMAIL`, and a truthful `NOTIFICATION_POSTAL_ADDRESS` only in the server environment;
+5. deploy before testing so Resend can reach the HTTPS endpoint;
+6. use the provider's webhook test flow and confirm the endpoint returns success without logging recipient or payload data;
+7. send a test to an approved test recipient and inspect the postal footer plus unsubscribe link.
 
-Do not commit sender-account IDs, verification records, API keys, event payloads, or delivery logs. `NOTIFICATION_FROM_EMAIL` must use a sender the Resend account is authorized to use.
+Do not commit sender-account IDs, webhook IDs or signing secrets, verification records, API keys, event payloads, or delivery logs. `NOTIFICATION_FROM_EMAIL` must use a sender the Resend account is authorized to use. The webhook must receive the raw body; parsing and reserializing it before signature verification invalidates the signature.
 
 ## 4. Configure notification secrets
 
@@ -109,6 +111,7 @@ Use only synthetic subscribers and a safe mail recipient in preview.
 - Record provider delivery IDs without logging full recipient data.
 - Honor unsubscribe before scheduling or retrying a delivery.
 - Monitor bounces, complaints, server errors, and unexpected send volume.
+- Keep the Resend webhook subscribed to bounced, complained, and suppressed events, and rotate its signing secret through the provider and server environment as one coordinated change.
 - Rotate compromised keys and assess whether unsubscribe links require a planned verifier transition.
 
 ## Assumptions

@@ -65,6 +65,31 @@ export interface NotificationStore {
   unsubscribe(userId: string): Promise<void>;
 }
 
+export interface ProviderSuppressionStore {
+  findDeliveryOwner(providerMessageId: string): Promise<string | null>;
+  getAuthoritativeRecipient(
+    userId: string,
+  ): Promise<AuthoritativeRecipient | null>;
+  processProviderSuppressionEvent(input: {
+    providerEventId: string;
+    providerMessageId: string;
+    eventType: ProviderSuppressionEventType;
+    userId: string;
+    recipientMatches: boolean;
+  }): Promise<ProviderSuppressionDisposition>;
+}
+
+export type ProviderSuppressionEventType =
+  | "email.bounced"
+  | "email.complained"
+  | "email.suppressed";
+
+export type ProviderSuppressionDisposition =
+  | "suppressed"
+  | "ignored"
+  | "duplicate"
+  | "unmatched";
+
 export interface NotificationEmail {
   to: string;
   subject: string;
@@ -121,6 +146,8 @@ export interface SafeLogFields {
   incomplete?: boolean;
   retryAfterSeconds?: number;
   code?: string;
+  eventType?: ProviderSuppressionEventType;
+  disposition?: ProviderSuppressionDisposition;
 }
 
 export interface SafeLogger {
