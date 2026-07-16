@@ -5,7 +5,7 @@ These gates separate local correctness, preview readiness, and production readin
 ## Gate A — repository safety
 
 - The browser may receive only intentionally public site and Supabase values.
-- `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` are credentials or signing material and are server-only.
+- `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, optional `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` are credentials or signing material and are server-only.
 - `NOTIFICATION_POSTAL_ADDRESS` is server-rendered compliance content. Its deployed value is intentionally disclosed in notification email, but it must not be committed, injected into the browser bundle, or copied into unrelated logs and screenshots.
 - Secret values must not appear in Git, patches, test fixtures, screenshots, command arguments, shell history, build output, browser assets, error responses, analytics, or logs.
 - `.env.example` contains names and non-secret placeholders only. Local secret files remain ignored.

@@ -7,6 +7,7 @@ export default tseslint.config(
   {
     ignores: [
       ".agents/skills",
+      ".vercel",
       "dist",
       "coverage",
       "test-results",

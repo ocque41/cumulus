@@ -14,7 +14,7 @@ The trust boundary is important:
 
 ## 1. Build locally
 
-Install a current Node.js LTS release and npm, then:
+Install Node.js 24 LTS and npm, then:
 
 ```bash
 npm install
@@ -78,7 +78,7 @@ Rotating the unsubscribe secret can invalidate outstanding links. Plan a grace p
 
 ## 5. Configure the GitHub graph
 
-Set `GITHUB_ACCESS_TOKEN` only in the server environment. Use a token owned by a separate least-privilege viewer identity with no private-repository access; an owner credential can make private contribution counts visible to the server even when the public site should not reveal them. Compare the endpoint result with the public profile. The endpoint is fixed to `ocque41` and fails to an honest unavailable state when the token is absent or GitHub rejects the response.
+`GITHUB_ACCESS_TOKEN` is optional and, when used, belongs only in the server environment. Use a separate least-privilege viewer identity with no private-repository access; never use an owner-wide or workflow token. When the token is absent or its GraphQL request fails, the endpoint fetches GitHub's fixed public `ocque41` calendar without credentials, accepts only bounded sequential date/count/density records, and otherwise fails to an honest unavailable state. Compare the endpoint result with the public profile.
 
 ## 6. Deploy
 

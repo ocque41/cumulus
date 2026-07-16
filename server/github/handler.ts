@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { readGithubContributionConfig } from "./config.js";
-import { fetchGithubContributionCalendar } from "./client.js";
+import {
+  fetchGithubContributionCalendar,
+  fetchPublicGithubContributionCalendar,
+} from "./client.js";
 
 export const GITHUB_CONTRIBUTIONS_CACHE_CONTROL =
   "public, max-age=300, s-maxage=21600, stale-while-revalidate=86400, stale-if-error=604800";
@@ -80,15 +83,31 @@ export function createGithubContributionsHandler(
     }
 
     try {
-      const config = readGithubContributionConfig(options.env);
-      const payload = await fetchGithubContributionCalendar({
-        accessToken: config.accessToken,
-        fetcher: options.fetcher,
-        now: options.now,
-        timeoutMs: options.timeoutMs,
-      });
+      let payload;
+      try {
+        const config = readGithubContributionConfig(options.env);
+        payload = await fetchGithubContributionCalendar({
+          accessToken: config.accessToken,
+          fetcher: options.fetcher,
+          now: options.now,
+          timeoutMs: options.timeoutMs,
+        });
+      } catch {
+        // The public profile calendar is the least-privilege fallback for this
+        // one fixed account. Its HTML is treated as untrusted and accepted only
+        // after the same strict date, count, density, and size validation.
+        payload = await fetchPublicGithubContributionCalendar({
+          fetcher: options.fetcher,
+          now: options.now,
+          timeoutMs: options.timeoutMs,
+        });
+      }
       const body = JSON.stringify(payload);
-      const etag = entityTag(body);
+      const etag = entityTag(JSON.stringify({
+        username: payload.username,
+        contributions: payload.contributions,
+        totalContributions: payload.totalContributions,
+      }));
       const headers = {
         ...BASE_HEADERS,
         "Cache-Control": GITHUB_CONTRIBUTIONS_CACHE_CONTROL,
@@ -100,9 +119,9 @@ export function createGithubContributionsHandler(
       }
       return new Response(body, { status: 200, headers });
     } catch {
-      // This endpoint has one deliberately stable failure contract. In
-      // particular, upstream GraphQL errors and credentials never reach the
-      // browser or logs.
+      // This endpoint has one deliberately stable failure contract. Upstream
+      // errors, response bodies, and credentials never reach the browser or
+      // logs.
       return unavailableResponse();
     }
   };

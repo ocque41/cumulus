@@ -7,6 +7,7 @@ import {
   verifyBearerAuthorization,
 } from "./security.js";
 import type {
+  MailResult,
   NotificationMailer,
   NotificationStore,
   PublishablePost,
@@ -20,6 +21,12 @@ const EXECUTION_BUDGET_MS = 50_000;
 const DISCOVERY_BUDGET_MS = 10_000;
 const PRECLAIM_REQUIRED_MS = 40_000;
 const PROVIDER_AND_FINALIZE_REQUIRED_MS = 25_000;
+
+type FailedMailResult = Extract<MailResult, { ok: false }>;
+
+function isFailedMailResult(result: MailResult): result is FailedMailResult {
+  return result.ok === false;
+}
 
 function defaultSleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -282,7 +289,7 @@ export async function publishPostNotifications(input: {
       }),
     );
 
-    if (mailResult.ok) {
+    if (!isFailedMailResult(mailResult)) {
       const completed = await input.store.completeDelivery(
         claim.deliveryId,
         claim.leaseToken,
