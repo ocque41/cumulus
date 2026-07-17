@@ -19,7 +19,7 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
   const {
     user,
     loading,
-    client,
+    available,
     unavailableReason,
     requestMagicLink,
     signOut,
@@ -139,7 +139,7 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
           <AppLink href="/privacy">notification privacy and data rights</AppLink>.
         </p>
 
-        {!client ? (
+        {!available ? (
           <p className="auth-status" role="status">
             {unavailableReason ??
               "Notification sign-in is not configured for this deployment. The public logs remain available."}
@@ -153,7 +153,7 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
             <p className="auth-account-copy">
               Managing notifications for{" "}
               <span className="auth-account-email">
-                {user.email ?? "this address"}
+                {user.email}
               </span>
               .
             </p>

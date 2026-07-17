@@ -87,7 +87,6 @@ for (const route of publicRoutes) {
 
 for (const route of [
   { canonicalPath: "/auth/callback", title: "Notification access — Cumulus lab" },
-  { canonicalPath: "/unsubscribe", title: "Email preference — Cumulus lab" },
 ]) {
   await writeRoute(route.canonicalPath, renderDocument({
     ...route,
@@ -108,7 +107,7 @@ await writeFile(
 
 await writeFile(
   new URL("robots.txt", DIST),
-  `User-agent: *\nAllow: /\nDisallow: /auth/callback\nDisallow: /unsubscribe\nSitemap: ${ORIGIN}/sitemap.xml\n`,
+  `User-agent: *\nAllow: /\nDisallow: /auth/callback\nSitemap: ${ORIGIN}/sitemap.xml\n`,
 );
 
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>

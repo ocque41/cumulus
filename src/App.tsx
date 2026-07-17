@@ -7,7 +7,6 @@ import {
 } from "@/components/auth";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { getPublishedPostBySlug } from "@/content/posts";
-import { UnsubscribePage } from "@/features/notifications";
 import { navigate, usePathname } from "@/lib/router";
 import { HomePage } from "@/pages/HomePage";
 import { LogsPage } from "@/pages/LogsPage";
@@ -39,10 +38,6 @@ function PublicRoutes() {
 
   if (path === "/auth/callback") {
     return <AuthCallbackPage onComplete={() => navigate("/", { replace: true })} />;
-  }
-
-  if (path === "/unsubscribe") {
-    return <UnsubscribePage />;
   }
 
   let page;

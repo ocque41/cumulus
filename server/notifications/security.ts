@@ -1,12 +1,12 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import type { PublishablePost } from "./types.js";
 
-const TOKEN_VERSION = "v1";
-const TOKEN_DOMAIN = "cumulus:blog-unsubscribe";
-const MAXIMUM_TOKEN_LENGTH = 512;
-const HMAC_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TOKEN_VERSION = "v2";
+const TOKEN_DOMAIN = "cumulus:notification-access";
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]+$/;
+const MAXIMUM_TOKEN_LENGTH = 1024;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export type NotificationTokenPurpose = "magic" | "session";
 
 function digest(value: string): Buffer {
   return createHash("sha256").update(value, "utf8").digest();
@@ -26,56 +26,84 @@ export function verifyBearerAuthorization(
   return Boolean(match) && matches;
 }
 
-function tokenMessage(userId: string, expiresAt: number): string {
-  return `${TOKEN_DOMAIN}:${TOKEN_VERSION}:${userId}:${expiresAt}`;
+export function normalizeNotificationEmail(value: string): string | null {
+  const email = value.trim().toLowerCase();
+  const bytes = new TextEncoder().encode(email).byteLength;
+  if (
+    bytes < 3
+    || bytes > 254
+    || /[\r\n\0]/.test(email)
+    || !EMAIL_PATTERN.test(email)
+  ) {
+    return null;
+  }
+  return email;
+}
+
+function tokenMessage(
+  purpose: NotificationTokenPurpose,
+  expiresAt: number,
+  encodedEmail: string,
+): string {
+  return [TOKEN_DOMAIN, TOKEN_VERSION, purpose, expiresAt, encodedEmail].join(":");
 }
 
 function tokenSignature(
-  userId: string,
+  purpose: NotificationTokenPurpose,
   expiresAt: number,
+  encodedEmail: string,
   secret: string,
 ): string {
   return createHmac("sha256", secret)
-    .update(tokenMessage(userId, expiresAt), "utf8")
+    .update(tokenMessage(purpose, expiresAt, encodedEmail), "utf8")
     .digest("base64url");
 }
 
-export function createUnsubscribeToken(input: {
-  userId: string;
+export function createNotificationToken(input: {
+  purpose: NotificationTokenPurpose;
+  email: string;
   expiresAt: Date;
   secret: string;
 }): string {
-  if (!UUID_PATTERN.test(input.userId)) throw new Error("invalid_user_id");
-  if (!input.secret) throw new Error("missing_unsubscribe_secret");
+  const email = normalizeNotificationEmail(input.email);
+  if (!email) throw new Error("invalid_email");
+  if (!input.secret) throw new Error("missing_notification_secret");
   const expiresAt = Math.floor(input.expiresAt.getTime() / 1000);
   if (!Number.isSafeInteger(expiresAt) || expiresAt <= 0) {
     throw new Error("invalid_expiry");
   }
-  const signature = tokenSignature(input.userId, expiresAt, input.secret);
-  return `${TOKEN_VERSION}.${input.userId}.${expiresAt}.${signature}`;
+  const encodedEmail = Buffer.from(email, "utf8").toString("base64url");
+  const signature = tokenSignature(
+    input.purpose,
+    expiresAt,
+    encodedEmail,
+    input.secret,
+  );
+  return [TOKEN_VERSION, input.purpose, expiresAt, encodedEmail, signature].join(".");
 }
 
-export type UnsubscribeTokenResult =
-  | { valid: true; userId: string; expiresAt: Date }
+export type NotificationTokenResult =
+  | { valid: true; email: string; expiresAt: Date }
   | { valid: false; reason: "invalid" | "expired" };
 
-export function verifyUnsubscribeToken(input: {
+export function verifyNotificationToken(input: {
   token: string;
+  purpose: NotificationTokenPurpose;
   secret: string;
   now: Date;
-}): UnsubscribeTokenResult {
-  if (input.token.length > MAXIMUM_TOKEN_LENGTH) {
+}): NotificationTokenResult {
+  if (!input.secret || input.token.length > MAXIMUM_TOKEN_LENGTH) {
     return { valid: false, reason: "invalid" };
   }
   const parts = input.token.split(".");
-  if (parts.length !== 4 || parts[0] !== TOKEN_VERSION || !input.secret) {
-    return { valid: false, reason: "invalid" };
-  }
-  const [, userId, expiresAtText, suppliedSignature] = parts;
+  if (parts.length !== 5) return { valid: false, reason: "invalid" };
+  const [version, purpose, expiresAtText, encodedEmail, suppliedSignature] = parts;
   if (
-    !UUID_PATTERN.test(userId)
+    version !== TOKEN_VERSION
+    || purpose !== input.purpose
     || !/^\d{1,12}$/.test(expiresAtText)
-    || !HMAC_BASE64URL_PATTERN.test(suppliedSignature)
+    || !TOKEN_PATTERN.test(encodedEmail)
+    || !/^[A-Za-z0-9_-]{43}$/.test(suppliedSignature)
   ) {
     return { valid: false, reason: "invalid" };
   }
@@ -83,53 +111,51 @@ export function verifyUnsubscribeToken(input: {
   if (!Number.isSafeInteger(expiresAt)) {
     return { valid: false, reason: "invalid" };
   }
-  const expectedSignature = tokenSignature(userId, expiresAt, input.secret);
+  const expectedSignature = tokenSignature(
+    input.purpose,
+    expiresAt,
+    encodedEmail,
+    input.secret,
+  );
   if (!constantTimeEqual(suppliedSignature, expectedSignature)) {
     return { valid: false, reason: "invalid" };
   }
   if (expiresAt <= Math.floor(input.now.getTime() / 1000)) {
     return { valid: false, reason: "expired" };
   }
-  return { valid: true, userId, expiresAt: new Date(expiresAt * 1000) };
+  let email: string;
+  try {
+    email = Buffer.from(encodedEmail, "base64url").toString("utf8");
+  } catch {
+    return { valid: false, reason: "invalid" };
+  }
+  const normalizedEmail = normalizeNotificationEmail(email);
+  if (!normalizedEmail || normalizedEmail !== email) {
+    return { valid: false, reason: "invalid" };
+  }
+  return {
+    valid: true,
+    email,
+    expiresAt: new Date(expiresAt * 1000),
+  };
 }
 
-export function deliveryIdempotencyKey(
-  postSlug: string,
-  userId: string,
+export function magicLinkIdempotencyKey(
+  email: string,
+  windowStartSeconds: number,
 ): string {
   const hash = createHash("sha256")
-    .update(`${postSlug}\0${userId}`, "utf8")
+    .update(`${email}\0${windowStartSeconds}`, "utf8")
     .digest("hex");
-  return `blog-notification-${hash}`;
+  return `cumulus-magic-${hash}`;
 }
 
-export function hashDeliveryPayloadIdentity(input: {
-  post: PublishablePost;
-  recipientEmail: string;
-  senderIdentity: string;
-  siteOrigin: string;
-  postalAddress: string;
-  unsubscribeSecret: string;
-}): string {
-  const unsubscribeKeyFingerprint = createHash("sha256")
-    .update(input.unsubscribeSecret, "utf8")
-    .digest("hex");
-  return createHash("sha256")
-    .update(JSON.stringify([
-      "notification-email-template-v1",
-      input.post.slug,
-      input.post.title,
-      input.post.excerpt,
-      input.post.date,
-      input.recipientEmail,
-      input.senderIdentity,
-      input.siteOrigin,
-      input.postalAddress,
-      unsubscribeKeyFingerprint,
-    ]))
-    .digest("hex");
+export function broadcastIdempotencyKey(postSlug: string): string {
+  const hash = createHash("sha256").update(postSlug, "utf8").digest("hex");
+  return `cumulus-broadcast-${hash}`;
 }
 
-export function isUuid(value: string): boolean {
-  return UUID_PATTERN.test(value);
+export function hasSameOrigin(request: Request, siteOrigin: string): boolean {
+  const origin = request.headers.get("origin");
+  return origin !== null && constantTimeEqual(origin, siteOrigin);
 }

@@ -1,21 +1,20 @@
-import { readResendWebhookConfig } from "../../server/notifications/config.js";
-import { webhookJsonResponse } from "../../server/notifications/http.js";
+import { readNotificationPreferenceConfig } from "../../server/notifications/config.js";
+import { jsonResponse } from "../../server/notifications/http.js";
 import { consoleSafeLogger } from "../../server/notifications/logger.js";
-import { createResendWebhookHandler } from "../../server/notifications/resend-webhook.js";
+import { createPreferencesHandler } from "../../server/notifications/preferences.js";
 import { ResendNotificationProvider } from "../../server/notifications/resend.js";
 
 export default {
   async fetch(request: Request): Promise<Response> {
     let config;
     try {
-      config = readResendWebhookConfig(process.env);
+      config = readNotificationPreferenceConfig(process.env);
     } catch {
-      return webhookJsonResponse(
+      return jsonResponse(
         { ok: false, error: "notification_service_unavailable" },
         { status: 503 },
       );
     }
-
     const provider = new ResendNotificationProvider({
       apiKey: config.resendApiKey,
       fromEmail: config.fromEmail,
@@ -23,9 +22,10 @@ export default {
       segmentId: config.segmentId,
       topicId: config.topicId,
     });
-    return createResendWebhookHandler({
-      webhookSecret: config.webhookSecret,
+    return createPreferencesHandler({
       provider,
+      signingSecret: config.signingSecret,
+      siteOrigin: config.siteOrigin,
       logger: consoleSafeLogger,
     })(request);
   },

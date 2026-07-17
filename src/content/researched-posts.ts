@@ -165,38 +165,38 @@ export const RESEARCHED_POSTS = [
       {
         "heading": "“Send to everyone” is a distributed workflow",
         "paragraphs": [
-          "A new-post notification sounds like a loop: load subscribers and call an email API. That model fails as soon as two publish requests overlap, a serverless function approaches its time limit, or the provider accepts a message but the response disappears. Cumulus models delivery as a durable workflow. The database owns consent state and a per-post, per-reader delivery ledger; the server function owns a bounded slice of work; Resend owns submission and later delivery signals.",
-          "The public endpoint accepts only a bearer-authenticated POST with a strict slug-shaped body. It resolves that slug against published content instead of allowing an arbitrary title, recipient, or template to arrive over the network. A dry run discovers authoritative, confirmed recipients without claiming or sending anything. The real run returns only aggregate counters, never addresses or user IDs."
+          "A new-post notification sounds like a loop: load subscribers and call an email API. Cumulus deliberately narrows that workflow around Resend's own durable primitives. A Contact holds the address, a dedicated Segment defines the Cumulus audience, an opt-out-by-default Topic records consent, and a named Broadcast owns one publication. Vercel functions provide the access and publication boundary without introducing a second subscriber database.",
+          "The public endpoint accepts only a bearer-authenticated POST with a strict slug-shaped body. It resolves that slug against published content instead of allowing an arbitrary title, recipient, or template to arrive over the network. A dry run validates the Resend Segment and Topic without creating or sending a Broadcast. Responses return only publication status, never addresses or Contact IDs."
         ]
       },
       {
         "heading": "Claim before contacting the provider",
         "paragraphs": [
-          "For every eligible subscription, the dispatcher derives a stable idempotency key from the post slug and user ID. It also hashes the complete payload identity: post fields, recipient, sender, origin, postal address, unsubscribe secret fingerprint, and template version. A database function atomically claims the unique post/user delivery row and returns a lease token.",
-          "Concurrent workers therefore cannot both own the same submission. A repeated request sees sent, in_progress, or retry_later and skips or defers safely. If the content hash changes during a retry sequence, the claim returns content_mismatch instead of silently sending two versions under one idempotency key. Immediately before sending, another database transition checks that consent is still active and marks the provider attempt as started.",
-          "This is not mathematically perfect exactly-once delivery—the network cannot provide that guarantee by itself. It is a practical at-most-one provider-start design backed by a database lease and the provider’s idempotency header. If the provider accepts a message and the process dies before finalization, reconciliation still matters."
+          "Every post maps to a deterministic Broadcast name and an idempotency key derived from its immutable slug. Before creating anything, the function searches existing Broadcasts. If it finds one, it loads the full provider record and compares Segment, Topic, sender, subject, HTML, and text. A mismatch is a hard conflict rather than permission to overwrite history.",
+          "Concurrent invocations therefore converge on one provider resource. Resend's idempotency header covers the create race, while the deterministic lookup recovers when a provider response is lost. A matching draft may be sent; a matching queued or sent Broadcast becomes an already-sent result. An idempotency payload conflict is never treated as success.",
+          "This is not a mathematical exactly-once claim. It is a deliberately small delivery identity whose durable state lives with the delivery provider. That removes cross-system reconciliation between a subscriber database and Resend while preserving an inspectable conflict boundary."
         ]
       },
       {
         "heading": "Bound the serverless invocation",
         "paragraphs": [
-          "The dispatcher caps one invocation at 40 provider attempts and a 50-second internal budget. Discovery gets its own timeout, and a new claim begins only if enough time remains for provider work and the final database write. A durable singleton dispatch gate spaces provider starts by 550 milliseconds across concurrent invocations.",
-          "When work remains, the endpoint responds 202 with hasMore, incomplete, and a Retry-After value. An authorized operator or private dispatcher repeats the same request until a complete 200 arrives. This avoids pretending one request can fan out forever. The tradeoff is operational: publication needs a retrying caller, and changing configuration midway through the sequence intentionally fails closed.",
-          "Provider failures are classified. Network errors, selected HTTP statuses, and ordinary rate limits become retryable with bounded delay. Invalid idempotency and quota-exhaustion conditions are terminal. Provider response bodies are size-capped and reduced to machine codes; the delivery ledger never becomes a dump of personal or upstream data."
+          "The Vercel function does not fan out to Contacts itself. It creates one Resend Broadcast targeted to the dedicated Segment and Topic, then asks Resend to send that draft. The provider owns audience expansion, unsubscribe headers, and delivery pacing. This keeps serverless runtime proportional to one control-plane operation rather than subscriber count.",
+          "Resource checks happen before dry runs and sends. The Topic must exist and default to opt-out, which prevents a newly created Contact or topic association from becoming consent by accident. Provider identifiers remain deployment configuration, so a fork cannot inherit the live audience from Git.",
+          "Network and provider failures return a retryable service response without exposing provider payloads. Invalid resource state and content conflicts fail closed. Operational tooling can safely retry the same slug because it reuses the same Broadcast identity rather than constructing another recipient loop."
         ]
       },
       {
         "heading": "Unsubscribe and provider feedback close the loop",
         "paragraphs": [
-          "Every message carries both a browser unsubscribe URL and standards-based one-click headers. The browser token lives in the URL fragment so it is not sent in the initial page request; the one-click endpoint uses a query token because mail clients need a direct HTTPS target. Tokens are HMAC-signed, versioned, scoped to a user ID and expiry, and compared with constant-time digests.",
-          "Resend webhooks are verified with Svix against the unmodified raw body. Only bounced, complained, and suppressed events tagged for the blog are processed. The handler maps the provider message ID to a completed delivery, re-reads the current authoritative address, records the event ID for replay protection, and suppresses only when the signed recipient still matches. Unknown tagged deliveries return a retryable 503 so a database/provider race is not silently acknowledged."
+          "Every Broadcast includes Resend's standards-based unsubscribe URL. Readers manage consent through a notification-only magic link whose token lives in the URL fragment, then a signed HttpOnly session cookie. The session grants no profile or publishing capability. Preference changes update only the dedicated Cumulus Topic.",
+          "Resend webhooks are verified with Svix against the unmodified raw body. Only bounced, complained, and suppressed events are processed. The handler normalizes unique recipients, verifies that each Contact belongs to the Cumulus Segment, and opts out only the Cumulus Topic. Outlook and unrelated Contact state stay outside this flow."
         ]
       },
       {
         "heading": "The cost of correctness is explicit state",
         "paragraphs": [
-          "Leases, retries, payload fingerprints, suppression events, and dispatch gates add more schema and tests than a mail loop. They also make every ambiguous condition visible. The system can answer whether work was claimed, sent, deferred, retried, rejected as conflicting, or suppressed—and can do so without copying addresses into public tables.",
-          "The remaining limits are operational. Sender verification, truthful postal configuration, webhook registration, retention policy, and monitoring cannot be proven by repository code. The architecture provides safe contracts; production still requires provider configuration and a retrying publication operator."
+          "Named Broadcasts, exact content comparison, topic consent, and suppression handling make ambiguous conditions visible without adding an application subscriber database. The system can answer whether a publication was validated, created, already sent, rejected as conflicting, or suppressed through the same provider control plane.",
+          "The remaining limits are operational. Sender verification, truthful postal configuration, webhook registration, retention policy, and monitoring cannot be proven by repository code. The architecture provides safe contracts; production still requires provider configuration and a retrying publication operator. A controlled lifecycle must also demonstrate magic-link receipt, deliberate opt-in, one Broadcast receipt, provider unsubscribe, and later suppression before anyone calls the system complete."
         ]
       }
     ],
@@ -207,7 +207,7 @@ export const RESEARCHED_POSTS = [
       },
       {
         "label": "Public cumulus source 2",
-        "href": "https://github.com/ocque41/cumulus/blob/ec98f05dece09b3a4ed48468f90a24639b3e848b/supabase/migrations/20260716000000_blog_notifications.sql"
+        "href": "https://github.com/ocque41/cumulus/blob/ec98f05dece09b3a4ed48468f90a24639b3e848b/server/notifications/resend.ts"
       },
       {
         "label": "Public cumulus source 3",
@@ -245,13 +245,13 @@ export const RESEARCHED_POSTS = [
         "heading": "Open source should not mean operational exposure",
         "paragraphs": [
           "A public web application is most useful when the repository contains enough to understand, run, test, and adapt the product. Production, however, necessarily includes values and records that should never be forkable: credentials, subscriber data, provider dashboards, incident notes, and domain-control details. Cumulus defines this as a public application plus a private production overlay, not as a public demo hiding a second secret codebase.",
-          "The public side includes the React/Vite interface, server-function contracts, tests, additive database migrations, placeholder environment examples, self-hosting documentation, and third-party license notices. The private side holds real Vercel, Supabase, and Resend values; live reader records; verified sender state; delivery events; internal operator tooling; and production runbooks. Shared behavior stays reviewable. Live authority stays out of Git."
+          "The public side includes the React/Vite interface, server-function contracts, tests, placeholder environment examples, self-hosting documentation, and third-party license notices. The private side holds real Vercel and Resend values; live Contact records; verified sender state; delivery events; internal operator tooling; and production runbooks. Shared behavior stays reviewable. Live authority stays out of Git."
         ]
       },
       {
         "heading": "Environment names are an exposure model",
         "paragraphs": [
-          "The boundary is enforced first through naming. Three NEXT_PUBLIC_* compatibility variables are intentionally browser-visible: canonical site origin, Supabase URL, and the anonymous key governed by row-level security. Service credentials, provider keys, webhook secrets, publisher authorization, unsubscribe signing material, postal address, and optional GitHub token are server-only.",
+          "The boundary is enforced first through naming. Only the canonical site origin is intentionally browser-visible. Provider credentials and resource IDs, webhook secrets, publisher authorization, notification-session signing material, postal address, and optional GitHub token are server-only.",
           "That list is documented in the README, private-overlay guide, and environment template. Documentation matters because Vite can be configured to expose multiple prefixes; a variable is not safe merely because it lives in a deployment dashboard. The browser bundle is the real boundary. A release script scans built JavaScript, CSS, HTML, JSON, and maps for server-only identifiers, token patterns, and local absolute paths.",
           "The tradeoff is some duplication between docs, configuration, and scanning rules. That duplication is useful when it forms independent checks: a developer-facing contract, a deploy-time placement guide, and a mechanical release failure."
         ]
@@ -267,8 +267,8 @@ export const RESEARCHED_POSTS = [
       {
         "heading": "A release is a sequence of independent proofs",
         "paragraphs": [
-          "The public release checklist separates local correctness from external state. Lint, type checking, unit tests, dependency audit, security scanning, license checks, build, and end-to-end tests prove properties of a candidate commit. They do not prove that a database migration ran, a sender domain is verified, a webhook is registered, or the intended deployment owns the live domain.",
-          "The recommended cutover therefore uses distinct gates: review additive SQL in non-production, configure preview variables, publish a branch only after approval, inspect the existing Vercel project, run synthetic end-to-end checks, approve the live migration separately, and then approve main replacement or promotion. Keeping the prior deployment available provides an explicit rollback target.",
+          "The public release checklist separates local correctness from external state. Lint, type checking, unit tests, dependency audit, security scanning, license checks, build, and end-to-end tests prove properties of a candidate commit. They do not prove that a sender domain is verified, a webhook is registered, a Segment or Topic has the intended policy, or the intended deployment owns the live domain.",
+          "The recommended cutover therefore uses distinct gates: configure preview variables, inspect Resend resources, publish a branch only after approval, inspect the existing Vercel project, run synthetic end-to-end checks, and then approve main replacement or promotion. Keeping the prior deployment available provides an explicit rollback target.",
           "This process is slower than treating a green build as permission to deploy. It is also much clearer about what “ready” means. A repository can be release-ready while production wiring remains incomplete, and the handoff should say exactly that."
         ]
       },

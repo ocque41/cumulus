@@ -10,8 +10,7 @@ This repository defines the public application and its public-safe integration c
 
 - The existing Vercel project and `cumulush.com` domain were retained; no replacement project or domain was created, and no private provider identifiers are stored in Git.
 - `main` is the authorized production branch. The pre-redesign Git state remains preserved on an archive branch, and the two design branches remain reviewable.
-- The additive Supabase notification migrations have been applied and their tables, policies, and indexes inspected. This does not by itself prove a complete email lifecycle.
-- Resend is the delivery provider. Keys and provider-account details stay in the deployment control plane, not this repository.
+- Resend Contacts, a dedicated Segment, and an opt-out-by-default Topic are the notification preference store and delivery boundary. Keys and provider-account identifiers stay in the deployment control plane, not this repository.
 - Production notification publishing intentionally fails closed until `NOTIFICATION_POSTAL_ADDRESS` and `RESEND_WEBHOOK_SECRET` are configured and a controlled sign-in, receipt, unsubscribe, and suppression lifecycle is verified.
 
 See [Vercel cutover](docs/vercel-cutover.md) for the gate sequence and [private overlay](docs/private-overlay.md) for the public/private split.
@@ -22,8 +21,7 @@ The public execution record lives in the [planning index](planning/README.md). A
 
 - React 19
 - Vite 6
-- Supabase for subscriber state
-- Resend for new-post delivery
+- Resend for notification contacts, preferences, suppression, and new-post delivery
 - Vercel for the anticipated web and server-function deployment
 - Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9, supplied under SIL OFL 1.1
 
@@ -34,7 +32,6 @@ This is not a Next.js application. The `NEXT_PUBLIC_*` environment names are com
 Requirements:
 
 - Node.js 24 LTS and npm;
-- a Supabase project or local Supabase environment if testing persisted subscriptions;
 - a Resend test key only when testing delivery from a server environment.
 
 Install and start the browser application:
@@ -48,23 +45,20 @@ npm run dev
 Replace only the local placeholders you need. Never commit `.env.local`. Browser code may read only these intentionally public values:
 
 - `NEXT_PUBLIC_SITE_URL`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 The following values are server-only and must never be referenced through `import.meta.env` in client code:
 
-- `SUPABASE_SERVICE_ROLE_KEY`
 - `RESEND_API_KEY`
 - `RESEND_WEBHOOK_SECRET`
+- `RESEND_NOTIFICATION_SEGMENT_ID`
+- `RESEND_NOTIFICATION_TOPIC_ID`
 - `GITHUB_ACCESS_TOKEN`
 - `NOTIFICATION_FROM_EMAIL`
 - `NOTIFICATION_POSTAL_ADDRESS`
 - `NOTIFICATION_PUBLISH_SECRET`
 - `NOTIFICATION_UNSUBSCRIBE_SECRET`
 
-`NOTIFICATION_PUBLISH_SECRET` is the admin/publishing boundary for triggering a new-post send. Deployment credentials, such as Vercel or Supabase CLI tokens, are operator credentials rather than app runtime settings; keep them in the provider, an approved secret manager, or an authenticated CLI session, never in this repository.
-
-`SUPABASE_SERVICE_ROLE_KEY` is retained as a compatibility name. It accepts a current Supabase secret/server key or a legacy service-role JWT; the server adapter avoids sending current `sb_secret_` keys in an `Authorization` header.
+`NOTIFICATION_PUBLISH_SECRET` is the admin/publishing boundary for triggering a new-post send. `NOTIFICATION_UNSUBSCRIBE_SECRET` is retained as a compatibility name and signs notification-only magic links and HttpOnly sessions. Deployment credentials are operator credentials rather than app runtime settings; keep them in the provider, an approved secret manager, or an authenticated CLI session, never in this repository.
 
 `NOTIFICATION_POSTAL_ADDRESS` is private operational configuration, but it is rendered in every notification footer. Supply a truthful address that satisfies the operator's applicable email rules; the server fails closed when it is missing. Do not put a fabricated address in Production.
 
@@ -88,7 +82,7 @@ npm run license:check
 npm run test:e2e
 ```
 
-`npm run build` creates the browser bundle plus route-specific static HTML for the home page, public-work directory, notification-privacy page, archive, every published log, auth callback, unsubscribe page, and 404 response. It also emits `robots.txt` and `sitemap.xml`. `npm run test:e2e` may require a local server or an explicitly selected preview URL, depending on the test configuration. Do not point end-to-end tests that create subscriptions or send mail at production without approval and test-recipient safeguards.
+`npm run build` creates the browser bundle plus route-specific static HTML for the home page, public-work directory, notification-privacy page, archive, every published log, auth callback, and 404 response. It also emits `robots.txt` and `sitemap.xml`. `npm run test:e2e` may require a local server or an explicitly selected preview URL, depending on the test configuration. Do not point end-to-end tests that create contacts or send mail at production without approval and test-recipient safeguards.
 
 ## Production path
 
@@ -96,12 +90,11 @@ The production workflow is:
 
 1. Install exactly from the lockfile with `npm ci`.
 2. Run lint, type checking, unit tests, security scanning, license checks, and the production build.
-3. Review additive SQL under `supabase/migrations/` before applying any future migration.
-4. Configure public and server-only variables in the existing Vercel project; never store values in Git.
-5. Publish a candidate branch, inspect its Vercel deployment, and run end-to-end tests without real reader records.
-6. Merge the selected `request/cumulus-original` commit into `main` only with explicit publication approval.
-7. Verify the exact production deployment, direct-route refreshes, static metadata, sitemap, 404 behavior, and domain alias.
-8. Verify sign-in and one controlled Resend lifecycle only after the truthful postal address and webhook signing secret are present.
+3. Configure a dedicated Resend Segment and opt-out-by-default Topic, then set their IDs and all secrets directly in Vercel; never store values in Git.
+4. Publish a candidate branch, inspect its Vercel deployment, and run end-to-end tests with approved synthetic recipients.
+5. Merge the selected `request/cumulus-original` commit into `main` only with explicit publication approval.
+6. Verify the exact production deployment, direct-route refreshes, static metadata, sitemap, 404 behavior, and domain alias.
+7. Verify sign-in and one controlled Resend lifecycle only after the truthful postal address and webhook signing secret are present.
 
 Do not create a replacement Vercel project merely to deploy this branch. Retaining the same external Vercel project and Git integration is what preserves its project-level settings and domain association. Re-verify the existing project and domain immediately before cutover because a repository commit cannot prove current provider state.
 
