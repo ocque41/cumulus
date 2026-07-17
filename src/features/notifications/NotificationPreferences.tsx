@@ -10,12 +10,12 @@ import {
 export interface NotificationPreferencesProps {
   className?: string;
   onStatusChange?: (status: NotificationSubscriptionStatus) => void;
+  fetcher?: typeof fetch;
 }
 
 type PreferenceState = NotificationSubscriptionStatus | null;
 
 const statusCopy: Record<NotificationSubscriptionStatus, string> = {
-  pending: "Pending confirmation",
   active: "New-post notifications are on",
   unsubscribed: "New-post notifications are off",
 };
@@ -23,9 +23,9 @@ const statusCopy: Record<NotificationSubscriptionStatus, string> = {
 export function NotificationPreferences({
   className = "",
   onStatusChange,
+  fetcher = fetch,
 }: NotificationPreferencesProps) {
-  const { client, user, loading: authLoading, unavailableReason } = useAuth();
-  const userId = user?.id ?? null;
+  const { available, user, loading: authLoading, unavailableReason } = useAuth();
   const headingId = useId();
   const [status, setStatus] = useState<PreferenceState>(null);
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,7 @@ export function NotificationPreferences({
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (!client || !userId) {
+    if (!user) {
       setStatus(null);
       setLoading(false);
       return;
@@ -43,10 +43,10 @@ export function NotificationPreferences({
     setLoading(true);
     setMessage("");
 
-    void readNotificationSubscription(client, userId)
+    void readNotificationSubscription(fetcher)
       .then((subscription) => {
         if (active) {
-          setStatus(subscription?.status ?? null);
+          setStatus(subscription.status);
         }
       })
       .catch(() => {
@@ -65,11 +65,11 @@ export function NotificationPreferences({
     return () => {
       active = false;
     };
-  }, [client, userId]);
+  }, [fetcher, user]);
 
   const saveStatus = useCallback(
     async (nextStatus: NotificationSubscriptionStatus) => {
-      if (!client || !userId) {
+      if (!user) {
         setMessage("Sign in with your email link to change notifications.");
         return;
       }
@@ -78,11 +78,7 @@ export function NotificationPreferences({
       setMessage("");
 
       try {
-        const subscription = await upsertNotificationSubscription(
-          client,
-          userId,
-          nextStatus,
-        );
+        const subscription = await upsertNotificationSubscription(nextStatus, fetcher);
         setStatus(subscription.status);
         setMessage(statusCopy[subscription.status] + ".");
         onStatusChange?.(subscription.status);
@@ -94,7 +90,7 @@ export function NotificationPreferences({
         setSaving(false);
       }
     },
-    [client, onStatusChange, userId],
+    [fetcher, onStatusChange, user],
   );
 
   if (authLoading) {
@@ -107,7 +103,7 @@ export function NotificationPreferences({
     );
   }
 
-  if (!client) {
+  if (!available) {
     return (
       <section className={`auth-preferences ${className}`.trim()}>
         <h3 className="auth-preferences-title">New-post notifications</h3>
@@ -136,9 +132,7 @@ export function NotificationPreferences({
   const buttonLabel =
     status === "active"
       ? "Turn off notifications"
-      : status === "pending"
-        ? "Confirm notifications"
-        : "Turn on notifications";
+      : "Turn on notifications";
 
   return (
     <section

@@ -12,7 +12,7 @@ assert.equal(
 );
 
 const headersBySource = new Map(config.headers.map((entry) => [entry.source, entry.headers]));
-for (const source of ["/auth/callback", "/unsubscribe"]) {
+for (const source of ["/auth/callback"]) {
   const headers = new Map(headersBySource.get(source)?.map(({ key, value }) => [key, value]));
   assert.equal(headers.get("Cache-Control"), "private, no-store, max-age=0");
   assert.equal(headers.get("Referrer-Policy"), "no-referrer");

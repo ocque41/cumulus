@@ -5,6 +5,7 @@ import { useAuth } from "./AuthContext";
 
 export interface AuthCallbackPageProps {
   onComplete?: () => void;
+  fetcher?: typeof fetch;
 }
 
 type CallbackState =
@@ -24,102 +25,57 @@ const callbackTitles: Record<CallbackState, string> = {
   unavailable: "Link not confirmed",
 };
 
-interface CallbackCredentials {
-  code: string | null;
-  hasError: boolean;
-}
-
-function captureCallbackCredentials(): CallbackCredentials {
-  const params = new URLSearchParams(window.location.search);
-  const credentials = {
-    code: params.get("code"),
-    hasError: params.has("error") || params.has("error_description"),
-  };
-
+function captureMagicToken(): string {
+  const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const token = fragment.get("token")?.trim() ?? "";
   if (window.location.search || window.location.hash) {
     window.history.replaceState({}, "", window.location.pathname);
   }
-
-  return credentials;
+  return token;
 }
 
-export function AuthCallbackPage({ onComplete }: AuthCallbackPageProps) {
-  const { client, unavailableReason } = useAuth();
-  const [credentials] = useState(captureCallbackCredentials);
+export function AuthCallbackPage({
+  onComplete,
+  fetcher = fetch,
+}: AuthCallbackPageProps) {
+  const { available, exchangeMagicLink, unavailableReason } = useAuth();
+  const [token] = useState(captureMagicToken);
   const [state, setState] = useState<CallbackState>(
-    client ? "pending" : "unavailable",
+    !available ? "unavailable" : token && token.length <= 1024 ? "pending" : "error",
   );
   const [message, setMessage] = useState(
-    client
-      ? "Confirming your email sign-in link…"
-      : unavailableReason ??
-          "Notification sign-in is not configured for this deployment.",
+    !available
+      ? unavailableReason ?? "Notification access is unavailable."
+      : token && token.length <= 1024
+      ? "Confirming your email link…"
+      : "This email link is incomplete. Request a new link from the logs page.",
   );
-  const [userId, setUserId] = useState<string | null>(null);
   const started = useRef(false);
 
   useEffect(() => {
-    if (!client || started.current) {
-      return;
-    }
+    if (!available || !token || token.length > 1024 || started.current) return;
     started.current = true;
-
-    const finishCallback = async () => {
-      if (credentials.hasError) {
+    void exchangeMagicLink(token).then((result) => {
+      if (!result.ok) {
         setState("error");
-        setMessage(
-          "This sign-in link is invalid or has expired. Request a new link from the logs page.",
-        );
+        setMessage(result.message);
         return;
       }
-
-      const { code } = credentials;
-      if (!code) {
-        setState("error");
-        setMessage(
-          "This sign-in link is incomplete. Request a new link from the logs page.",
-        );
-        return;
-      }
-
-      try {
-        const { data, error } = await client.auth.exchangeCodeForSession(code);
-
-        if (error || !data.session?.user) {
-          setState("error");
-          setMessage(
-            "This sign-in link is invalid or has expired. Request a new link from the logs page.",
-          );
-          return;
-        }
-
-        setUserId(data.session.user.id);
-        setState("ready");
-        setMessage(
-          "Your email is confirmed. Notifications are still off until you choose to turn them on.",
-        );
-      } catch {
-        setState("error");
-        setMessage(
-          "Cumulus could not finish notification sign-in. Request a new link or try again later.",
-        );
-      }
-    };
-
-    void finishCallback();
-  }, [client, credentials]);
+      setState("ready");
+      setMessage(
+        "Your email is confirmed. Notifications are still off until you choose to turn them on.",
+      );
+    });
+  }, [available, exchangeMagicLink, token]);
 
   const activateNotifications = async () => {
-    if (!client || !userId || state !== "ready") {
-      return;
-    }
-
+    if (state !== "ready") return;
     setState("saving");
-    setMessage("Turning on new-post notifications…");
+    setMessage("Turning on new-log notifications…");
     try {
-      await upsertNotificationSubscription(client, userId, "active");
+      await upsertNotificationSubscription("active", fetcher);
       setState("success");
-      setMessage("New-post notifications are on.");
+      setMessage("New-log notifications are on.");
       onComplete?.();
     } catch {
       setState("ready");
@@ -149,14 +105,12 @@ export function AuthCallbackPage({ onComplete }: AuthCallbackPageProps) {
           ) : state === "error" || state === "unavailable" ? (
             <span aria-hidden="true" className="ui-glyph ui-glyph--status">!</span>
           ) : null}
-          <p role="status" aria-live="polite">
-            {message}
-          </p>
+          <p role="status" aria-live="polite">{message}</p>
         </div>
 
         <p className="auth-copy">
-          Signing in only manages optional new-post email. Every Cumulus log is
-          public with or without an account session.
+          This session only manages optional new-log email through Resend.
+          Every Cumulus log remains public without signing in.
         </p>
         {state === "ready" || state === "saving" ? (
           <button
@@ -167,7 +121,7 @@ export function AuthCallbackPage({ onComplete }: AuthCallbackPageProps) {
           >
             {state === "saving"
               ? "Turning notifications on…"
-              : "Turn on new-post notifications"}
+              : "Turn on new-log notifications"}
           </button>
         ) : null}
         <a className="button-secondary auth-return" href="/">

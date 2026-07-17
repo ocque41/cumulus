@@ -1,104 +1,51 @@
 # New-post notifications
 
-Cumulus uses reader identity only to manage new-post email notifications. Any sign-up, sign-in, or login language in the interface refers to notification preferences; it does not create a public profile, content account, social identity, or publishing role.
+Cumulus uses email identity only to manage optional new-log notifications. It does not create profiles, social identities, or publishing accounts.
 
 ## Reader promise
 
-Before collecting an address, the interface must plainly say:
+Before requesting a magic link, the interface states that the address is used for new-log notifications, every broadcast includes an unsubscribe path, and reading remains public. The reader must explicitly accept this disclosure. Addresses are normalized to lowercase and never written to application logs.
 
-- the address is used to notify the reader when a new log is published;
-- messages include an unsubscribe path;
-- subscribing is optional and is not required to read public logs;
-- the privacy or contact information appropriate to the operator's jurisdiction is available.
+## Resend data model
 
-The form must require an explicit submission. Do not use pre-checked consent, subscription bundled with an unrelated action, scraped addresses, purchased lists, or an address inferred from another account.
+Resend is the sole notification system of record:
 
-## Subscription behavior
+- a Contact holds the email address;
+- a dedicated Segment limits all Cumulus operations to Cumulus readers;
+- a dedicated Topic records `opt_in` or `opt_out` and must default to `opt_out`;
+- Broadcasts target both the Segment and Topic;
+- Resend suppression events turn the Cumulus Topic off only for Contacts in the Cumulus Segment.
 
-The server should normalize an address consistently, validate it conservatively, and rely on a database uniqueness constraint as the final concurrency boundary. Never use a browser-only duplicate check as proof of uniqueness.
+The Segment and Topic IDs are private deployment configuration. Cumulus checks both resources before a publication. A missing resource or a Topic that defaults to opt-in fails closed.
 
-A repeated request for the same active address is idempotent: it returns a neutral success response without adding another active subscription. A previously unsubscribed address may be reactivated only after a new explicit opt-in and a new consent timestamp.
+## Notification access
 
-Keep the address authoritative in Supabase Auth. The public notification tables store only the Auth user ID, state, consent timestamp/version, and minimal delivery/idempotency metadata; they do not copy the address or provider payload. Do not add profile or behavioral fields by convenience.
+`POST /api/notifications/sign-in` sends a 30-minute, purpose-bound signed link through Resend. The token is placed in the URL fragment so it is not sent in the callback request or access logs. `POST /api/notifications/session` exchanges it for a 30-day signed `HttpOnly`, `SameSite=Lax`, secure cookie. That cookie grants only notification-preference access. State-changing requests require the canonical browser origin. Signing out clears the cookie but does not change consent.
 
-Responses should not make address enumeration easy. Rate-limit by appropriate privacy-preserving request signals and record abuse without logging raw secrets or unnecessary personal data.
+`GET /api/notifications/preferences` reads the Contact's Segment and Topic state. `PUT` activates or deactivates only the Cumulus Topic. Reactivation requires an authenticated, explicit reader action. Repeated actions are safe.
 
-## Preference access and unsubscribe
+## Publication and unsubscribe
 
-Preference access should use a scoped, expiring or revocable signed link rather than a reusable content-account password. The link grants only the ability to view or change that address's notification preference.
+`POST /api/notifications/publish` requires `NOTIFICATION_PUBLISH_SECRET`. It builds a deterministic Broadcast name and idempotency key from the immutable post slug, checks for an existing exact-content Broadcast, and refuses content conflicts. Resend Broadcasts supply the standards-based unsubscribe URL. Both HTML and text include the truthful configured postal address.
 
-Every notification must include an understandable unsubscribe action. The token is signed server-side with `NOTIFICATION_UNSUBSCRIBE_SECRET`; the secret and raw token must not appear in application logs or browser bundles.
-
-Unsubscribe must:
-
-1. validate the token and its intended address/scope;
-2. change the subscription to an inactive or unsubscribed state;
-3. be safe to repeat;
-4. prevent new sends and queued retry attempts;
-5. show a neutral result without exposing other subscriber data.
-
-Automated email scanners may follow links. Prefer a confirmation page plus a deliberate POST for the human-facing action, and implement standards-based one-click unsubscribe separately if the delivery provider and applicable requirements call for it.
-
-## Publishing and delivery
-
-Only a server-side publisher may trigger delivery. The publish action requires `NOTIFICATION_PUBLISH_SECRET` and must use constant-time secret comparison where the runtime permits. Never put the secret in `NEXT_PUBLIC_*`, a client request embedded in the page, a URL query, or a log.
-
-Each publication event needs a stable idempotency key, for example a durable post identifier plus the notification revision. The system must persist the event and enforce at most one delivery record per event and subscriber. A network timeout or Resend retry must reuse the same key instead of creating a new event.
-
-Before each send or retry:
-
-- confirm the subscription is still active;
-- claim or read the unique event/subscriber delivery record atomically;
-- send through Resend with `RESEND_API_KEY` and `NOTIFICATION_FROM_EMAIL` on the server;
-- include the configured `NOTIFICATION_POSTAL_ADDRESS` in both HTML and text footers;
-- store the provider message ID and minimal status needed for operations;
-- never log the API key, publish secret, unsubscribe signing secret, or a full recipient list.
-
-Handle partial failure explicitly. A provider timeout is an unknown result until reconciled; do not blindly resend. Bounces and complaints must suppress future sends according to provider guidance and the operator's policy.
-
-Every Cumulus delivery is tagged `category=cumulus_blog_notification`. The Resend webhook at `/api/notifications/resend-webhook` accepts only `email.bounced`, `email.complained`, and `email.suppressed` for that tag. It verifies the Svix signature against the unmodified raw request body before parsing or processing data, then:
-
-1. maps the provider message ID to a completed Cumulus delivery;
-2. compares the signed recipient with the current authoritative Supabase Auth address;
-3. records the provider event ID in a server-only replay ledger;
-4. atomically unsubscribes a matching subscriber and cancels queued work that has not started at the provider.
-
-The raw provider payload and recipient address are never written to the public schema or application logs. A valid event for another tag is acknowledged and ignored. A tagged event whose delivery row is not visible yet returns a retryable error so a provider race cannot become a silent loss. A verified event for a delivery whose current Auth address differs is recorded as ignored rather than suppressing a newly changed address.
-
-The publish endpoint is a bounded dispatcher, not a single unbounded fanout request. It reserves globally paced provider slots, makes at most 40 provider attempts, and stops early when its 50-second internal runtime budget cannot safely contain another provider attempt and final database write. An HTTP `202` response with `hasMore: true` and `incomplete: true` means an authorized operator or private dispatcher must wait for the `Retry-After` interval and repeat the same bearer-authenticated publish request. Continue until the endpoint returns HTTP `200` with both fields false. The ledger and Resend idempotency key make repeated calls safe. Do not change the post, recipient, sender, origin, template, postal address, or unsubscribe signing key during an incomplete retry sequence; the persisted payload fingerprint fails closed if that identity changes.
+The authenticated Resend webhook accepts only bounced, complained, and suppressed events. It verifies the Svix signature over the raw body, normalizes unique recipients, and opts the matching Cumulus Topic out. Unsupported events are acknowledged and ignored; provider failures return a retryable error.
 
 ## Environment contract
 
 | Variable | Purpose | Exposure |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | Canonical public origin used in reader-facing links | Browser-visible |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project endpoint | Browser-visible |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public row-level-security credential | Browser-visible |
-| `SUPABASE_SERVICE_ROLE_KEY` | Compatibility name for a current Supabase secret/server key or legacy service-role JWT | Server-only |
-| `RESEND_API_KEY` | Delivery provider authorization | Server-only |
-| `RESEND_WEBHOOK_SECRET` | Svix signing secret for authenticated Resend event verification | Server-only secret |
-| `NOTIFICATION_FROM_EMAIL` | Verified sender identity | Server-only configuration |
-| `NOTIFICATION_POSTAL_ADDRESS` | Truthful sender postal address rendered in each message | Server-only configuration |
-| `NOTIFICATION_PUBLISH_SECRET` | Privileged publication authorization | Server-only secret |
-| `NOTIFICATION_UNSUBSCRIBE_SECRET` | Unsubscribe token signing | Server-only secret |
+| `NEXT_PUBLIC_SITE_URL` | Canonical origin | Browser-visible |
+| `RESEND_API_KEY` | Contacts, Topics, Broadcasts, and email API | Server-only secret |
+| `RESEND_WEBHOOK_SECRET` | Resend webhook verification | Server-only secret |
+| `RESEND_NOTIFICATION_SEGMENT_ID` | Dedicated reader Segment | Server-only configuration |
+| `RESEND_NOTIFICATION_TOPIC_ID` | Dedicated new-log Topic | Server-only configuration |
+| `NOTIFICATION_FROM_EMAIL` | Verified sender | Server-only configuration |
+| `NOTIFICATION_POSTAL_ADDRESS` | Truthful broadcast footer address | Server-only configuration |
+| `NOTIFICATION_PUBLISH_SECRET` | Publication authorization | Server-only secret |
+| `NOTIFICATION_UNSUBSCRIBE_SECRET` | Compatibility name for notification link/session signing | Server-only secret |
 
-Real values belong in the deployment provider or private overlay, never in Git. Preview and Production must use distinct secrets and, whenever possible, distinct Supabase and Resend resources.
+Real values belong in Resend and Vercel, never in Git. Preview and Production use independently scoped signing and publication secrets. Outlook is not part of this architecture and must not be changed to operate Cumulus.
 
-## Privacy and operations
+## Operations and assumptions
 
-- Publish the current retention/deletion behavior before accepting real addresses. The
-  reference UI does this at `/privacy` and does not promise an automatic expiry that the
-  current implementation cannot enforce.
-- Restrict service-role access to the notification server path.
-- Provide an identity-verified process for address deletion and correction. The public
-  contact is `hi@cumulush.com`; the private production overlay must cover Supabase Auth,
-  subscription/delivery rows, webhook replay rows, Resend records, and protected backups.
-- Back up only what is required and protect backups like the live subscriber store.
-- Monitor send volume, errors, bounces, complaints, and unusual publish attempts.
-- Configure the authenticated Resend webhook for `email.bounced`, `email.complained`, and `email.suppressed` before Production so provider suppressions stop future sends.
-- Test with synthetic addresses and approved recipients, not customer data.
-- Treat logs, suppression lists, and provider events as private production records.
-
-## Assumptions and legal gate
-
-This reference establishes explicit opt-in, one-click unsubscribe, authenticated suppression handling, and a fail-closed postal-address footer contract, but it does not claim that one consent flow satisfies every jurisdiction or sender-policy regime. Production remains gated on a truthful `NOTIFICATION_POSTAL_ADDRESS`, verified sender/domain, a configured webhook and signing secret, and operator review of confirmed/double opt-in, disclosures, and retention. Those real values and provider operations belong in the private production overlay.
+Monitor volume, errors, bounces, complaints, and unusual publish attempts in the providers. Use approved synthetic recipients for lifecycle tests. A verified deletion request to `hi@cumulush.com` must remove the Cumulus Contact where operational and legal requirements allow; provider retention and suppression obligations may preserve limited records. Production readiness requires a verified sender/domain, truthful postal address, configured webhook, and controlled sign-in, opt-in, receipt, unsubscribe, and suppression evidence.

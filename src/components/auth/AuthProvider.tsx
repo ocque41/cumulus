@@ -5,97 +5,103 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
-import { supabase, supabaseBrowserSetup } from "../../lib/supabase";
 import {
   AuthContext,
   type AuthActionResult,
   type AuthContextValue,
+  type NotificationUser,
 } from "./AuthContext";
 
 export interface AuthProviderProps {
   children: ReactNode;
-  client?: SupabaseClient | null;
-  callbackUrl?: string | null;
-  unavailableReason?: string | null;
+  fetcher?: typeof fetch;
+  signInEndpoint?: string;
+  sessionEndpoint?: string;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function normalizedEmail(value: string): string | null {
   const email = value.trim().toLowerCase();
-  if (!EMAIL_PATTERN.test(email)) {
+  return EMAIL_PATTERN.test(email) && email.length <= 254 ? email : null;
+}
+
+function parseUser(value: unknown): NotificationUser | null {
+  if (!value || typeof value !== "object") return null;
+  const email = (value as { email?: unknown }).email;
+  return typeof email === "string" && normalizedEmail(email) === email
+    ? { email }
+    : null;
+}
+
+async function readJson(response: Response): Promise<Record<string, unknown> | null> {
+  try {
+    const value: unknown = await response.json();
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null;
+  } catch {
     return null;
   }
-
-  return email;
 }
 
 export function AuthProvider({
   children,
-  client = supabase,
-  callbackUrl = supabaseBrowserSetup.callbackUrl,
-  unavailableReason = supabaseBrowserSetup.unavailableReason,
+  fetcher = fetch,
+  signInEndpoint = "/api/notifications/sign-in",
+  sessionEndpoint = "/api/notifications/session",
 }: AuthProviderProps) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(Boolean(client));
+  const [user, setUser] = useState<NotificationUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [available, setAvailable] = useState(true);
+  const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!client) {
-      return;
-    }
-
     let active = true;
-    const {
-      data: { subscription },
-    } = client.auth.onAuthStateChange((_event, nextSession) => {
-      if (active) {
-        setSession(nextSession);
-        setLoading(false);
-      }
-    });
-
-    void client.auth
-      .getSession()
-      .then(({ data }) => {
-        if (active) {
-          setSession(data.session);
-          setLoading(false);
+    void fetcher(sessionEndpoint, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (response) => {
+        const value = await readJson(response);
+        if (!active) return;
+        if (!response.ok || !value) {
+          setAvailable(false);
+          setUnavailableReason(
+            "Notification access is temporarily unavailable. The public logs remain available.",
+          );
+          setUser(null);
+          return;
         }
+        setAvailable(true);
+        setUnavailableReason(null);
+        setUser(parseUser(value.user));
       })
       .catch(() => {
-        if (active) {
-          setSession(null);
-          setLoading(false);
-        }
+        if (!active) return;
+        setAvailable(false);
+        setUnavailableReason(
+          "Notification access is temporarily unavailable. The public logs remain available.",
+        );
+        setUser(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
-
     return () => {
       active = false;
-      subscription.unsubscribe();
     };
-  }, [client]);
+  }, [fetcher, sessionEndpoint]);
 
   const requestMagicLink = useCallback(
     async (
       emailValue: string,
       notificationDisclosureAccepted: boolean,
     ): Promise<AuthActionResult> => {
-      if (!client || !callbackUrl) {
-        return {
-          ok: false,
-          message:
-            unavailableReason ??
-            "Notification sign-in is not configured for this deployment.",
-        };
-      }
-
       const email = normalizedEmail(emailValue);
-      if (!email) {
-        return { ok: false, message: "Enter a valid email address." };
-      }
-
+      if (!email) return { ok: false, message: "Enter a valid email address." };
       if (!notificationDisclosureAccepted) {
         return {
           ok: false,
@@ -103,59 +109,76 @@ export function AuthProvider({
             "Acknowledge the notification disclosure before requesting a sign-in link.",
         };
       }
-
       try {
-        const { error } = await client.auth.signInWithOtp({
-          email,
-          options: {
-            shouldCreateUser: true,
-            emailRedirectTo: callbackUrl,
+        const response = await fetcher(signInEndpoint, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
           },
+          body: JSON.stringify({ email, disclosureAccepted: true }),
         });
-
-        if (error) {
-          return {
-            ok: false,
-            message:
-              "Cumulus could not send a sign-in link. Please try again later.",
-          };
-        }
-
+        if (!response.ok) throw new Error("request_failed");
+        setAvailable(true);
+        setUnavailableReason(null);
         return {
           ok: true,
           message:
-            "Check your email for a sign-in link. The link opens a final notification confirmation step.",
+            "Check your email for a link. It opens a final confirmation step before notifications turn on.",
         };
       } catch {
         return {
           ok: false,
-          message:
-            "Cumulus could not send a sign-in link. Please try again later.",
+          message: "Cumulus could not send the email link. Please try again later.",
         };
       }
     },
-    [callbackUrl, client, unavailableReason],
+    [fetcher, signInEndpoint],
+  );
+
+  const exchangeMagicLink = useCallback(
+    async (token: string): Promise<AuthActionResult> => {
+      if (!token || token.length > 1024) {
+        return { ok: false, message: "This email link is incomplete or invalid." };
+      }
+      try {
+        const response = await fetcher(sessionEndpoint, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token }),
+        });
+        const value = await readJson(response);
+        const nextUser = parseUser(value?.user);
+        if (!response.ok || !nextUser) throw new Error("exchange_failed");
+        setUser(nextUser);
+        setAvailable(true);
+        setUnavailableReason(null);
+        return { ok: true, message: "Email confirmed." };
+      } catch {
+        return {
+          ok: false,
+          message:
+            "This email link is invalid or expired. Request a new link from the logs page.",
+        };
+      }
+    },
+    [fetcher, sessionEndpoint],
   );
 
   const signOut = useCallback(async (): Promise<AuthActionResult> => {
-    if (!client) {
-      return {
-        ok: false,
-        message:
-          unavailableReason ??
-          "Notification sign-in is not configured for this deployment.",
-      };
-    }
-
     try {
-      const { error } = await client.auth.signOut();
-      if (error) {
-        return {
-          ok: false,
-          message: "Cumulus could not sign out. Please try again.",
-        };
-      }
-
+      const response = await fetcher(sessionEndpoint, {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error("sign_out_failed");
+      setUser(null);
       return { ok: true, message: "Signed out." };
     } catch {
       return {
@@ -163,19 +186,27 @@ export function AuthProvider({
         message: "Cumulus could not sign out. Please try again.",
       };
     }
-  }, [client, unavailableReason]);
+  }, [fetcher, sessionEndpoint]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      client,
-      session: client ? session : null,
-      user: client ? (session?.user ?? null) : null,
-      loading: client ? loading : false,
-      unavailableReason: client ? null : unavailableReason,
+      user,
+      loading,
+      available,
+      unavailableReason,
       requestMagicLink,
+      exchangeMagicLink,
       signOut,
     }),
-    [client, loading, requestMagicLink, session, signOut, unavailableReason],
+    [
+      available,
+      exchangeMagicLink,
+      loading,
+      requestMagicLink,
+      signOut,
+      unavailableReason,
+      user,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

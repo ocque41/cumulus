@@ -69,17 +69,17 @@ Required evidence: the complete [design checklist](design-verification-checklist
 
 ## Phase 4 — complete notification-only identity and email
 
-Status: **code and database behavior are complete; live delivery remains gated**.
+Status: **Resend-only code is implemented; controlled live delivery remains gated**.
 
-1. Implement Supabase magic-link or OTP sign-in with the existing public callback path.
-2. Capture explicit new-post consent and store a versioned consent record protected by user-scoped RLS.
-3. Keep the service-role key, Resend key, publish secret, and unsubscribe signing secret on the server.
-4. Implement signed one-click unsubscribe, immediate suppression, normalized unique addresses, publication-event idempotency, retry leases, bounded attempts, and terminal failure records.
-5. Render accessible notification email with an absolute post URL and unsubscribe URL.
-6. Verify preview sending only to an allowlisted test recipient before any production send.
-7. Follow the [notification and Vercel gates](notification-vercel-safety-gates.md) for provider configuration and cutover.
+1. Send purpose-bound notification magic links through Resend and exchange them for signed HttpOnly sessions.
+2. Capture explicit new-post consent in a dedicated Resend Segment and opt-out-by-default Topic.
+3. Keep Resend credentials/resource IDs, publish secret, and notification-session signing secret on the server.
+4. Use deterministic Broadcast identity, exact content comparison, provider idempotency, unsubscribe URLs, and signed suppression webhooks.
+5. Render accessible notification email with absolute links and a truthful postal footer.
+6. Verify Preview with approved synthetic recipients before any production send.
+7. Follow the [notification and Vercel gates](notification-vercel-safety-gates.md) for provider configuration and cutover; leave Outlook untouched.
 
-Required evidence: database migration review, RLS tests, API tests, auth callback tests, retry/idempotency tests, sanitized preview delivery proof, unsubscribe walkthrough, and absence-of-secrets scans for source and browser output.
+Required evidence: API tests, auth callback tests, provider idempotency/resource tests, sanitized Preview delivery proof, unsubscribe walkthrough, signed suppression proof, and absence-of-secrets scans for source and browser output.
 
 ## Phase 5 — create the independently structured branch
 

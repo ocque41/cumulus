@@ -22,11 +22,10 @@ export function PrivacyPage() {
           <p className="eyebrow">01 / Data</p>
           <h2>What the notification flow handles</h2>
           <p>
-            Supabase Auth stores the confirmed email address and notification session.
-            Cumulus stores an opaque Auth user ID, consent version and time, subscription
-            state, and the minimal delivery, retry, unsubscribe, and suppression records
-            needed to send safely. It does not create a public profile or copy the address
-            into the public notification tables.
+            Resend stores the confirmed email contact, membership in the dedicated Cumulus
+            segment, topic preference, and the minimal delivery and suppression metadata
+            needed to send safely. Vercel issues a signed, notification-only browser session
+            in an HttpOnly cookie. Cumulus does not create a public profile.
           </p>
         </section>
 
@@ -35,9 +34,9 @@ export function PrivacyPage() {
           <h2>How it is used</h2>
           <p>
             The address is used only for sign-in links and notifications for newly
-            published Cumulus logs after explicit opt-in. Supabase provides authentication
-            and notification storage, Resend provides email delivery and suppression events,
-            and Vercel runs the public application and server functions. Cumulus does not
+            published Cumulus logs after explicit opt-in. Resend provides preference storage,
+            email delivery, and suppression events; Vercel runs the public application and
+            signed session functions. Cumulus does not
             sell the address or use it for advertising profiles.
           </p>
         </section>

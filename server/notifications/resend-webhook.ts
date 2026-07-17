@@ -1,19 +1,18 @@
 import { Webhook } from "svix";
+
 import {
   isRecord,
   readSmallText,
   RequestBodyError,
   webhookJsonResponse,
 } from "./http.js";
+import { normalizeNotificationEmail } from "./security.js";
 import type {
+  NotificationProvider,
   ProviderSuppressionEventType,
-  ProviderSuppressionStore,
   SafeLogger,
 } from "./types.js";
 
-const MAXIMUM_WEBHOOK_BYTES = 65_536;
-const PROVIDER_ID_PATTERN = /^[A-Za-z0-9_-]{1,255}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPPORTED_EVENT_TYPES = new Set<ProviderSuppressionEventType>([
   "email.bounced",
   "email.complained",
@@ -22,7 +21,7 @@ const SUPPORTED_EVENT_TYPES = new Set<ProviderSuppressionEventType>([
 
 interface ResendWebhookHandlerOptions {
   webhookSecret: string;
-  store: ProviderSuppressionStore;
+  provider: Pick<NotificationProvider, "suppressContact">;
   logger: SafeLogger;
   verify?: (
     payload: string,
@@ -37,10 +36,6 @@ function invalidWebhook(status = 400): Response {
   );
 }
 
-function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
-}
-
 export function createResendWebhookHandler(
   options: ResendWebhookHandlerOptions,
 ): (request: Request) => Promise<Response> {
@@ -48,131 +43,72 @@ export function createResendWebhookHandler(
     new Webhook(options.webhookSecret).verify(payload, headers)
   ));
 
-  return async (request: Request): Promise<Response> => {
+  return async (request) => {
     if (request.method !== "POST") {
       return webhookJsonResponse(
         { ok: false, error: "method_not_allowed" },
         { status: 405, headers: { Allow: "POST" } },
       );
     }
-
-    const providerEventId = request.headers.get("svix-id") ?? "";
-    const timestamp = request.headers.get("svix-timestamp") ?? "";
-    const signature = request.headers.get("svix-signature") ?? "";
-    if (
-      !PROVIDER_ID_PATTERN.test(providerEventId)
-      || !timestamp
-      || timestamp.length > 32
-      || !signature
-      || signature.length > 2048
-    ) {
+    const headers = {
+      "svix-id": request.headers.get("svix-id") ?? "",
+      "svix-timestamp": request.headers.get("svix-timestamp") ?? "",
+      "svix-signature": request.headers.get("svix-signature") ?? "",
+    };
+    if (Object.values(headers).some((value) => value.length < 1)) {
       return invalidWebhook();
     }
 
-    let rawBody: string;
+    let payload: string;
     try {
-      rawBody = await readSmallText(request, MAXIMUM_WEBHOOK_BYTES);
+      payload = await readSmallText(request, 65_536);
     } catch (error) {
-      if (error instanceof RequestBodyError) {
-        return invalidWebhook(error.status);
-      }
-      return invalidWebhook();
+      return invalidWebhook(error instanceof RequestBodyError ? error.status : 400);
     }
 
-    let verified: unknown;
+    let value: unknown;
     try {
-      verified = verifier(rawBody, {
-        "svix-id": providerEventId,
-        "svix-timestamp": timestamp,
-        "svix-signature": signature,
-      });
+      value = verifier(payload, headers);
     } catch {
-      options.logger.warn("notification_webhook_rejected", {
-        code: "invalid_signature",
-      });
       return invalidWebhook();
     }
-
-    if (!isRecord(verified) || typeof verified.type !== "string") {
+    if (!isRecord(value) || typeof value.type !== "string") {
       return invalidWebhook();
     }
-    if (!SUPPORTED_EVENT_TYPES.has(verified.type as ProviderSuppressionEventType)) {
+    if (!SUPPORTED_EVENT_TYPES.has(value.type as ProviderSuppressionEventType)) {
       return webhookJsonResponse({ ok: true, disposition: "ignored" });
     }
-
-    const eventType = verified.type as ProviderSuppressionEventType;
-    if (!isRecord(verified.data)) return invalidWebhook();
-    const tags = verified.data.tags;
-    if (
-      !isRecord(tags)
-      || tags.category !== "cumulus_blog_notification"
-    ) {
-      options.logger.info("notification_webhook_ignored", {
-        eventType,
-        disposition: "ignored",
-      });
-      return webhookJsonResponse({ ok: true, disposition: "ignored" });
+    if (!isRecord(value.data) || !Array.isArray(value.data.to)) {
+      return invalidWebhook();
     }
-
-    const providerMessageId = verified.data.email_id;
-    const recipients = verified.data.to;
-    if (
-      typeof providerMessageId !== "string"
-      || !PROVIDER_ID_PATTERN.test(providerMessageId)
-      || !Array.isArray(recipients)
-      || recipients.length !== 1
-      || typeof recipients[0] !== "string"
-      || recipients[0].length > 320
-      || !EMAIL_PATTERN.test(recipients[0])
-    ) {
+    const recipients = [...new Set(value.data.to.map((item) => (
+      typeof item === "string" ? normalizeNotificationEmail(item) : null
+    )))].filter((item): item is string => item !== null);
+    if (recipients.length < 1 || recipients.length > 10) {
       return invalidWebhook();
     }
 
     try {
-      const userId = await options.store.findDeliveryOwner(providerMessageId);
-      if (!userId) {
-        options.logger.warn("notification_webhook_deferred", {
-          eventType,
-          disposition: "unmatched",
-        });
-        return webhookJsonResponse(
-          { ok: false, error: "webhook_processing_deferred" },
-          { status: 503, headers: { "Retry-After": "30" } },
-        );
+      let suppressed = false;
+      for (const email of recipients) {
+        suppressed = (
+          await options.provider.suppressContact(email) === "suppressed"
+        ) || suppressed;
       }
-
-      const recipient = await options.store.getAuthoritativeRecipient(userId);
-      const recipientMatches = Boolean(
-        recipient
-        && normalizeEmail(recipient.email) === normalizeEmail(recipients[0]),
-      );
-      const disposition = await options.store.processProviderSuppressionEvent({
-        providerEventId,
-        providerMessageId,
-        eventType,
-        userId,
-        recipientMatches,
-      });
-      if (disposition === "unmatched") {
-        return webhookJsonResponse(
-          { ok: false, error: "webhook_processing_deferred" },
-          { status: 503, headers: { "Retry-After": "30" } },
-        );
-      }
-
-      options.logger.info("notification_webhook_processed", {
-        eventType,
+      const disposition = suppressed ? "suppressed" : "ignored";
+      options.logger.info("notification_webhook_complete", {
+        eventType: value.type as ProviderSuppressionEventType,
         disposition,
       });
       return webhookJsonResponse({ ok: true, disposition });
     } catch {
       options.logger.warn("notification_webhook_failed", {
-        eventType,
-        code: "provider_event_store_unavailable",
+        eventType: value.type as ProviderSuppressionEventType,
+        code: "notification_upstream_failure",
       });
       return webhookJsonResponse(
-        { ok: false, error: "notification_service_unavailable" },
-        { status: 503, headers: { "Retry-After": "30" } },
+        { ok: false, error: "webhook_processing_unavailable" },
+        { status: 503, headers: { "Retry-After": "60" } },
       );
     }
   };
