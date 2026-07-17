@@ -6,10 +6,10 @@ This record covers the Cumulus 0.0.8 selected and literal design branches. It co
 
 | Design | Branch and reviewed base | Result |
 | --- | --- | --- |
-| Selected original composition | `request/cumulus-original@1a8f0af`, deployed through `main` | Pass, followed by the text-reflow correction recorded in Git |
-| Literal reference composition | `request/jacquard-reference@c3c489c` | Pass, followed by the same text-reflow correction and a neutral graph-width correction recorded in Git |
+| Selected original composition | `request/cumulus-original@c3baf3d`, runtime-identical to `main@e1d0328` | Pass after a Node 24 clean install, complete release suite, and responsive browser suite |
+| Literal reference composition | `request/jacquard-reference@281fe37` | Pass after the same clean release suite plus the literal stylesheet's right-edge popover and mobile-fit checks |
 
-After shared-behavior reconciliation, a branch-tip comparison contained only `src/styles.css`. The variants therefore share routes, content, GitHub data contracts, authentication, notification behavior, accessibility code, static metadata, and tests while retaining independent visual compositions.
+After shared-behavior reconciliation, a runtime-tree comparison contains only `src/styles.css`. The selected runtime tree equals `main`; the literal variant preserves its reference composition while sharing routes, content, GitHub data contracts, authentication, notification behavior, privacy disclosure, accessibility code, static metadata, and tests.
 
 ## Rendered evidence
 
@@ -47,9 +47,10 @@ Local Vite preview does not serve Vercel Analytics and Speed Insights endpoints,
 ## Supporting automated evidence
 
 - Both branches: lint and dual TypeScript compilation pass.
-- Both branches: 142 unit and component tests pass across 18 files.
-- Both branches: production build emits 26 public static routes.
-- Both branches: desktop/mobile browser suite passes 9 tests; the single skip is the intentionally mobile-only assertion in the desktop project.
+- Both branches: 153 unit and component tests pass across 22 files.
+- Both branches: production build emits 28 public static routes.
+- Both branches: desktop/mobile browser suite passes 13 tests; the single skip is the intentionally mobile-only assertion in the desktop project, which passes in the mobile project.
+- Production: the same 13-test suite passes against `https://cumulush.com`, including `/work`, `/privacy`, all 24 articles, graph placement, filters, mobile fit, and the real 404 route.
 - Visual primitive tests cover WebGL rejection, static fallbacks, pixel ceilings, intersection pausing, reduced motion, and pointer-transparent Edge Blur layers.
 - Content and browser tests cover all 24 published articles, source sections, related links, direct routes, and the real not-found experience.
 - Dialog tests cover focus trapping, Escape, restored focus, consent, and visible error/status behavior.
