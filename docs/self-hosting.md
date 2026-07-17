@@ -20,3 +20,5 @@ The placeholder environment serves the public site but notification functions fa
 ## Publication
 
 Call `/api/notifications/publish` from trusted server-side operator tooling with a Bearer `NOTIFICATION_PUBLISH_SECRET` and `{ "slug": "published-post-slug", "dryRun": true }` first. A real send uses `dryRun: false`. The endpoint reads the published post from the code artifact; callers cannot inject email HTML. The provider resource check and stable Broadcast identity prevent accidental fanout to the wrong audience or duplicate content.
+
+When using the included GitHub/Vercel automation, add the same Production publication secret to GitHub Actions as `NOTIFICATION_PUBLISH_SECRET`. Vercel's Git integration sends a `vercel.deployment.success` repository-dispatch event after deployment. The workflow runs only for the `production` environment, reconciles published slugs outside the fixed pre-automation baseline, waits for the canonical endpoint to recognize each slug, dry-runs, and then publishes idempotently. Keep Preview secrets separate; Preview deployments are intentionally ignored.

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { publishedPosts } from "../content/posts";
 import { LogsPage } from "./LogsPage";
 
 beforeEach(() => {
@@ -45,7 +46,9 @@ describe("LogsPage filters", () => {
     expect(window.location.search).toBe("?q=secret&category=Rune");
 
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/^24 entries$/));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(
+      `${publishedPosts.length} entries`,
+    ));
     expect(window.location.pathname).toBe("/logs");
     expect(window.location.search).toBe("");
     expect(screen.getByRole("searchbox", { name: "Search logs" })).toHaveValue("");

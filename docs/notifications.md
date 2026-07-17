@@ -28,6 +28,10 @@ The Segment and Topic IDs are private deployment configuration. Cumulus checks b
 
 `POST /api/notifications/publish` requires `NOTIFICATION_PUBLISH_SECRET`. It builds a deterministic Broadcast name and idempotency key from the immutable post slug, checks for an existing exact-content Broadcast, and refuses content conflicts. Resend Broadcasts supply the standards-based unsubscribe URL. Both HTML and text include the truthful configured postal address.
 
+The Git-linked Vercel integration emits `vercel.deployment.success` repository-dispatch events. `.github/workflows/publish-new-post-notifications.yml` accepts only Production events, rejects notification-field rewrites relative to the deployed revision's first parent, and reconciles every published slug outside `src/content/notification-legacy-slugs.json`. The baseline contains only posts that predate automation. This avoids losing notifications when several commits are pushed together or an intermediate deployment is skipped. The endpoint's deterministic Broadcast identity makes repeated reconciliation idempotent. The workflow retries a dry run while the canonical route propagates, then performs the real publication. Preview deployments never send. GitHub Actions must hold the same `NOTIFICATION_PUBLISH_SECRET` value as Vercel; missing or mismatched configuration fails closed. Manual workflow runs default to dry-run-only.
+
+The workflow file must already exist on GitHub's default branch before repository-dispatch events can run it. Consequently, a branch Preview proves the workflow source and post route but cannot activate delivery. Merge, Production deployment, GitHub secret configuration, Resend state, and receipt remain separate gates.
+
 The authenticated Resend webhook accepts only bounced, complained, and suppressed events. It verifies the Svix signature over the raw body, normalizes unique recipients, and opts the matching Cumulus Topic out. Unsupported events are acknowledged and ignored; provider failures return a retryable error.
 
 ## Environment contract
@@ -45,6 +49,8 @@ The authenticated Resend webhook accepts only bounced, complained, and suppresse
 | `NOTIFICATION_UNSUBSCRIBE_SECRET` | Compatibility name for notification link/session signing | Server-only secret |
 
 Real values belong in Resend and Vercel, never in Git. Preview and Production use independently scoped signing and publication secrets. Outlook is not part of this architecture and must not be changed to operate Cumulus.
+
+The Production publication secret is also stored as a masked GitHub Actions secret named `NOTIFICATION_PUBLISH_SECRET`. Do not place it in workflow YAML, repository variables, command output, or a pull-request environment. Rotate the Vercel and GitHub copies together.
 
 ## Operations and assumptions
 

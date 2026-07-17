@@ -1,0 +1,65 @@
+name: Publish new-post notifications
+
+on:
+  repository_dispatch:
+    types:
+      - vercel.deployment.success
+  workflow_dispatch:
+    inputs:
+      dry_run_only:
+        description: Validate the new post without sending a Resend broadcast
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-new-post-notifications
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.client_payload.environment == 'production' ||
+      github.event.client_payload.environment == 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the deployed production revision
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.client_payload.sha || github.sha }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Find notification-era logs
+        id: posts
+        shell: bash
+        run: |
+          set -euo pipefail
+          slugs="$(node scripts/list-new-published-posts.mjs HEAD^1)"
+          {
+            echo 'slugs<<EOF'
+            echo "$slugs"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish notifications after production readiness
+        if: steps.posts.outputs.slugs != ''
+        env:
+          NOTIFICATION_DRY_RUN_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run_only || false }}
+          NOTIFICATION_POST_SLUGS: ${{ steps.posts.outputs.slugs }}
+          NOTIFICATION_PUBLISH_SECRET: ${{ secrets.NOTIFICATION_PUBLISH_SECRET }}
+          NOTIFICATION_SITE_ORIGIN: https://cumulush.com
+        run: node scripts/publish-new-post-notifications.mjs
+
+      - name: Record an empty publication set
+        if: steps.posts.outputs.slugs == ''
+        run: echo 'No notification-era logs were found in this production revision.'

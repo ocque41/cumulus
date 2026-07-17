@@ -131,7 +131,7 @@ test("archive search and category filters update in place with exact results", a
 
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).toHaveURL(/\/logs$/);
-  await expect(page.getByRole("status")).toHaveText("24 entries");
+  await expect(page.getByRole("status")).toHaveText(`${publishedPosts.length} entries`);
   await expect(search).toHaveValue("");
 });
 
