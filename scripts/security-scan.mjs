@@ -19,7 +19,6 @@ const trackedAndPublic = execFileSync(
 
 const secretPatterns = [
   ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
-  ["Supabase service key", /SUPABASE_SERVICE_ROLE_KEY\s*=\s*(?!replace-with-)[^\s#]+/],
   ["Resend API key", /\bre_[A-Za-z0-9_-]{20,}\b/],
   ["Vercel token", /\bvercel_[A-Za-z0-9_-]{20,}\b/],
   [
@@ -42,7 +41,7 @@ const privatePathPatterns = [
 const browserBundlePatterns = [
   [
     "server-only environment identifier",
-    /\b(?:SUPABASE_SERVICE_ROLE_KEY|RESEND_API_KEY|RESEND_WEBHOOK_SECRET|GITHUB_ACCESS_TOKEN|NOTIFICATION_FROM_EMAIL|NOTIFICATION_POSTAL_ADDRESS|NOTIFICATION_PUBLISH_SECRET|NOTIFICATION_UNSUBSCRIBE_SECRET)\b/,
+    /\b(?:RESEND_API_KEY|RESEND_WEBHOOK_SECRET|RESEND_NOTIFICATION_SEGMENT_ID|RESEND_NOTIFICATION_TOPIC_ID|GITHUB_ACCESS_TOKEN|NOTIFICATION_FROM_EMAIL|NOTIFICATION_POSTAL_ADDRESS|NOTIFICATION_PUBLISH_SECRET|NOTIFICATION_UNSUBSCRIBE_SECRET)\b/,
   ],
   ["local absolute path", /(?:\/Users\/|\/private\/tmp\/|[A-Za-z]:\\Users\\)/],
 ];
@@ -61,6 +60,7 @@ const builtBrowserAssets = existsSync("dist")
 const findings = [];
 
 for (const path of trackedAndPublic) {
+  if (!existsSync(path)) continue;
   if (lstatSync(path).isSymbolicLink()) {
     const target = readlinkSync(path);
     if (isAbsolute(target) || target.split(/[\\/]/).includes("..")) {

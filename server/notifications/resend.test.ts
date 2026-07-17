@@ -1,194 +1,76 @@
 import { describe, expect, it, vi } from "vitest";
-import { renderPostNotification } from "./render";
-import { ResendMailer } from "./resend";
 
-const API_KEY = "runtime-secret-resend-key";
-const message = renderPostNotification({
-  post: {
-    slug: "hello-world",
-    title: "Hello <world>",
-    excerpt: "Read & learn.",
-    date: "2026-07-16",
-  },
-  postUrl: "https://cumulush.com/logs/hello-world",
-  browserUnsubscribeUrl: "https://cumulush.com/unsubscribe#token=signed",
-  oneClickUnsubscribeUrl:
-    "https://cumulush.com/api/notifications/unsubscribe?token=signed",
-  recipientEmail: "reader@example.com",
-  idempotencyKey: "blog-notification-stable",
-  postalAddress: "Cumulus & Co., 42 Cloud Avenue, Madrid, Spain",
-});
+import { ResendMagicLinkSender, ResendNotificationProvider } from "./resend";
 
-describe("Resend adapter", () => {
-  it("sends one HTML/plaintext message with stable idempotency and unsubscribe headers", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => new Response(
-      JSON.stringify({ id: "provider-message-id" }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    ));
-    const mailer = new ResendMailer({
-      apiKey: API_KEY,
-      fromEmail: "Cumulus <hi@cumulush.com>",
-      fetcher,
-    });
-
-    await expect(mailer.send(message)).resolves.toEqual({
-      ok: true,
-      providerMessageId: "provider-message-id",
-    });
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    const [url, init] = fetcher.mock.calls[0];
-    expect(url).toBe("https://api.resend.com/emails");
-    const headers = new Headers(init?.headers);
-    expect(headers.get("authorization")).toBe(`Bearer ${API_KEY}`);
-    expect(headers.get("idempotency-key")).toBe(message.idempotencyKey);
-    expect(init?.signal).toBeInstanceOf(AbortSignal);
-    const body = JSON.parse(String(init?.body));
-    expect(body).toMatchObject({
-      from: "Cumulus <hi@cumulush.com>",
-      to: ["reader@example.com"],
-      html: message.html,
-      text: message.text,
-      headers: {
-        "List-Unsubscribe": `<${message.oneClickUnsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+function fakeResend(overrides: Record<string, unknown> = {}) {
+  return {
+    emails: { send: vi.fn().mockResolvedValue({ data: { id: "email_1" }, error: null }) },
+    contacts: {
+      get: vi.fn().mockResolvedValue({ data: null, error: { name: "not_found", statusCode: 404 } }),
+      create: vi.fn().mockResolvedValue({ data: { id: "contact_1" }, error: null }),
+      update: vi.fn().mockResolvedValue({ data: { id: "contact_1" }, error: null }),
+      segments: {
+        list: vi.fn().mockResolvedValue({ data: { data: [], has_more: false }, error: null }),
+        add: vi.fn().mockResolvedValue({ data: { id: "segment_1" }, error: null }),
       },
-      tags: [
-        { name: "category", value: "cumulus_blog_notification" },
-      ],
-    });
-    expect(String(url)).not.toContain(API_KEY);
-    expect(String(init?.body)).not.toContain(API_KEY);
-  });
+      topics: {
+        list: vi.fn().mockResolvedValue({ data: { data: [], has_more: false }, error: null }),
+        update: vi.fn().mockResolvedValue({ data: {}, error: null }),
+      },
+    },
+    segments: { get: vi.fn().mockResolvedValue({ data: { id: "segment_123" }, error: null }) },
+    topics: { get: vi.fn().mockResolvedValue({ data: { id: "topic_123", default_subscription: "opt_out" }, error: null }) },
+    broadcasts: {
+      list: vi.fn().mockResolvedValue({ data: { data: [], has_more: false }, error: null }),
+      create: vi.fn().mockResolvedValue({ data: { id: "broadcast_1" }, error: null }),
+      send: vi.fn().mockResolvedValue({ data: { id: "broadcast_1" }, error: null }),
+      get: vi.fn(),
+    },
+    ...overrides,
+  };
+}
 
-  it.each([
-    [429, true, "resend_http_429"],
-    [503, true, "resend_http_503"],
-    [400, false, "resend_http_400"],
-    [401, false, "resend_http_401"],
-    [422, false, "resend_http_422"],
-  ])("classifies HTTP %i without returning the provider body", async (status, retryable, failureCode) => {
-    const fetcher = vi.fn<typeof fetch>(async () => new Response(
-      JSON.stringify({ message: "reader@example.com failed" }),
-      { status, headers: { "Retry-After": "90" } },
-    ));
-    const mailer = new ResendMailer({
-      apiKey: API_KEY,
-      fromEmail: "hi@cumulush.com",
-      fetcher,
+describe("Resend notification provider", () => {
+  it("sends branded magic links with a stable idempotency key", async () => {
+    const resend = fakeResend();
+    const sender = new ResendMagicLinkSender({
+      apiKey: "re_test", fromEmail: "Cumulus <hi@cumulush.com>", siteOrigin: "https://cumulush.com",
+      resend: resend as never,
     });
-    const result = await mailer.send(message);
-
-    expect(result).toMatchObject({ ok: false, retryable, failureCode });
-    expect(JSON.stringify(result)).not.toContain("reader@example.com");
-    if (!result.ok && retryable) expect(result.retryAfterSeconds).toBe(90);
-  });
-
-  it("distinguishes a different-payload idempotency conflict", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => new Response(
-      JSON.stringify({ name: "invalid_idempotent_request" }),
-      { status: 409 },
-    ));
-    const mailer = new ResendMailer({
-      apiKey: API_KEY,
-      fromEmail: "hi@cumulush.com",
-      fetcher,
+    await sender.sendMagicLink({
+      email: "reader@example.com", link: "https://cumulush.com/auth/callback#token=x",
+      idempotencyKey: "magic-key", expiresAt: new Date("2026-07-17T01:00:00Z"),
     });
-    await expect(mailer.send(message)).resolves.toMatchObject({
-      ok: false,
-      retryable: false,
-      failureCode: "resend_invalid_idempotency",
-    });
-  });
-
-  it("defaults a missing retry header to sixty seconds and stops quota exhaustion", async () => {
-    const responses = [
-      new Response(JSON.stringify({ name: "rate_limit_exceeded" }), {
-        status: 429,
-      }),
-      new Response(JSON.stringify({ name: "daily_quota_exceeded" }), {
-        status: 429,
-      }),
-    ];
-    const fetcher = vi.fn<typeof fetch>(async () => responses.shift()!);
-    const mailer = new ResendMailer({
-      apiKey: API_KEY,
-      fromEmail: "hi@cumulush.com",
-      fetcher,
-    });
-
-    await expect(mailer.send(message)).resolves.toMatchObject({
-      ok: false,
-      retryable: true,
-      retryAfterSeconds: 60,
-    });
-    await expect(mailer.send(message)).resolves.toEqual({
-      ok: false,
-      failureCode: "resend_quota_exceeded",
-      retryable: false,
-      retryAfterSeconds: 60,
-    });
-  });
-
-  it("treats a network outcome as retryable and does not expose the thrown detail", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => {
-      throw new Error("reader@example.com API key leaked");
-    });
-    const mailer = new ResendMailer({
-      apiKey: API_KEY,
-      fromEmail: "hi@cumulush.com",
-      fetcher,
-    });
-    const result = await mailer.send(message);
-    expect(result).toMatchObject({
-      ok: false,
-      retryable: true,
-      failureCode: "resend_network_error",
-    });
-    expect(JSON.stringify(result)).not.toContain("reader@example.com");
-    expect(JSON.stringify(result)).not.toContain(API_KEY);
-  });
-
-  it("bounds provider response bodies before parsing", async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => new Response(
-      "x".repeat(4097),
-      { status: 200 },
-    ));
-    const mailer = new ResendMailer({
-      apiKey: API_KEY,
-      fromEmail: "hi@cumulush.com",
-      fetcher,
-    });
-    await expect(mailer.send(message)).resolves.toEqual({
-      ok: false,
-      failureCode: "resend_invalid_response",
-      retryable: true,
-      retryAfterSeconds: 60,
-    });
-  });
-});
-
-describe("email rendering", () => {
-  it("escapes content and includes an accessible, bounded HTML document", () => {
-    expect(message.html).toContain('<html lang="en" dir="ltr">');
-    expect(message.html).toContain('<body lang="en" dir="ltr"');
-    expect(message.html).toContain('<main lang="en" dir="ltr"');
-    expect(message.html).toContain(
-      '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    expect(resend.emails.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: ["reader@example.com"] }),
+      { idempotencyKey: "magic-key" },
     );
-    expect(message.html).toContain("<title>Hello &lt;world&gt;</title>");
-    expect(message.html.match(/#ff4d00/g)).toHaveLength(2);
-    expect(message.html).not.toMatch(/#ff(?:5a|6a)00/i);
-    expect(message.html.match(/<h1\b/g)).toHaveLength(1);
-    expect(message.html).not.toContain("Hello <world>");
-    expect(message.html).toContain("Read Hello &lt;world&gt;");
-    expect(new TextEncoder().encode(message.html).byteLength).toBeLessThan(102_400);
-    expect(message.text).toContain("https://cumulush.com/logs/hello-world");
-    expect(message.text).toContain("https://cumulush.com/unsubscribe#token=signed");
-    expect(message.text).toContain(
-      "Cumulus postal address: Cumulus & Co., 42 Cloud Avenue, Madrid, Spain",
-    );
-    expect(message.html).toContain(
-      "Cumulus postal address: Cumulus &amp; Co., 42 Cloud Avenue, Madrid, Spain",
-    );
+  });
+
+  it("validates opt-out topic resources before creating and sending one broadcast", async () => {
+    const resend = fakeResend();
+    const provider = new ResendNotificationProvider({
+      apiKey: "re_test", fromEmail: "Cumulus <hi@cumulush.com>", siteOrigin: "https://cumulush.com",
+      segmentId: "segment_123", topicId: "topic_123", resend: resend as never,
+    });
+    await expect(provider.publishPost({
+      post: { slug: "new-log", title: "New log", excerpt: "Public notes.", date: "2026-07-17" },
+      siteOrigin: "https://cumulush.com", postalAddress: "Madrid, Spain", dryRun: false,
+    })).resolves.toEqual({ status: "created" });
+    expect(resend.broadcasts.create).toHaveBeenCalledTimes(1);
+    expect(resend.broadcasts.send).toHaveBeenCalledWith("broadcast_1");
+  });
+
+  it("fails closed when the topic defaults to opt-in", async () => {
+    const resend = fakeResend();
+    resend.topics.get.mockResolvedValue({ data: { id: "topic_123", default_subscription: "opt_in" }, error: null });
+    const provider = new ResendNotificationProvider({
+      apiKey: "re_test", fromEmail: "hi@cumulush.com", siteOrigin: "https://cumulush.com",
+      segmentId: "segment_123", topicId: "topic_123", resend: resend as never,
+    });
+    await expect(provider.publishPost({
+      post: { slug: "new-log", title: "New log", excerpt: "Public notes.", date: "2026-07-17" },
+      siteOrigin: "https://cumulush.com", postalAddress: "Madrid, Spain", dryRun: true,
+    })).rejects.toMatchObject({ code: "resend_topic_must_default_opt_out" });
   });
 });

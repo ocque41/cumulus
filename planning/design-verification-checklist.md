@@ -67,7 +67,7 @@ Current Cumulus 0.0.8 sign-off is recorded in [design verification evidence](des
 - [x] No unexpected error, warning, failed request, hydration message, or unhandled rejection appears in the browser console.
 - [x] Routes work when loaded directly and after client-side navigation.
 - [x] Back/forward navigation restores the correct route and scroll behavior.
-- [x] The page remains usable with GitHub unavailable, Supabase unavailable, Resend unavailable, or JavaScript shader support absent.
+- [x] The page remains usable with GitHub unavailable, Resend unavailable, or JavaScript shader support absent.
 - [x] Initial load, scroll, and route transitions remain responsive on a representative mobile device or throttled profile.
 - [x] Browser assets contain no secret, private path, internal URL, customer data, or unapproved font/component asset.
 

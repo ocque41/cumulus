@@ -7,7 +7,7 @@ import { App } from "./App";
 import "./styles.css";
 
 const root = document.getElementById("root");
-const telemetryAllowed = !["/auth/callback", "/unsubscribe"].includes(
+const telemetryAllowed = !["/auth/callback"].includes(
   window.location.pathname,
 );
 

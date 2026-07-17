@@ -25,7 +25,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     status: "Live; notification lifecycle verification in progress",
     verifiedAt: "2026-07-17",
     domain: "Editorial engineering / public lab",
-    stack: ["React", "Vite", "TypeScript", "Supabase", "Resend", "Vercel", "WebGL + CSS dither"],
+    stack: ["React", "Vite", "TypeScript", "Resend", "Vercel", "WebGL + CSS dither"],
     sourceBoundary: "Public source is available at the exact reviewed snapshot.",
     source: {
       label: "View source",

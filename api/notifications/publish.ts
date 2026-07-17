@@ -6,8 +6,7 @@ import {
   createPublishHandler,
   publishPostNotifications,
 } from "../../server/notifications/publish.js";
-import { ResendMailer } from "../../server/notifications/resend.js";
-import { SupabaseNotificationStore } from "../../server/notifications/supabase.js";
+import { ResendNotificationProvider } from "../../server/notifications/resend.js";
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -21,13 +20,12 @@ export default {
       );
     }
 
-    const store = new SupabaseNotificationStore({
-      supabaseUrl: config.supabaseUrl,
-      serviceRoleKey: config.supabaseServiceRoleKey,
-    });
-    const mailer = new ResendMailer({
+    const provider = new ResendNotificationProvider({
       apiKey: config.resendApiKey,
       fromEmail: config.fromEmail,
+      siteOrigin: config.siteOrigin,
+      segmentId: config.segmentId,
+      topicId: config.topicId,
     });
     const handler = createPublishHandler({
       publishSecret: config.publishSecret,
@@ -45,12 +43,9 @@ export default {
         return publishPostNotifications({
           post,
           dryRun,
-          store,
-          mailer,
+          provider,
           siteOrigin: config.siteOrigin,
-          unsubscribeSecret: config.unsubscribeSecret,
           postalAddress: config.postalAddress,
-          senderIdentity: config.fromEmail,
         });
       },
       logger: consoleSafeLogger,

@@ -1,23 +1,34 @@
-export interface NotificationConfig {
-  supabaseUrl: string;
-  supabaseServiceRoleKey: string;
+export interface NotificationAuthConfig {
   resendApiKey: string;
   fromEmail: string;
-  publishSecret: string;
-  unsubscribeSecret: string;
-  postalAddress: string;
+  signingSecret: string;
   siteOrigin: string;
 }
 
-export interface UnsubscribeConfig {
-  supabaseUrl: string;
-  supabaseServiceRoleKey: string;
-  unsubscribeSecret: string;
+export interface NotificationSessionConfig {
+  signingSecret: string;
+  siteOrigin: string;
+}
+
+export interface NotificationPreferenceConfig extends NotificationSessionConfig {
+  resendApiKey: string;
+  fromEmail: string;
+  segmentId: string;
+  topicId: string;
+}
+
+export interface NotificationConfig extends NotificationPreferenceConfig {
+  fromEmail: string;
+  publishSecret: string;
+  postalAddress: string;
 }
 
 export interface ResendWebhookConfig {
-  supabaseUrl: string;
-  supabaseServiceRoleKey: string;
+  resendApiKey: string;
+  fromEmail: string;
+  segmentId: string;
+  siteOrigin: string;
+  topicId: string;
   webhookSecret: string;
 }
 
@@ -117,81 +128,119 @@ function validatePostalAddress(value: string): string {
   return value;
 }
 
+function validateProviderId(value: string): string {
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(value)) {
+    throw new NotificationConfigurationError();
+  }
+  return value;
+}
+
+function validateResendApiKey(value: string): string {
+  if (!/^re_[A-Za-z0-9_-]{16,}$/.test(value)) {
+    throw new NotificationConfigurationError();
+  }
+  return value;
+}
+
+function requireCumulusDomain(env: Record<string, string | undefined>): boolean {
+  return env.VERCEL_ENV === "production";
+}
+
+function readSessionConfig(
+  env: Record<string, string | undefined>,
+): NotificationSessionConfig {
+  return {
+    signingSecret: requireSecret(env, "NOTIFICATION_UNSUBSCRIBE_SECRET"),
+    siteOrigin: normalizeOrigin(
+      requireValue(env, "NEXT_PUBLIC_SITE_URL"),
+      requireCumulusDomain(env),
+    ),
+  };
+}
+
+function readProviderConfig(env: Record<string, string | undefined>) {
+  return {
+    resendApiKey: validateResendApiKey(requireValue(env, "RESEND_API_KEY")),
+    segmentId: validateProviderId(
+      requireValue(env, "RESEND_NOTIFICATION_SEGMENT_ID"),
+    ),
+    topicId: validateProviderId(
+      requireValue(env, "RESEND_NOTIFICATION_TOPIC_ID"),
+    ),
+  };
+}
+
+export function readNotificationAuthConfig(
+  env: Record<string, string | undefined>,
+): NotificationAuthConfig {
+  const production = requireCumulusDomain(env);
+  return {
+    resendApiKey: validateResendApiKey(requireValue(env, "RESEND_API_KEY")),
+    fromEmail: validateFromEmail(
+      requireValue(env, "NOTIFICATION_FROM_EMAIL"),
+      production,
+    ),
+    ...readSessionConfig(env),
+  };
+}
+
+export function readNotificationSessionConfig(
+  env: Record<string, string | undefined>,
+): NotificationSessionConfig {
+  return readSessionConfig(env);
+}
+
+export function readNotificationPreferenceConfig(
+  env: Record<string, string | undefined>,
+): NotificationPreferenceConfig {
+  const production = requireCumulusDomain(env);
+  return {
+    ...readSessionConfig(env),
+    ...readProviderConfig(env),
+    fromEmail: validateFromEmail(
+      requireValue(env, "NOTIFICATION_FROM_EMAIL"),
+      production,
+    ),
+  };
+}
+
 export function readNotificationConfig(
   env: Record<string, string | undefined>,
 ): NotificationConfig {
-  const requireCumulusDomain = env.VERCEL_ENV === "production";
-  if (requireCumulusDomain) {
-    // Production delivery is safe only when provider suppressions can return
-    // through an authenticated webhook. The publish path does not need the
-    // value itself, but it must fail closed when that control is unavailable.
-    requireSecret(env, "RESEND_WEBHOOK_SECRET");
-  }
+  const production = requireCumulusDomain(env);
+  if (production) requireSecret(env, "RESEND_WEBHOOK_SECRET");
   const publishSecret = requireSecret(env, "NOTIFICATION_PUBLISH_SECRET");
-  const unsubscribeSecret = requireSecret(
-    env,
-    "NOTIFICATION_UNSUBSCRIBE_SECRET",
-  );
-  if (publishSecret === unsubscribeSecret) {
+  const session = readSessionConfig(env);
+  if (publishSecret === session.signingSecret) {
     throw new NotificationConfigurationError();
   }
-
   return {
-    supabaseUrl: normalizeOrigin(
-      requireValue(env, "NEXT_PUBLIC_SUPABASE_URL"),
-      false,
-    ),
-    supabaseServiceRoleKey: requireSecret(
-      env,
-      "SUPABASE_SERVICE_ROLE_KEY",
-    ),
-    resendApiKey: requireValue(env, "RESEND_API_KEY"),
+    ...session,
+    ...readProviderConfig(env),
     fromEmail: validateFromEmail(
       requireValue(env, "NOTIFICATION_FROM_EMAIL"),
-      requireCumulusDomain,
+      production,
     ),
     postalAddress: validatePostalAddress(
       requireValue(env, "NOTIFICATION_POSTAL_ADDRESS"),
     ),
     publishSecret,
-    unsubscribeSecret,
-    siteOrigin: normalizeOrigin(
-      requireValue(env, "NEXT_PUBLIC_SITE_URL"),
-      requireCumulusDomain,
-    ),
-  };
-}
-
-export function readUnsubscribeConfig(
-  env: Record<string, string | undefined>,
-): UnsubscribeConfig {
-  return {
-    supabaseUrl: normalizeOrigin(
-      requireValue(env, "NEXT_PUBLIC_SUPABASE_URL"),
-      false,
-    ),
-    supabaseServiceRoleKey: requireSecret(
-      env,
-      "SUPABASE_SERVICE_ROLE_KEY",
-    ),
-    unsubscribeSecret: requireSecret(
-      env,
-      "NOTIFICATION_UNSUBSCRIBE_SECRET",
-    ),
   };
 }
 
 export function readResendWebhookConfig(
   env: Record<string, string | undefined>,
 ): ResendWebhookConfig {
+  const production = requireCumulusDomain(env);
   return {
-    supabaseUrl: normalizeOrigin(
-      requireValue(env, "NEXT_PUBLIC_SUPABASE_URL"),
-      false,
+    ...readProviderConfig(env),
+    fromEmail: validateFromEmail(
+      requireValue(env, "NOTIFICATION_FROM_EMAIL"),
+      production,
     ),
-    supabaseServiceRoleKey: requireSecret(
-      env,
-      "SUPABASE_SERVICE_ROLE_KEY",
+    siteOrigin: normalizeOrigin(
+      requireValue(env, "NEXT_PUBLIC_SITE_URL"),
+      production,
     ),
     webhookSecret: requireSecret(env, "RESEND_WEBHOOK_SECRET"),
   };
