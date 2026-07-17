@@ -35,6 +35,8 @@ describe("AuthDialog", () => {
     await waitFor(() => expect(mocks.getSession).toHaveBeenCalled());
     await user.click(screen.getByRole("button", { name: "Open notifications" }));
     const email = await screen.findByLabelText("Email address");
+    expect(screen.getByRole("link", { name: "notification privacy and data rights" }))
+      .toHaveAttribute("href", "/privacy");
     await user.type(email, "  Reader@Example.COM  ");
     await user.click(
       screen.getByRole("checkbox", {
@@ -81,7 +83,13 @@ describe("AuthDialog", () => {
     const email = await screen.findByLabelText("Email address");
     expect(email).toHaveFocus();
     await user.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(screen.getByRole("link", { name: "notification privacy and data rights" }))
+      .toHaveFocus();
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
     expect(screen.getByRole("button", { name: "Close notification settings" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "notification privacy and data rights" }))
+      .toHaveFocus();
     await user.tab();
     expect(email).toHaveFocus();
   });

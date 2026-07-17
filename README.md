@@ -88,7 +88,7 @@ npm run license:check
 npm run test:e2e
 ```
 
-`npm run build` creates the browser bundle plus route-specific static HTML for the home page, archive, every published log, auth callback, unsubscribe page, and 404 response. It also emits `robots.txt` and `sitemap.xml`. `npm run test:e2e` may require a local server or an explicitly selected preview URL, depending on the test configuration. Do not point end-to-end tests that create subscriptions or send mail at production without approval and test-recipient safeguards.
+`npm run build` creates the browser bundle plus route-specific static HTML for the home page, public-work directory, notification-privacy page, archive, every published log, auth callback, unsubscribe page, and 404 response. It also emits `robots.txt` and `sitemap.xml`. `npm run test:e2e` may require a local server or an explicitly selected preview URL, depending on the test configuration. Do not point end-to-end tests that create subscriptions or send mail at production without approval and test-recipient safeguards.
 
 ## Production path
 
@@ -110,11 +110,13 @@ Do not create a replacement Vercel project merely to deploy this branch. Retaini
 The public experience is intentionally narrow:
 
 - a hero and chronological public logs;
+- a first-party public-work directory with reviewed dates, public-source snapshots where available, and explicit private-source boundaries;
 - a reader-controlled email opt-in for new posts;
 - a preference/unsubscribe path that does not require a content account;
 - a privileged, server-side publication notification trigger.
 
 Consent, idempotency, unsubscribe behavior, and operational delivery rules are specified in [notifications](docs/notifications.md).
+Reader-facing notification data boundaries and the manual correction/deletion contact are published at `/privacy`.
 
 ## Design and licensing
 

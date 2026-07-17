@@ -68,6 +68,11 @@ const publicRoutes = [
     description: "Explore current Cumulus lab projects, their latest verified work, public status, and source boundaries.",
     title: "Public work — Cumulus lab",
   },
+  {
+    canonicalPath: "/privacy",
+    description: "How Cumulus handles the email identity and minimal delivery records used for optional new-log notifications.",
+    title: "Notification privacy — Cumulus lab",
+  },
   ...publishedPosts.map((post) => ({
     canonicalPath: `/logs/${post.slug}`,
     description: post.excerpt,

@@ -14,6 +14,8 @@ describe("public work directory", () => {
       expect(project.latestWork.length, project.name).toBeGreaterThan(150);
       expect(project.stack.length, project.name).toBeGreaterThanOrEqual(5);
       expect(project.sourceBoundary.length, project.name).toBeGreaterThan(45);
+      expect(project.verifiedAt, project.name).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Number.isNaN(Date.parse(`${project.verifiedAt}T00:00:00Z`))).toBe(false);
     }
   });
 
@@ -30,6 +32,9 @@ describe("public work directory", () => {
       expect(project.source!.label).toBe("View source");
     }
 
+    expect(WORK_PROJECTS.find((project) => project.slug === "cumulus")?.source?.href)
+      .toBe("https://github.com/ocque41/cumulus/tree/92ed67e071bcee7504fc256fac9976891a85bedb");
+
     for (const slug of ["room", "requisia", "hyoka-hanesu", "gy", "toml-agent"]) {
       expect(WORK_PROJECTS.find((project) => project.slug === slug)?.source).toBeUndefined();
     }
@@ -43,6 +48,7 @@ describe("public work directory", () => {
       project.status,
       project.domain,
       project.sourceBoundary,
+      project.verifiedAt,
       ...project.stack,
     ]).join(" ");
 

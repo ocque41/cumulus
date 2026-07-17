@@ -70,7 +70,10 @@ export function WorkPage() {
               <p className="work-project__description">{project.description}</p>
 
               <div className="work-project__latest">
-                <h3>Latest work</h3>
+                <div>
+                  <h3>Latest work</h3>
+                  <time dateTime={project.verifiedAt}>Reviewed {project.verifiedAt}</time>
+                </div>
                 <p>{project.latestWork}</p>
               </div>
 

@@ -123,6 +123,7 @@ describe("notification configuration", () => {
     NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
     SUPABASE_SERVICE_ROLE_KEY: "s".repeat(64),
     RESEND_API_KEY: "runtime-resend-key",
+    RESEND_WEBHOOK_SECRET: "w".repeat(32),
     NOTIFICATION_FROM_EMAIL: "Cumulus <hi@cumulush.com>",
     NOTIFICATION_POSTAL_ADDRESS: "Cumulus, 42 Cloud Avenue, Madrid, Spain",
     NOTIFICATION_PUBLISH_SECRET: PUBLISH_SECRET,
@@ -144,6 +145,7 @@ describe("notification configuration", () => {
     const preview = readNotificationConfig({
       ...validEnv,
       VERCEL_ENV: "preview",
+      RESEND_WEBHOOK_SECRET: undefined,
       NEXT_PUBLIC_SITE_URL: "https://cumulus-git-feature.vercel.app",
       NOTIFICATION_FROM_EMAIL: "Cumulus Preview <notifications@sender.test>",
     });
@@ -157,6 +159,7 @@ describe("notification configuration", () => {
     const selfHosted = readNotificationConfig({
       ...validEnv,
       VERCEL_ENV: undefined,
+      RESEND_WEBHOOK_SECRET: undefined,
       NEXT_PUBLIC_SITE_URL: "https://logs.self-host.test",
       NOTIFICATION_FROM_EMAIL: "notify@self-host.test",
     });
@@ -164,6 +167,14 @@ describe("notification configuration", () => {
   });
 
   it("rejects short/reused secrets and untrusted link or sender domains", () => {
+    expect(() => readNotificationConfig({
+      ...validEnv,
+      RESEND_WEBHOOK_SECRET: undefined,
+    })).toThrow();
+    expect(() => readNotificationConfig({
+      ...validEnv,
+      RESEND_WEBHOOK_SECRET: "short",
+    })).toThrow();
     expect(() => readNotificationConfig({
       ...validEnv,
       NOTIFICATION_PUBLISH_SECRET: "short",
