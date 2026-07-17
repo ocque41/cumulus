@@ -13,6 +13,7 @@ import { HomePage } from "@/pages/HomePage";
 import { LogsPage } from "@/pages/LogsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PostPage } from "@/pages/PostPage";
+import { PrivacyPage } from "@/pages/PrivacyPage";
 
 const WorkPage = lazy(() =>
   import("@/pages/WorkPage").then((module) => ({ default: module.WorkPage })),
@@ -66,6 +67,8 @@ function PublicRoutes() {
         <WorkPage />
       </Suspense>
     );
+  } else if (path === "/privacy") {
+    page = <PrivacyPage />;
   } else {
     page = <NotFoundPage />;
   }

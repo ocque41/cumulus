@@ -50,6 +50,7 @@ npm run test:e2e
 
 ## 5. Notification behavior
 
+- [ ] `/privacy` accurately describes current data handling, retention limits, and the verified correction/deletion contact.
 - [ ] Consent wording says the address is used for new-post notifications.
 - [ ] Repeated subscription requests do not create duplicate active rows.
 - [ ] Every delivered message has a working unsubscribe path.

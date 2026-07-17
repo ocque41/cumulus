@@ -86,9 +86,13 @@ Real values belong in the deployment provider or private overlay, never in Git. 
 
 ## Privacy and operations
 
-- Define and publish a retention/deletion policy before accepting real addresses.
+- Publish the current retention/deletion behavior before accepting real addresses. The
+  reference UI does this at `/privacy` and does not promise an automatic expiry that the
+  current implementation cannot enforce.
 - Restrict service-role access to the notification server path.
-- Provide a process for address deletion and correction.
+- Provide an identity-verified process for address deletion and correction. The public
+  contact is `hi@cumulush.com`; the private production overlay must cover Supabase Auth,
+  subscription/delivery rows, webhook replay rows, Resend records, and protected backups.
 - Back up only what is required and protect backups like the live subscriber store.
 - Monitor send volume, errors, bounces, complaints, and unusual publish attempts.
 - Configure the authenticated Resend webhook for `email.bounced`, `email.complained`, and `email.suppressed` before Production so provider suppressions stop future sends.

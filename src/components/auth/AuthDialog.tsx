@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { NotificationPreferences } from "../../features/notifications/NotificationPreferences";
+import { AppLink } from "../../lib/router";
 import { useAuth } from "./AuthContext";
 
 export interface AuthDialogProps {
@@ -134,7 +135,8 @@ export function AuthDialog({ open, onClose }: AuthDialogProps) {
         </h2>
         <p id="auth-dialog-description" className="auth-copy">
           All Cumulus logs are public. An email link is used only to manage
-          optional notifications when a new log is published.
+          optional notifications when a new log is published. Read the{" "}
+          <AppLink href="/privacy">notification privacy and data rights</AppLink>.
         </p>
 
         {!client ? (
