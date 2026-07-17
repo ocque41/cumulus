@@ -30,6 +30,7 @@ export function SiteFooter() {
           <AppLink href="/">Home</AppLink>
           <AppLink href="/logs">All logs</AppLink>
           <AppLink href="/work">Public work</AppLink>
+          <AppLink href="/privacy">Notification privacy</AppLink>
           <a href="https://github.com/ocque41" rel="noreferrer" target="_blank">
             GitHub
           </a>

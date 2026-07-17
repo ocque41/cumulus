@@ -85,6 +85,9 @@ test("home exposes the large brand, honest GitHub graph, archive, and auth bound
   await page.getByRole("button", { name: "Sign in" }).first().click();
   await expect(page.getByRole("dialog", { name: "New log notifications" })).toBeVisible();
   await expect(page.getByText(/All Cumulus logs are public/i)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "notification privacy and data rights" }),
+  ).toHaveAttribute("href", "/privacy");
   await page.getByRole("button", { name: "Close notification settings" }).click();
 
   const logIndexLink = page.getByRole("link", { name: "Log index", exact: true });
@@ -157,6 +160,19 @@ test("public work stays inside Cumulus and labels source boundaries", async ({ p
   if (testInfo.project.name.includes("mobile")) {
     await expect(page.locator(".work-index")).toHaveCSS("grid-template-columns", /.+/);
   }
+});
+
+test("notification privacy is public, scoped, and reachable without sign-in", async ({ page }) => {
+  await page.goto("/privacy");
+
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Notification privacy" }))
+    .toBeVisible();
+  await expect(page.getByRole("heading", { name: "Withdrawal, correction, and deletion" }))
+    .toBeVisible();
+  await expect(page.getByText(/does not promise an automatic expiry/i)).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText("ocque41");
 });
 
 test("mobile menu is operable and the graph fits the hero width", async ({

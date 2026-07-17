@@ -31,7 +31,10 @@ export default defineConfig({
     : {
         command: "npm run dev -- --host 127.0.0.1 --port 4173 --strictPort",
         url: "http://127.0.0.1:4173",
-        reuseExistingServer: !process.env.CI,
+        // A server left by another branch can look healthy while serving a
+        // stale Cumulus bundle. Always bind a fresh strict-port server so the
+        // browser proof is tied to the current worktree.
+        reuseExistingServer: false,
         timeout: 120_000,
       },
 });

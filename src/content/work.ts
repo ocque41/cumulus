@@ -11,6 +11,7 @@ export interface WorkProject {
   sourceBoundary: string;
   stack: readonly string[];
   status: string;
+  verifiedAt: string;
 }
 
 export const WORK_PROJECTS: readonly WorkProject[] = [
@@ -22,12 +23,13 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "The current release brings together the responsive dither redesign, interactive contribution field, twenty-four source-backed logs, static route output, and signed notification-webhook handling. The controlled email receipt, unsubscribe, and suppression lifecycle remains a separate final verification gate.",
     status: "Live; notification lifecycle verification in progress",
+    verifiedAt: "2026-07-17",
     domain: "Editorial engineering / public lab",
     stack: ["React", "Vite", "TypeScript", "Supabase", "Resend", "Vercel", "WebGL + CSS dither"],
     sourceBoundary: "Public source is available at the exact reviewed snapshot.",
     source: {
       label: "View source",
-      href: "https://github.com/ocque41/cumulus/tree/0894901461287ae66431458483d5322554d0b04d",
+      href: "https://github.com/ocque41/cumulus/tree/92ed67e071bcee7504fc256fac9976891a85bedb",
     },
   },
   {
@@ -38,6 +40,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "The latest candidate completes the local and reference roadmap with immutable release packaging, private runtime and frontend boundaries, durable search reconciliation, recovery tooling, and fail-closed activation gates. Production activation, external review, and real pilot evidence remain deliberately separate.",
     status: "Pre-production candidate; no deployment claim",
+    verifiedAt: "2026-07-17",
     domain: "Acquisition infrastructure / controlled diligence",
     stack: ["Rust", "Go", "React + Vite", "gRPC", "Protobuf", "PostgreSQL", "Infrastructure as code"],
     sourceBoundary: "Private source. This page describes only the public-safe product boundary and verified readiness state.",
@@ -50,6 +53,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "Recent work deepened module and workbook flows, portal isolation, billing, support, export, and verified-deletion operations, followed by a focused marketing hero and navigation refinement. The remaining workbook depth, operational coverage, and distribution roadmap is still active.",
     status: "Active private development",
+    verifiedAt: "2026-07-17",
     domain: "Procurement operations / enterprise workbooks",
     stack: ["Next.js", "TypeScript", "Drizzle", "libSQL + PostgreSQL", "Private object storage", "Resend", "Stripe", "Excel tooling"],
     sourceBoundary: "Private source. Cumulus publishes the product narrative without exposing repository access or private operating details.",
@@ -62,6 +66,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "The latest committed work adds configurable local container provisioning and deterministic saved tools. A new terminal frontend, bounded versioned bridge protocol, runtime reducer, and protocol fuzzing layer are currently evolving locally and are not presented as a finished release.",
     status: "Local release candidate; frontend evolution in progress",
+    verifiedAt: "2026-07-17",
     domain: "Local AI tooling / repository assistance",
     stack: ["C17", "ncurses", "Swift", "Apple Foundation Models", "libcurl", "HTTP + SSE", "TypeScript", "Apple containers"],
     sourceBoundary: "Private source. Unsigned and unnotarized release state is preserved as an explicit limitation.",
@@ -74,6 +79,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "Recent phases landed crash-aware global installation and installed-runtime validation. Automatic Git configuration lookup and bounded typed parsing for integers, colors, and expiry values are the current focus; no strict independently reviewed release profile is claimed to pass yet.",
     status: "Research prototype; zero strict reviewed profiles pass",
+    verifiedAt: "2026-07-17",
     domain: "Git implementation / self-hosted forge research",
     stack: ["x86-64 Linux assembly", "Make", "POSIX test tooling", "Static web assets", "Git wire formats"],
     sourceBoundary: "Private source. The zero-pass qualification is intentionally visible rather than softened into a release claim.",
@@ -86,6 +92,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "The local candidate combines a Swift editor, Rust terminal controller, private Unix-socket App Server integration, Apple-container split mode, and clean-room candidate packaging. It remains uncommitted and unpublished, with authenticated and manual release gates still pending.",
     status: "Unpublished local candidate",
+    verifiedAt: "2026-07-17",
     domain: "Agent orchestration / local developer tooling",
     stack: ["Rust", "Ratatui", "SwiftUI + AppKit", "JSON-RPC + JSONL", "Unix sockets", "Codex App Server", "Alpine containers"],
     sourceBoundary: "Unpublished local work. No source link exists until a reviewed repository is committed and intentionally made public.",
@@ -98,6 +105,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "The latest public work hardens account deletion and local state hydration after adding contact, outreach, privacy-conscious chat, retention, and coordinator workflows. The service keeps its non-emergency boundary explicit throughout the experience.",
     status: "Active public project; not an emergency service",
+    verifiedAt: "2026-07-17",
     domain: "Mental-health access / volunteer coordination",
     stack: ["Next.js", "React", "TypeScript", "Cloudflare Workers", "D1", "Durable Objects", "Drizzle", "Better Auth", "Resend"],
     sourceBoundary: "Public source is available at the exact reviewed snapshot.",
@@ -114,6 +122,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "The latest public snapshot improves generated local-database setup and dashboard behavior. The wider system joins durable signup workflows, discovery metadata, API contracts, and tenant-owned provider webhooks without collapsing their authority boundaries.",
     status: "Public open-source project",
+    verifiedAt: "2026-07-17",
     domain: "Agent identity / API orchestration",
     stack: ["TypeScript", "Next.js", "Hono", "OpenAPI", "MCP", "PostgreSQL", "Vercel Workflow"],
     sourceBoundary: "Public source is available at the exact reviewed snapshot.",
@@ -130,6 +139,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "The newest public work adds authentication fallback routes around an encrypted, server-controlled secret model. Workflow validation, simulation, scheduled execution, and approval policy remain distinct stages so previewing a graph cannot silently become an external side effect.",
     status: "Public product source",
+    verifiedAt: "2026-07-17",
     domain: "Workflow automation",
     stack: ["TypeScript", "Next.js", "Supabase", "Encrypted server-side secrets", "Scheduled + webhook execution"],
     sourceBoundary: "Public source is available at the exact reviewed snapshot.",
@@ -146,6 +156,7 @@ export const WORK_PROJECTS: readonly WorkProject[] = [
     latestWork:
       "The current public package combines Diffs and Goal Triad bundles, dry-run installation, preservation safeguards, and objective-lock tooling. It turns planning, parallel ownership, validation, and completion evidence into reusable project-local operating structures.",
     status: "Public released package",
+    verifiedAt: "2026-07-17",
     domain: "Agent workflows / reusable developer tooling",
     stack: ["Node.js ESM", "Python helpers", "TOML agent definitions", "Codex skill packages", "Markdown references"],
     sourceBoundary: "Public source is available at the exact reviewed snapshot.",

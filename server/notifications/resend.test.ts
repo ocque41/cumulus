@@ -171,7 +171,13 @@ describe("email rendering", () => {
   it("escapes content and includes an accessible, bounded HTML document", () => {
     expect(message.html).toContain('<html lang="en" dir="ltr">');
     expect(message.html).toContain('<body lang="en" dir="ltr"');
+    expect(message.html).toContain('<main lang="en" dir="ltr"');
+    expect(message.html).toContain(
+      '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    );
     expect(message.html).toContain("<title>Hello &lt;world&gt;</title>");
+    expect(message.html.match(/#ff4d00/g)).toHaveLength(2);
+    expect(message.html).not.toMatch(/#ff(?:5a|6a)00/i);
     expect(message.html.match(/<h1\b/g)).toHaveLength(1);
     expect(message.html).not.toContain("Hello <world>");
     expect(message.html).toContain("Read Hello &lt;world&gt;");

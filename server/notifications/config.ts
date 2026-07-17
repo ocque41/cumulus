@@ -121,6 +121,12 @@ export function readNotificationConfig(
   env: Record<string, string | undefined>,
 ): NotificationConfig {
   const requireCumulusDomain = env.VERCEL_ENV === "production";
+  if (requireCumulusDomain) {
+    // Production delivery is safe only when provider suppressions can return
+    // through an authenticated webhook. The publish path does not need the
+    // value itself, but it must fail closed when that control is unavailable.
+    requireSecret(env, "RESEND_WEBHOOK_SECRET");
+  }
   const publishSecret = requireSecret(env, "NOTIFICATION_PUBLISH_SECRET");
   const unsubscribeSecret = requireSecret(
     env,
