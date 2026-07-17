@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { notificationPromptStorage } from "../../features/notifications/prompt-storage";
 import { upsertNotificationSubscription } from "../../features/notifications/subscription";
 import { useAuth } from "./AuthContext";
 
@@ -25,13 +26,10 @@ const callbackTitles: Record<CallbackState, string> = {
   unavailable: "Link not confirmed",
 };
 
-function captureMagicToken(): string {
+function readMagicToken(): string {
+  if (typeof window === "undefined") return "";
   const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const token = fragment.get("token")?.trim() ?? "";
-  if (window.location.search || window.location.hash) {
-    window.history.replaceState({}, "", window.location.pathname);
-  }
-  return token;
+  return fragment.get("token")?.trim() ?? "";
 }
 
 export function AuthCallbackPage({
@@ -39,7 +37,7 @@ export function AuthCallbackPage({
   fetcher = fetch,
 }: AuthCallbackPageProps) {
   const { available, exchangeMagicLink, unavailableReason } = useAuth();
-  const [token] = useState(captureMagicToken);
+  const [token] = useState(readMagicToken);
   const [state, setState] = useState<CallbackState>(
     !available ? "unavailable" : token && token.length <= 1024 ? "pending" : "error",
   );
@@ -51,6 +49,12 @@ export function AuthCallbackPage({
       : "This email link is incomplete. Request a new link from the logs page.",
   );
   const started = useRef(false);
+
+  useEffect(() => {
+    if (window.location.search || window.location.hash) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     if (!available || !token || token.length > 1024 || started.current) return;
@@ -74,6 +78,7 @@ export function AuthCallbackPage({
     setMessage("Turning on new-log notifications…");
     try {
       await upsertNotificationSubscription("active", fetcher);
+      notificationPromptStorage.markSeen();
       setState("success");
       setMessage("New-log notifications are on.");
       onComplete?.();
@@ -110,7 +115,7 @@ export function AuthCallbackPage({
 
         <p className="auth-copy">
           This session only manages optional new-log email through Resend.
-          Every Cumulus log remains public without signing in.
+          Every Cumulus log remains public without this confirmation step.
         </p>
         {state === "ready" || state === "saving" ? (
           <button

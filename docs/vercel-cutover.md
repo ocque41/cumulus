@@ -6,12 +6,12 @@ Retain the existing Vercel project, Git integration, production branch, and `cum
 
 1. Run the complete local release checks from a clean install.
 2. Confirm the Resend Cumulus Segment exists and the new-log Topic defaults to `opt_out`.
-3. Set Preview values directly in Vercel: `NEXT_PUBLIC_SITE_URL`, the Resend key/webhook secret/resource IDs, verified sender, truthful postal address, optional fixed-profile GitHub token, and independent publish/session signing secrets.
+3. Set Preview values directly in Vercel: `NEXT_PUBLIC_SITE_URL`, the Resend key/webhook secret/resource IDs, verified sender, truthful postal address, optional fixed-profile GitHub token, and independent publish/session signing secrets. Leave `ALCYONE_MEDIUM_WOFF2_BASE64` unset so Preview uses the bundled Jacquard fallback.
 4. Publish the selected `request/cumulus-original` candidate only after push approval. Do not create another Vercel project, change the domain, or place provider identifiers in Git.
-5. Verify direct routes, fonts, responsive layout, consent, magic-link exchange, preference activation/deactivation, publish authorization, exact-once Broadcast behavior, unsubscribe, and signed suppression handling with approved synthetic recipients.
+5. Verify direct routes, fallback typography, the unavailable commercial-font route, responsive layout, consent, magic-link exchange, preference activation/deactivation, publish authorization, exact-once Broadcast behavior, unsubscribe, and signed suppression handling with approved synthetic recipients.
 
 ## Production gate
 
-Each `main` update and Production promotion requires explicit approval after candidate evidence. Confirm the existing production branch, domain, production-scoped variables, and prior known-good deployment immediately before promotion. No database migration exists or is required for the Resend-only notification architecture.
+Each `main` update and Production promotion requires explicit approval after candidate evidence. Confirm the existing production branch, the single licensed production domain, production-scoped variables, and prior known-good deployment immediately before promotion. Only then may the authorized operator place the licensed WOFF2 bytes in the Production-only `ALCYONE_MEDIUM_WOFF2_BASE64` value. Never copy that value into Preview, Local, Git, build assets, source maps, or handoff evidence. No database migration exists or is required for the Resend-only notification architecture.
 
-After promotion, check the homepage and direct routes, then one controlled sign-in, opt-in, delivery, unsubscribe, and suppression lifecycle. If the web artifact fails, restore the retained Vercel deployment. If notification behavior fails, stop publication and preserve provider evidence; do not touch Outlook or improvise domain changes.
+After promotion, check the homepage, direct routes, same-origin font response, computed Production typography, and Jacquard heading preservation, then one controlled sign-in, opt-in, delivery, unsubscribe, and suppression lifecycle. If the web artifact fails, restore the retained Vercel deployment. If notification behavior fails, stop publication and preserve provider evidence; do not touch Outlook or improvise domain changes.

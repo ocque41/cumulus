@@ -15,6 +15,13 @@ describe("PrivacyPage", () => {
       .toBeInTheDocument();
     expect(screen.getByText(/does not promise an automatic expiry/i))
       .toBeInTheDocument();
+    expect(screen.getByRole("heading", {
+      name: "How a notification surface is remembered",
+    })).toBeInTheDocument();
+    expect(screen.getByText(/marker contains no email, consent choice, or subscription status/i))
+      .toBeInTheDocument();
+    expect(screen.getByText(/records only that a notification surface was displayed/i))
+      .toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "hi@cumulush.com" })).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Return to the public logs" }))
       .toHaveAttribute("href", "/logs");

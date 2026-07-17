@@ -1,15 +1,17 @@
 # Cumulus rebuild implementation plan
 
+> Current amendment — 2026-07-17: the local frontend/content candidate replaces the earlier 24-post public-source corpus with exactly twenty maintainer-authored first-party journals across Requisia, Insuja, Hyoka Hanesu, and gy. It adds Alcyone Medium for narrative body copy through a Production-only licensed-font boundary, keeps the Jacquard heading/interface families, replaces large cloud artwork with dither fields, and adds first-eligible-visit notification prompting. Earlier branch and production records below are historical evidence; they do not prove this uncommitted candidate or authorize deployment.
+
 ## Objective
 
-Build Cumulus from an empty Git root as a large, dither-led React and Vite log site while retaining the existing Vercel project and domain. Deliver a literal reference-layout branch first, then clone the proven implementation into a second branch whose visual structure is independently designed. The finished site must include at least twenty evidence-backed project posts, per-post source backlinks, public GitHub activity for `ocque41`, notification-only sign-in, and consented new-post email through Resend.
+Build Cumulus from an empty Git root as a large, dither-led React and Vite log site while retaining the existing Vercel project and domain. Deliver a literal reference-layout branch first, then clone the proven implementation into a second branch whose visual structure is independently designed. The current selected candidate includes exactly twenty evidence-bounded project journals, public GitHub activity for `ocque41`, notification-only sign-in, and consented new-post email through Resend. Source backlinks are required only for public-source reviews; the current private first-party corpus deliberately has none.
 
 ## Assumptions
 
 1. The existing Vercel project, domain, and Git integration are externally managed. They must be inspected before cutover and must not be recreated.
 2. Production provider state is not proven by repository files or by a statement in this plan.
 3. `request/jacquard-reference` is the literal-layout implementation branch. `request/cumulus-original` was forked from the first complete reference implementation, not from the legacy application; later shared corrections must remain synchronized between the two branches.
-4. Local project research is read-only. Only facts that are safe for a public site and corroborated by public sources may be published.
+4. Local project research is read-only. Public-source reviews require anonymously reachable primary sources; maintainer-authored first-party journals may use private evidence only at the approved product-narrative boundary and must label their limits explicitly.
 5. `ocque41` is the authorized public GitHub identity for the activity graph and public repository backlinks.
 6. Sign-in exists only to confirm and manage post-notification consent. Cumulus does not add public profiles, social features, or content-authoring accounts.
 7. Production secrets are injected through an authenticated provider control plane and never copied into Git, public artifacts, browser bundles, command history, screenshots, or logs.
@@ -32,7 +34,7 @@ Required evidence: Git branch and commit graph, clean-scope review, dependency m
 Status: **complete on both design branches**.
 
 1. Define pure black surfaces, neutral gray text roles, and one minimal high-contrast orange accent.
-2. Load only the supplied non-charted Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 font files. Do not author a second typography family.
+2. Bundle only the supplied non-charted Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 files. Preserve them for headings, interface, and labels. Deliver the separately supplied Alcyone Medium only from the licensed Production environment and scope it to narrative body copy; never add its bytes or license archive to public Git or Preview.
 3. Implement the approved visual vocabulary: Dither Image, Edge Blur, Hero Dithering, Tripwire-style dither utilities where licensed, and faithful local derivatives.
 4. Provide static and reduced-motion fallbacks for shader effects.
 5. Build semantic routing for home, log index, post, auth callback, preferences, unsubscribe, and not-found states.
@@ -42,16 +44,16 @@ Required evidence: source inspection, focused unit tests, font network review, d
 
 ## Phase 2 — research projects and produce the log corpus
 
-Status: **complete: 24 published posts with exact claim-ledger parity**.
+Status: **implemented locally: exactly 20 focused journals with claim-ledger parity; candidate release verification remains open**.
 
 1. Use the repository skill at [`skills/project-post-research/SKILL.md`](../skills/project-post-research/SKILL.md).
 2. Inventory authorized projects under a configurable local projects root using read-only commands.
-3. Map local Git remotes to public GitHub repositories owned by or explicitly associated with `ocque41`.
-4. Verify time-sensitive repository facts against current GitHub primary sources.
-5. Create an evidence ledger for every candidate post. Exclude private repositories, internal URLs, local paths, secrets, customer data, and claims that cannot be made public safely.
-6. Publish at least twenty substantial, original posts mixed across projects. Each post must explain context, a concrete engineering or design problem, the approach, meaningful tradeoffs, and what the available evidence actually proves.
-7. Give every published post a stable page, unique slug, project label, date, related-post links, and source backlinks to public primary sources.
-8. Validate counts, uniqueness, related-link integrity, source-link syntax, draft exclusion, and route resolution mechanically.
+3. Classify each entry as a public-source review or a maintainer-authored first-party journal before drafting; do not imply that private implementation evidence is anonymously reproducible.
+4. Keep the current corpus at exactly 8 Requisia, 7 Insuja, 3 Hyoka Hanesu, and 2 gy journals. Treat their dates as editorial candidate ordering until live route evidence exists.
+5. Create a public-safe evidence ledger for every candidate post. Exclude repository locations, internal URLs, local paths, secrets, customer data, operational identifiers, and claims outside the approved narrative boundary.
+6. Publish substantial, original, topic-specific prose. Each post must explain context, a concrete engineering or design problem, the approach, meaningful tradeoffs, and what the available evidence does and does not prove.
+7. Give every published post a stable page, unique slug, project label, editorial date, dither illustration, and resolved related-post links. Do not invent or expose source backlinks for private first-party material.
+8. Validate exact counts, word depth, structural variation, uniqueness, related-link integrity, draft exclusion, safety boundaries, and route resolution mechanically.
 
 Required evidence: public-safe project inventory, per-post claim/source ledger, current GitHub response metadata, content validation tests, route crawl, and manual review for unsupported claims.
 
@@ -94,7 +96,7 @@ Required evidence: branch graph, scope diff showing visual-only structural chang
 
 ## Phase 6 — completion audit and release decision
 
-Status: **in progress; only the production notification lifecycle remains open**.
+Status: **in progress; the changed local candidate still requires the complete release/browser record, and every provider/deployment action remains separately gated**.
 
 1. Re-run all repository checks from a clean install.
 2. Walk every public route and every notification state at desktop and mobile widths.

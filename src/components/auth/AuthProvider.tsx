@@ -59,44 +59,50 @@ export function AuthProvider({
   const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
   const sessionRevision = useRef(0);
 
-  useEffect(() => {
-    let active = true;
-    const revision = sessionRevision.current;
-    void fetcher(sessionEndpoint, {
-      method: "GET",
-      credentials: "same-origin",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (response) => {
-        const value = await readJson(response);
-        if (!active || sessionRevision.current !== revision) return;
-        if (!response.ok || !value) {
-          setAvailable(false);
-          setUnavailableReason(
-            "Notification access is temporarily unavailable. The public logs remain available.",
-          );
-          setUser(null);
-          return;
-        }
-        setAvailable(true);
-        setUnavailableReason(null);
-        setUser(parseUser(value.user));
-      })
-      .catch(() => {
-        if (!active || sessionRevision.current !== revision) return;
+  const refreshSession = useCallback(async (): Promise<void> => {
+    const revision = sessionRevision.current + 1;
+    sessionRevision.current = revision;
+    setLoading(true);
+
+    try {
+      const response = await fetcher(sessionEndpoint, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      const value = await readJson(response);
+      if (sessionRevision.current !== revision) return;
+
+      if (!response.ok || !value) {
         setAvailable(false);
         setUnavailableReason(
           "Notification access is temporarily unavailable. The public logs remain available.",
         );
         setUser(null);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+        return;
+      }
+
+      setAvailable(true);
+      setUnavailableReason(null);
+      setUser(parseUser(value.user));
+    } catch {
+      if (sessionRevision.current !== revision) return;
+      setAvailable(false);
+      setUnavailableReason(
+        "Notification access is temporarily unavailable. The public logs remain available.",
+      );
+      setUser(null);
+    } finally {
+      if (sessionRevision.current === revision) setLoading(false);
+    }
   }, [fetcher, sessionEndpoint]);
+
+  useEffect(() => {
+    void refreshSession();
+    return () => {
+      sessionRevision.current += 1;
+    };
+  }, [refreshSession]);
 
   const requestMagicLink = useCallback(
     async (
@@ -109,7 +115,7 @@ export function AuthProvider({
         return {
           ok: false,
           message:
-            "Acknowledge the notification disclosure before requesting a sign-in link.",
+            "Accept the notification disclosure before requesting a confirmation link.",
         };
       }
       try {
@@ -145,7 +151,8 @@ export function AuthProvider({
       if (!token || token.length > 1024) {
         return { ok: false, message: "This email link is incomplete or invalid." };
       }
-      sessionRevision.current += 1;
+      const revision = sessionRevision.current + 1;
+      sessionRevision.current = revision;
       try {
         const response = await fetcher(sessionEndpoint, {
           method: "POST",
@@ -159,11 +166,19 @@ export function AuthProvider({
         const value = await readJson(response);
         const nextUser = parseUser(value?.user);
         if (!response.ok || !nextUser) throw new Error("exchange_failed");
+        if (sessionRevision.current !== revision) {
+          return {
+            ok: false,
+            message: "A newer notification session check replaced this request.",
+          };
+        }
         setUser(nextUser);
         setAvailable(true);
         setUnavailableReason(null);
+        setLoading(false);
         return { ok: true, message: "Email confirmed." };
       } catch {
+        if (sessionRevision.current === revision) setLoading(false);
         return {
           ok: false,
           message:
@@ -175,7 +190,8 @@ export function AuthProvider({
   );
 
   const signOut = useCallback(async (): Promise<AuthActionResult> => {
-    sessionRevision.current += 1;
+    const revision = sessionRevision.current + 1;
+    sessionRevision.current = revision;
     try {
       const response = await fetcher(sessionEndpoint, {
         method: "DELETE",
@@ -183,12 +199,23 @@ export function AuthProvider({
         headers: { Accept: "application/json" },
       });
       if (!response.ok) throw new Error("sign_out_failed");
+      if (sessionRevision.current !== revision) {
+        return {
+          ok: false,
+          message: "A newer notification session check replaced this request.",
+        };
+      }
       setUser(null);
-      return { ok: true, message: "Signed out." };
+      setLoading(false);
+      return {
+        ok: true,
+        message: "This browser no longer remembers your notification email.",
+      };
     } catch {
+      if (sessionRevision.current === revision) setLoading(false);
       return {
         ok: false,
-        message: "Cumulus could not sign out. Please try again.",
+        message: "Cumulus could not forget this email. Please try again.",
       };
     }
   }, [fetcher, sessionEndpoint]);
@@ -199,6 +226,7 @@ export function AuthProvider({
       loading,
       available,
       unavailableReason,
+      refreshSession,
       requestMagicLink,
       exchangeMagicLink,
       signOut,
@@ -207,6 +235,7 @@ export function AuthProvider({
       available,
       exchangeMagicLink,
       loading,
+      refreshSession,
       requestMagicLink,
       signOut,
       unavailableReason,

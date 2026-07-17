@@ -27,11 +27,12 @@ Never communicate success, warning, error, or selection with color alone. Pair t
 
 ## Typography
 
-Only these supplied font families are part of the brand:
+The typography system uses the three supplied Jacquard display/interface families plus the operator-licensed Alcyone webfont for body copy only:
 
 - **Jacquard 24** — display titles and hero statements;
-- **Jacquard 12** — reading text, navigation, and interface copy;
+- **Jacquard 12** — fallback reading text, navigation, and interface copy;
 - **Jacquarda Bastarda 9** — dates, issue marks, compact labels, and expressive editorial details.
+- **Alcyone Medium** — paragraphs and long-form reading copy only on the single licensed Production website; never titles, navigation, controls, metadata, or labels. The commercial font file remains outside the public repository and browser build.
 
 The charted versions of all three families are intentionally omitted. Do not add them to the repository, preload them, or use them in generated artwork.
 
@@ -42,10 +43,10 @@ Recommended scale:
 | Hero / H1 | Jacquard 24 | `clamp(3.5rem, 12vw, 10rem)` | `0.82–0.92` |
 | H2 | Jacquard 24 | `clamp(2.25rem, 6vw, 5.5rem)` | `0.9–1` |
 | H3 | Jacquard 12 | `clamp(1.5rem, 3vw, 2.5rem)` | `1–1.1` |
-| Body | Jacquard 12 | `clamp(1.05rem, 1.4vw, 1.3rem)` | `1.45–1.65` |
+| Body | Alcyone Medium | `clamp(1.05rem, 1.4vw, 1.3rem)` | `1.45–1.65` |
 | Label / metadata | Jacquarda Bastarda 9 | `0.85–1rem` | `1.2–1.4` |
 
-Do not synthesize weights or italics the files do not provide. Use size, spacing, tone, and family changes for hierarchy. Do not add generic, system, remote, or icon-font fallbacks to authored font stacks; the three supplied families are the complete typography system.
+Do not synthesize weights or italics the files do not provide. Use size, spacing, tone, and family changes for hierarchy. Alcyone has one allowed role and falls back to Jacquard 12 when the externally configured same-origin webfont is unavailable; no generic, system, remote, or icon-font fallback is added. Local and Preview deliberately exercise that fallback because the commercial font value is Production-scoped only.
 
 Keep long lines around 55–72 characters. Test the smallest body and metadata roles on real mobile widths before release.
 
@@ -60,7 +61,7 @@ Keep long lines around 55–72 characters. Test the smallest body and metadata r
 
 ## Brand mark
 
-The Cumulus mark is a code-native cloud silhouette filled with an ordered dot dither and a restrained orange broken outline. Use the compact mark beside the navigation wordmark and the oversized mark as a low-contrast hero field. It must remain a neutral-gray and orange derivative of the dither system: do not replace it with an emoji, icon-library cloud, gradient logo, photographic cloud, or a second font.
+The compact Cumulus mark is a code-native cloud silhouette filled with an ordered dot dither and a restrained orange broken outline. Use it beside the navigation wordmark. Hero surfaces use animated interference fields rather than an oversized cloud. The compact mark must remain a neutral-gray and orange derivative of the dither system: do not replace it with an emoji, icon-library cloud, gradient logo, photographic cloud, or a second font.
 
 The compact mark is decorative when the visible `CUMULUS lab` wordmark is present. A standalone mark needs the accessible name “Cumulus dither cloud.” Keep the mark static or nearly static at small sizes and honor `prefers-reduced-motion` for oversized treatments.
 
@@ -102,4 +103,4 @@ Before copying third-party source, verify its redistribution terms and record th
 
 ## Assumptions
 
-The supplied regular font files are the authoritative font assets and retain their SIL OFL 1.1 notices. The live production domain and any historical visual assets are external and unverified. If either assumption changes, update this file and the licensing/release records before publishing.
+The three bundled Jacquard regular files are the authoritative public font assets and retain their SIL OFL 1.1 notices. Alcyone Medium is an operator-supplied commercial webfont for one Production website and is never part of this repository or its Apache-2.0 distribution. The live production domain, its environment scope, and any historical visual assets are external and unverified. If any of those assumptions changes, update this file and the licensing/release records before publishing.

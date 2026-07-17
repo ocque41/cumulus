@@ -13,6 +13,7 @@ interface SiteLayoutProps {
 export function SiteLayout({ children, onOpenAuth }: SiteLayoutProps) {
   return (
     <div className="site-frame">
+      <a className="skip-link" href="#main-content">Skip to content</a>
       <TopBlur height={54} />
       <SiteHeader onOpenAuth={onOpenAuth} />
       <main id="main-content">{children}</main>

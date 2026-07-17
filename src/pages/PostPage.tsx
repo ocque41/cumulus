@@ -1,10 +1,10 @@
 import {
   DitherPlate,
   PostMeta,
-  SourceBacklinks,
   articleHref,
   getRelatedSlugs,
 } from "@/components/content/PostComponents";
+import { FIRST_PARTY_JOURNAL_NOTICE } from "@/content/focused-posts";
 import { publishedPosts, type Post } from "@/content/posts";
 import { NotificationPreferences } from "@/features/notifications";
 import { AppLink, useDocumentMeta } from "@/lib/router";
@@ -38,6 +38,10 @@ export function PostPage({ post }: { post: Post }) {
           <span>{post.category}</span>
         </div>
         <PostMeta post={post} />
+        <p className="article-evidence-label">
+          <strong>{FIRST_PARTY_JOURNAL_NOTICE.label}.</strong>{" "}
+          {FIRST_PARTY_JOURNAL_NOTICE.detail}
+        </p>
         <h1>{post.title}</h1>
         <p className="article-hero__excerpt">{post.excerpt}</p>
         <ul aria-label="Topics" className="tag-list tag-list--large">
@@ -50,7 +54,13 @@ export function PostPage({ post }: { post: Post }) {
       </header>
 
       <div className="article-visual page-shell">
-        <DitherPlate className="dither-plate--article" label="Field note" post={post} />
+        <DitherPlate
+          className="dither-plate--article"
+          label="Field note"
+          mode="hero"
+          placement="article-lead"
+          post={post}
+        />
       </div>
 
       <div className="article-layout page-shell">
@@ -78,18 +88,12 @@ export function PostPage({ post }: { post: Post }) {
               ))}
               <DitherPlate
                 className="dither-plate--inline"
-                post={{
-                  ...post,
-                  visual: {
-                    ...post.visual,
-                    variant: `${post.visual.variant}-${index}` as Post["visual"]["variant"],
-                  },
-                }}
+                decorative
+                placement={`article-inline-${index}`}
+                post={post}
               />
             </section>
           ))}
-
-          <SourceBacklinks post={post} />
         </div>
       </div>
 
@@ -101,6 +105,12 @@ export function PostPage({ post }: { post: Post }) {
         <div className="related-logs__grid">
           {related.map((candidate, index) => (
             <AppLink href={articleHref(candidate)} key={candidate.slug}>
+              <DitherPlate
+                className="related-logs__plate"
+                decorative
+                placement="related"
+                post={candidate}
+              />
               <span>{String(index + 1).padStart(2, "0")}</span>
               <strong>{candidate.title}</strong>
               <small>{candidate.category}</small>

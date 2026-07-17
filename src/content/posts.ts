@@ -1,4 +1,4 @@
-import { RESEARCHED_POSTS } from "./researched-posts.js";
+import { FOCUSED_POSTS } from "./focused-posts.js";
 import type { Post, PostBodySection } from "./post-types.js";
 
 export type {
@@ -49,8 +49,8 @@ const DRAFT_POST: Post = {
     },
   ],
   relatedSlugs: [
-    "honest-github-activity-field",
-    "wireframes-as-executable-handoffs",
+    "requisia-organization-scoped-registers",
+    "insuja-typed-tenant-boundaries",
   ],
 };
 
@@ -71,12 +71,18 @@ export function calculateReadingTime(body: readonly PostBodySection[]): number {
   return Math.max(1, Math.ceil(countBodyWords(body) / 220));
 }
 
-export const POSTS: readonly Post[] = [...RESEARCHED_POSTS, DRAFT_POST].map(
+export const POSTS: readonly Post[] = [...FOCUSED_POSTS, DRAFT_POST].map(
   (post) => ({ ...post, readingTime: calculateReadingTime(post.body) }),
 );
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const EXPECTED_PROJECT_COUNTS = new Map([
+  ["requisia", 8],
+  ["insuja", 7],
+  ["hyoka-hanesu", 3],
+  ["gy", 2],
+]);
 
 function normalized(value: string): string {
   return value.trim().toLocaleLowerCase("en-US");
@@ -109,8 +115,35 @@ export function validatePosts(posts: readonly Post[] = POSTS): string[] {
     posts.filter((post) => post.status === "published").map((post) => post.slug),
   );
 
-  if (publishedSlugs.size < 20) {
-    issues.push(`Expected at least 20 published posts, received ${publishedSlugs.size}.`);
+  if (publishedSlugs.size !== 20) {
+    issues.push(`Expected exactly 20 published posts, received ${publishedSlugs.size}.`);
+  }
+
+  for (const [project, expectedCount] of EXPECTED_PROJECT_COUNTS) {
+    const projectCount = posts.filter(
+      (post) => post.status === "published" && post.project === project,
+    ).length;
+    if (projectCount !== expectedCount) {
+      issues.push(
+        `Expected ${expectedCount} published ${project} posts, received ${projectCount}.`,
+      );
+    }
+  }
+  const unexpectedProjects = new Set(
+    posts
+      .filter((post) => post.status === "published")
+      .map((post) => post.project)
+      .filter((project) => !project || !EXPECTED_PROJECT_COUNTS.has(project)),
+  );
+  for (const project of unexpectedProjects) {
+    issues.push(`Unexpected published project ${project ?? "(missing)"}.`);
+  }
+
+  const featuredCount = posts.filter(
+    (post) => post.status === "published" && post.placement === "featured",
+  ).length;
+  if (featuredCount !== 1) {
+    issues.push(`Expected exactly one featured published post, received ${featuredCount}.`);
   }
 
   posts.forEach((post, index) => {
@@ -163,10 +196,6 @@ export function validatePosts(posts: readonly Post[] = POSTS): string[] {
       if (sourceKeys.has(key)) issues.push(`${label}: source links must be unique.`);
       sourceKeys.add(key);
     }
-    if (post.status === "published" && (post.sourceLinks?.length ?? 0) < 1) {
-      issues.push(`${label}: published posts need a public primary-source backlink.`);
-    }
-
     const related = post.relatedSlugs ?? [];
     if (post.status === "published" && related.length < 2) {
       issues.push(`${label}: published posts need at least two related backlinks.`);

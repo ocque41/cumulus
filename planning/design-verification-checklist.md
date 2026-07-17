@@ -1,5 +1,16 @@
 # Design verification checklist
 
+> Candidate reset — 2026-07-17: the checked baseline below belongs to the earlier 24-journal/Jacquard-only build. It is historical evidence, not sign-off for the current local redesign. The current candidate must complete the delta gates below before this checklist can be cited again; Production proof remains a separate approval gate.
+
+## Current candidate delta gates
+
+- [x] Home and Public Work render the same wave-dither hero preset with no oversized cloud, at matching desktop and mobile states.
+- [x] All twenty focused journals appear on Home, Public Work, and the log index with deterministic dither illustrations; every direct article has a lead, per-section, and related-journal dither surface.
+- [x] Jacquard heading/interface/label families are unchanged; Alcyone Medium is scoped only to narrative body copy and its licensed bytes remain outside Git, Local runtime, and static build output. Live Vercel Preview and Production configuration remain separate external gates.
+- [x] GitHub hover details remain unobstructed after the cell transition; click pins, outside/Escape returns to transient mode, the responsive picker returns focus, unavailable grids are inert, and a notification modal removes any body portal.
+- [x] The first eligible visit opens one optional notification invitation, records only the versioned non-identifying marker, does not repeat, remains manually available, and excludes privacy/callback/unknown routes.
+- [x] The complete Node 24 release set and desktop/mobile browser suite pass after all remediation, with no horizontal overflow or unexpected console error.
+
 Complete this checklist independently for the literal reference branch and the original visual-structure branch. Attach current screenshots or recordings to each review; a source-code inspection alone is insufficient.
 
 Current Cumulus 0.0.8 sign-off is recorded in [design verification evidence](design-verification-evidence.md). Checked items below are backed by that rendered, automated, or source-inspection evidence; they are not completion evidence for the separate live email lifecycle.
@@ -17,8 +28,8 @@ Current Cumulus 0.0.8 sign-off is recorded in [design verification evidence](des
 - [x] The canvas and structural surfaces are pure black.
 - [x] Text roles use intentional neutral-gray variants with readable contrast.
 - [x] Orange is confined to small, high-contrast accents, focus, or status details.
-- [x] Only the supplied Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 files are requested by the page.
-- [x] No authored CSS, dependency, image, icon font, or browser request introduces another typography family.
+- [x] Only the supplied Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 files are bundled in public browser assets.
+- [x] The historical baseline introduced no other typography family. The current Alcyone narrative role is governed by the candidate delta and commercial-font boundary above.
 - [x] Headings, labels, body copy, metadata, links, and controls form a coherent type scale at every viewport.
 
 ## Approved visual vocabulary
@@ -45,8 +56,8 @@ Current Cumulus 0.0.8 sign-off is recorded in [design verification evidence](des
 
 - [x] The log index exposes every published post exactly once and excludes drafts.
 - [x] Every post page is expansive, readable, and uses multiple varied dither components without turning prose into texture.
-- [x] Titles, project labels, dates, sources, related posts, and next navigation remain clear on mobile.
-- [x] Every source backlink is visually identifiable, keyboard reachable, and resolves to a public HTTPS source.
+- [x] Titles, project labels, dates, evidence mode, related posts, and next navigation remain clear on mobile.
+- [x] Public-source reviews expose their primary sources. The current first-party journals deliberately expose no invented or private backlink.
 - [x] Related-post backlinks resolve and do not create dead ends.
 - [x] The footer is visually prominent and dither-led while retaining semantic navigation, notification controls, and readable legal links.
 - [x] Empty, loading, error, long-title, long-source-list, and no-related-post states do not break the layout.

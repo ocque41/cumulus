@@ -1,19 +1,17 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { ComponentProps } from "react";
 
+import {
+  DitherArtwork,
+  stableDitherSeed,
+} from "@/components/visual/DitherArtwork";
 import { HeroDither } from "@/components/visual/HeroDither";
 import type { Post } from "@/content/posts";
 import { AppLink } from "@/lib/router";
 
-interface SourceLink {
-  href: string;
-  label: string;
-}
-
 type EnrichedPost = Post & {
   project?: string;
   relatedSlugs?: readonly string[];
-  sourceLinks?: readonly SourceLink[];
 };
 
 const SHAPES: Array<ComponentProps<typeof HeroDither>["shape"]> = [
@@ -30,12 +28,6 @@ const TYPES: Array<ComponentProps<typeof HeroDither>["type"]> = [
   "4x4",
   "8x8",
 ];
-
-function hash(value: string): number {
-  return Array.from(value).reduce((total, character) => {
-    return (total * 31 + character.charCodeAt(0)) >>> 0;
-  }, 17);
-}
 
 export function formatPostDate(value: string): string {
   const date = new Date(`${value}T12:00:00.000Z`);
@@ -56,15 +48,6 @@ export function getPostProject(post: Post): string | undefined {
   return typeof project === "string" && project.trim() ? project : undefined;
 }
 
-export function getPostSources(post: Post): readonly SourceLink[] {
-  const links = (post as EnrichedPost).sourceLinks;
-  if (!Array.isArray(links)) return [];
-  return links.filter(
-    (link): link is SourceLink =>
-      Boolean(link && typeof link.href === "string" && typeof link.label === "string"),
-  );
-}
-
 export function getRelatedSlugs(post: Post): readonly string[] {
   const slugs = (post as EnrichedPost).relatedSlugs;
   return Array.isArray(slugs)
@@ -73,23 +56,53 @@ export function getRelatedSlugs(post: Post): readonly string[] {
 }
 
 export function DitherPlate({
+  accessibleLabel,
   className = "",
+  decorative = false,
   label,
+  mode = "artwork",
+  placement = "default",
   post,
 }: {
+  accessibleLabel?: string;
   className?: string;
+  decorative?: boolean;
   label?: string;
+  mode?: "artwork" | "hero";
+  placement?: string;
   post: Post;
 }) {
-  const seed = hash(post.visual.variant);
+  const seedKey = `${post.slug}:${placement}`;
+  const seed = stableDitherSeed(`${seedKey}:${post.visual.variant}`);
   const shape = SHAPES[seed % SHAPES.length];
   const type = TYPES[Math.floor(seed / SHAPES.length) % TYPES.length];
+  const semantics = decorative
+    ? { decorative: true as const }
+    : {
+        decorative: false as const,
+        label: accessibleLabel ?? post.visual.alt,
+      };
+
+  if (mode === "artwork") {
+    return (
+      <DitherArtwork
+        {...semantics}
+        className={`dither-plate ${className}`.trim()}
+        seed={seedKey}
+        variant={post.visual.variant}
+      >
+        {label ? <span aria-hidden="true">{label}</span> : null}
+      </DitherArtwork>
+    );
+  }
 
   return (
     <div
-      aria-label={post.visual.alt}
+      aria-hidden={decorative || undefined}
+      aria-label={decorative ? undefined : accessibleLabel ?? post.visual.alt}
       className={`dither-plate ${className}`.trim()}
-      role="img"
+      data-dither-seed={seed}
+      role={decorative ? undefined : "img"}
     >
       <HeroDither
         fallbackClassName="dither-plate__fallback"
@@ -121,9 +134,15 @@ export function PostMeta({ post }: { post: Post }) {
 export function FeaturedPost({ post }: { post: Post }) {
   return (
     <article className="featured-post">
-      <AppLink href={articleHref(post)} className="featured-post__visual">
-        <DitherPlate label="Open log" post={post} />
-      </AppLink>
+      <div className="featured-post__visual">
+        <DitherPlate
+          decorative
+          label="Open log"
+          mode="hero"
+          placement="home-feature"
+          post={post}
+        />
+      </div>
       <div className="featured-post__copy">
         <p className="eyebrow">Featured log</p>
         <PostMeta post={post} />
@@ -131,9 +150,9 @@ export function FeaturedPost({ post }: { post: Post }) {
           <AppLink href={articleHref(post)}>{post.title}</AppLink>
         </h3>
         <p>{post.excerpt}</p>
-        <AppLink className="text-link" href={articleHref(post)}>
+        <span aria-hidden="true" className="featured-post__action">
           Read the complete log
-        </AppLink>
+        </span>
       </div>
     </article>
   );
@@ -144,6 +163,14 @@ export function PostCard({ index, post }: { index: number; post: Post }) {
     <article className="post-card">
       <div className="post-card__index" aria-hidden="true">
         {String(index + 1).padStart(2, "0")}
+      </div>
+      <div className="post-card__visual">
+        <DitherPlate
+          className="post-card__plate"
+          decorative
+          placement="home-card"
+          post={post}
+        />
       </div>
       <div className="post-card__body">
         <PostMeta post={post} />
@@ -165,43 +192,24 @@ export function PostIndexRow({ index, post }: { index: number; post: Post }) {
   return (
     <article className="post-index-row">
       <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-      <div>
+      <div className="post-index-row__visual">
+        <DitherPlate
+          className="post-index-row__plate"
+          decorative
+          placement="archive-row"
+          post={post}
+        />
+      </div>
+      <div className="post-index-row__body">
         <PostMeta post={post} />
         <h2>
           <AppLink href={articleHref(post)}>{post.title}</AppLink>
         </h2>
         <p>{post.excerpt}</p>
       </div>
-      <AppLink aria-label={`Read ${post.title}`} className="post-index-row__action" href={articleHref(post)}>
+      <span aria-hidden="true" className="post-index-row__action">
         Open
-      </AppLink>
+      </span>
     </article>
-  );
-}
-
-export function SourceBacklinks({ post }: { post: Post }) {
-  const sources = getPostSources(post);
-  if (sources.length === 0) return null;
-
-  return (
-    <aside aria-labelledby="source-backlinks-title" className="source-backlinks">
-      <p className="eyebrow" id="source-backlinks-title">
-        Public links
-      </p>
-      <p>
-        Explore related public work and upstream context. These links provide context;
-        they do not imply that a private project or its implementation is published.
-      </p>
-      <ol>
-        {sources.map((source, index) => (
-          <li key={`${source.href}:${source.label}`}>
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            <a href={source.href} rel="noreferrer" target="_blank">
-              {source.label}
-            </a>
-          </li>
-        ))}
-      </ol>
-    </aside>
   );
 }

@@ -15,28 +15,83 @@ import {
 import { EdgeBlur } from "./EdgeBlur";
 import { HeroDither } from "./HeroDither";
 
-const shaderCleanup = vi.hoisted(() => vi.fn());
+const shaderMountMock = vi.hoisted(() => ({
+  construct: vi.fn(),
+  dispose: vi.fn(),
+  publishBeforeThrow: false,
+  setFrame: vi.fn(),
+  setMaxPixelCount: vi.fn(),
+  setMinPixelRatio: vi.fn(),
+  setSpeed: vi.fn(),
+  setUniforms: vi.fn(),
+  throwOnConstruct: false,
+  throwOnSetSpeed: false,
+}));
 
-vi.mock("@paper-design/shaders-react", () => ({
-  Dithering: (props: Record<string, unknown>) => {
-    React.useEffect(() => shaderCleanup, []);
+vi.mock("@paper-design/shaders", () => ({
+  defaultPatternSizing: {
+    fit: "none",
+    offsetX: 0,
+    offsetY: 0,
+    originX: 0.5,
+    originY: 0.5,
+    rotation: 0,
+    scale: 1,
+    worldHeight: 0,
+    worldWidth: 0,
+  },
+  ditheringFragmentShader: "dithering-fragment-shader",
+  DitheringShapes: {
+    dots: 3,
+    ripple: 5,
+    simplex: 1,
+    sphere: 7,
+    swirl: 6,
+    warp: 2,
+    wave: 4,
+  },
+  DitheringTypes: { "2x2": 2, "4x4": 3, "8x8": 4, random: 1 },
+  getShaderColorFromString: (color: string) =>
+    color === "#5f5f5f" ? [95 / 255, 95 / 255, 95 / 255, 1] : [0, 0, 0, 1],
+  ShaderFitOptions: { contain: 1, cover: 2, none: 0 },
+  ShaderMount: class ShaderMountMock {
+    private readonly canvas: HTMLCanvasElement;
+    private readonly parent: HTMLElement & { paperShaderMount?: unknown };
 
-    return (
-      <div
-        data-frame={String(props.frame)}
-        data-color-back={String(props.colorBack)}
-        data-color-front={String(props.colorFront)}
-        data-height={String(props.height)}
-        data-max-pixel-count={String(props.maxPixelCount)}
-        data-min-pixel-ratio={String(props.minPixelRatio)}
-        data-shape={String(props.shape)}
-        data-size={String(props.size)}
-        data-speed={String(props.speed)}
-        data-testid="paper-dithering"
-        data-type={String(props.type)}
-        data-width={String(props.width)}
-      />
-    );
+    constructor(parent: HTMLElement, ...args: unknown[]) {
+      this.parent = parent;
+      this.canvas = parent.ownerDocument.createElement("canvas");
+      parent.prepend(this.canvas);
+      shaderMountMock.construct(parent, ...args);
+
+      if (shaderMountMock.publishBeforeThrow) {
+        this.parent.paperShaderMount = this;
+      }
+      if (shaderMountMock.throwOnConstruct) {
+        throw new Error("shader constructor failed");
+      }
+
+      this.parent.paperShaderMount = this;
+      this.parent.setAttribute("data-paper-shader", "");
+    }
+
+    dispose = () => {
+      shaderMountMock.dispose();
+      this.canvas.remove();
+      this.parent.removeAttribute("data-paper-shader");
+      delete this.parent.paperShaderMount;
+    };
+
+    setFrame = shaderMountMock.setFrame;
+    setMaxPixelCount = shaderMountMock.setMaxPixelCount;
+    setMinPixelRatio = shaderMountMock.setMinPixelRatio;
+    setSpeed = (speed: number) => {
+      shaderMountMock.setSpeed(speed);
+      if (shaderMountMock.throwOnSetSpeed) {
+        throw new Error("shader speed update failed");
+      }
+    };
+    setUniforms = shaderMountMock.setUniforms;
   },
 }));
 
@@ -114,7 +169,16 @@ afterEach(() => {
   cleanup();
   intersectionObservers.length = 0;
   resizeObservers.length = 0;
-  shaderCleanup.mockClear();
+  shaderMountMock.publishBeforeThrow = false;
+  shaderMountMock.throwOnConstruct = false;
+  shaderMountMock.throwOnSetSpeed = false;
+  shaderMountMock.construct.mockClear();
+  shaderMountMock.dispose.mockClear();
+  shaderMountMock.setFrame.mockClear();
+  shaderMountMock.setMaxPixelCount.mockClear();
+  shaderMountMock.setMinPixelRatio.mockClear();
+  shaderMountMock.setSpeed.mockClear();
+  shaderMountMock.setUniforms.mockClear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -226,7 +290,9 @@ describe("HeroDither", () => {
     const { container } = render(<HeroDither />);
 
     expect(getContext).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("paper-dithering")).not.toBeInTheDocument();
+    expect(
+      container.querySelector("[data-slot='hero-dither-shader']"),
+    ).not.toBeInTheDocument();
     expect(
       container.querySelector("[data-slot='hero-dither-fallback']"),
     ).toBeInTheDocument();
@@ -241,15 +307,38 @@ describe("HeroDither", () => {
     act(() => intersectionObservers[0]?.trigger(true));
 
     expect(getContext).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("paper-dithering")).not.toBeInTheDocument();
+    expect(
+      container.querySelector("[data-slot='hero-dither-shader']"),
+    ).not.toBeInTheDocument();
     expect(
       container.querySelector("[data-slot='hero-dither-fallback']"),
     ).toBeInTheDocument();
   });
 
+  it("stays static before probing when Paper's visual viewport global is unavailable", () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("visualViewport", undefined);
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext");
+
+    const { container } = render(<HeroDither />);
+    act(() => intersectionObservers[0]?.trigger(true));
+
+    expect(getContext).not.toHaveBeenCalled();
+    expect(shaderMountMock.construct).not.toHaveBeenCalled();
+    expect(
+      container.querySelector("[data-slot='hero-dither-shader']"),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps the static fallback when a nearby card cannot create WebGL2", async () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("visualViewport", null);
     const getContext = vi
       .spyOn(HTMLCanvasElement.prototype, "getContext")
       .mockReturnValue(null);
@@ -259,7 +348,9 @@ describe("HeroDither", () => {
     act(() => intersectionObservers[0]?.trigger(true));
 
     await waitFor(() => expect(getContext).toHaveBeenCalledWith("webgl2"));
-    expect(screen.queryByTestId("paper-dithering")).not.toBeInTheDocument();
+    expect(
+      container.querySelector("[data-slot='hero-dither-shader']"),
+    ).not.toBeInTheDocument();
     expect(
       container.querySelector("[data-slot='hero-dither-fallback']"),
     ).toBeInTheDocument();
@@ -268,6 +359,9 @@ describe("HeroDither", () => {
   it("shares a bounded probe, reacts to motion changes, and cleans up", async () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("visualViewport", null);
     vi.stubGlobal("devicePixelRatio", 3);
     const getContext = vi
       .spyOn(HTMLCanvasElement.prototype, "getContext")
@@ -303,7 +397,7 @@ describe("HeroDither", () => {
         }) as unknown as MediaQueryList,
     );
 
-    const { container, unmount } = render(
+    const { container, rerender, unmount } = render(
       <>
         <HeroDither
           frame={42}
@@ -327,20 +421,33 @@ describe("HeroDither", () => {
 
     act(() => intersectionObservers[0]?.trigger(true));
 
-    const shader = await screen.findByTestId("paper-dithering");
-    expect(shader).toHaveAttribute("data-shape", "dots");
-    expect(shader).toHaveAttribute("data-type", "8x8");
-    expect(shader).toHaveAttribute("data-size", "3");
-    expect(shader).toHaveAttribute("data-frame", "42");
-    expect(shader).toHaveAttribute("data-speed", "0");
-    expect(shader).toHaveAttribute("data-color-back", "#000000");
-    expect(shader).toHaveAttribute("data-color-front", "#5f5f5f");
-    expect(shader).toHaveAttribute("data-width", "640");
-    expect(shader).toHaveAttribute("data-height", "320");
-    expect(shader).toHaveAttribute("data-max-pixel-count", "300000");
-    expect(Number(shader.getAttribute("data-min-pixel-ratio"))).toBeCloseTo(
-      Math.sqrt(300_000 / (640 * 320)),
-    );
+    await waitFor(() => expect(shaderMountMock.construct).toHaveBeenCalledOnce());
+    const [host, fragmentShader, uniforms, attributes, constructorSpeed, frame, minRatio, maxPixels] =
+      shaderMountMock.construct.mock.calls[0] ?? [];
+    expect(host).toHaveAttribute("data-slot", "hero-dither-shader");
+    expect(fragmentShader).toBe("dithering-fragment-shader");
+    expect(uniforms).toEqual({
+      u_colorBack: [0, 0, 0, 1],
+      u_colorFront: [95 / 255, 95 / 255, 95 / 255, 1],
+      u_fit: 2,
+      u_offsetX: 0,
+      u_offsetY: 0,
+      u_originX: 0.5,
+      u_originY: 0.5,
+      u_pxSize: 3,
+      u_rotation: 0,
+      u_scale: 0.62,
+      u_shape: 3,
+      u_type: 4,
+      u_worldHeight: 0,
+      u_worldWidth: 0,
+    });
+    expect(attributes).toBeUndefined();
+    expect(constructorSpeed).toBe(0);
+    expect(frame).toBe(42);
+    expect(minRatio).toBeCloseTo(Math.sqrt(300_000 / (640 * 320)));
+    expect(maxPixels).toBe(300_000);
+    expect(shaderMountMock.setSpeed).toHaveBeenCalledWith(0);
     expect(getContext).toHaveBeenCalledOnce();
     expect(getContext).toHaveBeenCalledWith("webgl2");
     expect(
@@ -348,35 +455,51 @@ describe("HeroDither", () => {
     ).toBeInTheDocument();
 
     act(() => intersectionObservers[1]?.trigger(true));
-    await waitFor(() =>
-      expect(screen.getAllByTestId("paper-dithering")).toHaveLength(2),
-    );
+    await waitFor(() => expect(shaderMountMock.construct).toHaveBeenCalledTimes(2));
     expect(getContext).toHaveBeenCalledOnce();
 
     reducedMotion = false;
     act(() => motionListeners.forEach((notify) => notify()));
-    await waitFor(() =>
-      expect(screen.getAllByTestId("paper-dithering")[0]).toHaveAttribute(
-        "data-speed",
-        "2",
-      ),
-    );
+    await waitFor(() => expect(shaderMountMock.setSpeed).toHaveBeenCalledWith(2));
+    expect(shaderMountMock.construct).toHaveBeenCalledTimes(2);
 
     act(() => resizeObservers[0]?.trigger(100, 100));
     await waitFor(() => {
-      const resizedShader = screen.getAllByTestId("paper-dithering")[0];
-      expect(resizedShader).toHaveAttribute("data-width", "100");
-      expect(resizedShader).toHaveAttribute("data-height", "100");
-      expect(resizedShader).toHaveAttribute("data-max-pixel-count", "40000");
-      expect(resizedShader).toHaveAttribute("data-min-pixel-ratio", "2");
+      expect(shaderMountMock.setMaxPixelCount).toHaveBeenCalledWith(40_000);
+      expect(shaderMountMock.setMinPixelRatio).toHaveBeenCalledWith(2);
     });
+    expect(shaderMountMock.construct).toHaveBeenCalledTimes(2);
+
+    rerender(
+      <>
+        <HeroDither
+          frame={43}
+          maxPixelCount={300_000}
+          maxPixelRatio={2}
+          shape="sphere"
+          size={4}
+          speed={2}
+          type="2x2"
+        />
+        <HeroDither frame={7} shape="wave" speed={1} />
+      </>,
+    );
+    await waitFor(() => {
+      expect(shaderMountMock.setFrame).toHaveBeenCalledWith(43);
+      expect(shaderMountMock.setUniforms).toHaveBeenCalledWith(
+        expect.objectContaining({ u_pxSize: 4, u_shape: 7, u_type: 2 }),
+      );
+    });
+    expect(shaderMountMock.construct).toHaveBeenCalledTimes(2);
 
     act(() => intersectionObservers[0]?.trigger(false));
 
     await waitFor(() =>
-      expect(screen.getAllByTestId("paper-dithering")).toHaveLength(1),
+      expect(
+        container.querySelectorAll("[data-slot='hero-dither-shader']"),
+      ).toHaveLength(1),
     );
-    expect(shaderCleanup).toHaveBeenCalledOnce();
+    expect(shaderMountMock.dispose).toHaveBeenCalledOnce();
     expect(
       container.querySelector("[data-slot='hero-dither-fallback']"),
     ).toBeInTheDocument();
@@ -388,6 +511,118 @@ describe("HeroDither", () => {
     expect(resizeObservers.every((observer) => observer.disconnect.mock.calls.length === 1)).toBe(
       true,
     );
-    expect(shaderCleanup).toHaveBeenCalledTimes(2);
+    expect(shaderMountMock.dispose).toHaveBeenCalledTimes(2);
+  });
+
+  it("catches an early constructor failure and removes its partial canvas", async () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("visualViewport", null);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      getExtension: () => null,
+    } as unknown as WebGL2RenderingContext);
+    shaderMountMock.throwOnConstruct = true;
+
+    const { container } = render(<HeroDither />);
+    act(() => intersectionObservers[0]?.trigger(true));
+
+    await waitFor(() => expect(shaderMountMock.construct).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(
+        container.querySelector("[data-slot='hero-dither-shader']"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(container.querySelector("canvas")).not.toBeInTheDocument();
+    expect(shaderMountMock.dispose).not.toHaveBeenCalled();
+    expect(
+      container.querySelector("[data-slot='hero-dither-fallback']"),
+    ).toBeInTheDocument();
+
+    act(() => {
+      intersectionObservers[0]?.trigger(false);
+      intersectionObservers[0]?.trigger(true);
+    });
+    expect(shaderMountMock.construct).toHaveBeenCalledOnce();
+  });
+
+  it("disposes a constructor that publishes itself before throwing", async () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("visualViewport", null);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      getExtension: () => null,
+    } as unknown as WebGL2RenderingContext);
+    shaderMountMock.publishBeforeThrow = true;
+    shaderMountMock.throwOnConstruct = true;
+
+    const { container } = render(<HeroDither />);
+    act(() => intersectionObservers[0]?.trigger(true));
+
+    await waitFor(() => expect(shaderMountMock.dispose).toHaveBeenCalledOnce());
+    expect(container.querySelector("canvas")).not.toBeInTheDocument();
+    expect(
+      container.querySelector("[data-slot='hero-dither-shader']"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("disposes and falls back when a synchronous shader update throws", async () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("visualViewport", null);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      getExtension: () => null,
+    } as unknown as WebGL2RenderingContext);
+
+    const { container, rerender } = render(<HeroDither speed={1} />);
+    act(() => intersectionObservers[0]?.trigger(true));
+    await waitFor(() => expect(shaderMountMock.construct).toHaveBeenCalledOnce());
+
+    shaderMountMock.throwOnSetSpeed = true;
+    rerender(<HeroDither speed={2} />);
+
+    await waitFor(() => expect(shaderMountMock.dispose).toHaveBeenCalledOnce());
+    expect(shaderMountMock.construct).toHaveBeenCalledOnce();
+    expect(
+      container.querySelector("[data-slot='hero-dither-shader']"),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector("[data-slot='hero-dither-fallback']"),
+    ).toBeInTheDocument();
+  });
+
+  it("prevents WebGL context loss and disposes the failed shader", async () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("visualViewport", null);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      getExtension: () => null,
+    } as unknown as WebGL2RenderingContext);
+
+    const { container } = render(<HeroDither />);
+    act(() => intersectionObservers[0]?.trigger(true));
+    await waitFor(() => expect(shaderMountMock.construct).toHaveBeenCalledOnce());
+
+    const canvas = container.querySelector<HTMLCanvasElement>(
+      "[data-slot='hero-dither-shader'] canvas",
+    );
+    const contextLoss = new Event("webglcontextlost", {
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => canvas?.dispatchEvent(contextLoss));
+
+    expect(contextLoss.defaultPrevented).toBe(true);
+    await waitFor(() => expect(shaderMountMock.dispose).toHaveBeenCalledOnce());
+    expect(
+      container.querySelector("[data-slot='hero-dither-shader']"),
+    ).not.toBeInTheDocument();
   });
 });

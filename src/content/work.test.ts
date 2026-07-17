@@ -1,57 +1,60 @@
 import { describe, expect, it } from "vitest";
 
-import { PUBLIC_WORK_COUNT, WORK_PROJECTS } from "./work";
+import { WORK_PROJECTS as FOCUSED_WORK_PROJECTS } from "./focused-work";
+import {
+  PUBLIC_WORK_COUNT,
+  WORK_PROJECTS,
+  getWorkProject,
+} from "./work";
+
+const EXPECTED_PROJECTS = [
+  ["requisia", "Requisia"],
+  ["insuja", "Insuja"],
+  ["hyoka-hanesu", "Hyoka Hanesu"],
+  ["gy", "gy"],
+] as const;
 
 describe("public work directory", () => {
-  it("documents a substantial, uniquely routed lab portfolio", () => {
-    expect(WORK_PROJECTS).toHaveLength(10);
-    expect(new Set(WORK_PROJECTS.map((project) => project.slug)).size).toBe(
-      WORK_PROJECTS.length,
+  it("uses one four-project first-party catalog everywhere", () => {
+    expect(WORK_PROJECTS).toBe(FOCUSED_WORK_PROJECTS);
+    expect(WORK_PROJECTS.map(({ slug, name }) => [slug, name])).toEqual(
+      EXPECTED_PROJECTS,
     );
+    expect(new Set(WORK_PROJECTS.map((project) => project.slug)).size).toBe(4);
 
+    for (const [slug] of EXPECTED_PROJECTS) {
+      expect(getWorkProject(`  ${slug.toUpperCase()}  `)?.slug).toBe(slug);
+    }
+    expect(getWorkProject("missing-project")).toBeUndefined();
+  });
+
+  it("provides substantial descriptions with explicit evidence limits", () => {
     for (const project of WORK_PROJECTS) {
-      expect(project.description.length, project.name).toBeGreaterThan(100);
-      expect(project.latestWork.length, project.name).toBeGreaterThan(150);
-      expect(project.stack.length, project.name).toBeGreaterThanOrEqual(5);
-      expect(project.sourceBoundary.length, project.name).toBeGreaterThan(45);
+      expect(project.description.length, project.name).toBeGreaterThan(140);
+      expect(project.latestWork.length, project.name).toBeGreaterThan(190);
+      expect(project.stack.length, project.name).toBeGreaterThanOrEqual(6);
+      expect(project.sourceBoundary.length, project.name).toBeGreaterThan(120);
+      expect(project.status, project.name).toMatch(
+        /development|pre-production|local|prototype/i,
+      );
+      expect(project.sourceBoundary, project.name).toMatch(
+        /private|first-party|maintainer/i,
+      );
       expect(project.verifiedAt, project.name).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(Number.isNaN(Date.parse(`${project.verifiedAt}T00:00:00Z`))).toBe(false);
     }
   });
 
-  it("links only reviewed public snapshots and keeps private work unlinked", () => {
-    const publicProjects = WORK_PROJECTS.filter((project) => project.source);
-    expect(publicProjects).toHaveLength(PUBLIC_WORK_COUNT);
-    expect(PUBLIC_WORK_COUNT).toBe(5);
+  it("contains no public-source claim, local path, endpoint, or identifier", () => {
+    expect(PUBLIC_WORK_COUNT).toBe(0);
 
-    for (const project of publicProjects) {
-      const url = new URL(project.source!.href);
-      expect(url.protocol).toBe("https:");
-      expect(url.hostname).toBe("github.com");
-      expect(url.pathname).toMatch(/\/tree\/[a-f0-9]{7,40}$/);
-      expect(project.source!.label).toBe("View source");
-    }
-
-    expect(WORK_PROJECTS.find((project) => project.slug === "cumulus")?.source?.href)
-      .toBe("https://github.com/ocque41/cumulus/tree/92ed67e071bcee7504fc256fac9976891a85bedb");
-
-    for (const slug of ["room", "requisia", "hyoka-hanesu", "gy", "toml-agent"]) {
-      expect(WORK_PROJECTS.find((project) => project.slug === slug)?.source).toBeUndefined();
-    }
-  });
-
-  it("contains no local paths or visible personal identifiers", () => {
-    const visibleCopy = WORK_PROJECTS.flatMap((project) => [
-      project.name,
-      project.description,
-      project.latestWork,
-      project.status,
-      project.domain,
-      project.sourceBoundary,
-      project.verifiedAt,
-      ...project.stack,
-    ]).join(" ");
-
-    expect(visibleCopy).not.toMatch(/\/Users\/|localhost|127\.0\.0\.1|ocque41/i);
+    const serialized = JSON.stringify(WORK_PROJECTS);
+    expect(serialized).not.toMatch(/https?:\/\//i);
+    expect(serialized).not.toMatch(
+      /\/Users\/|\/private\/|localhost|127\.0\.0\.1|ocque41|@[a-z0-9.-]+\.[a-z]{2,}/i,
+    );
+    expect(serialized).not.toMatch(
+      /api[_-]?key|service[_-]?role|access[_-]?token|customer[_-]?id/i,
+    );
   });
 });

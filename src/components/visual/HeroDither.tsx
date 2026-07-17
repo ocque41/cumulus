@@ -6,21 +6,29 @@
  * Shader implementation: Paper Design Shaders (Apache-2.0).
  */
 import * as React from "react";
-import { Dithering } from "@paper-design/shaders-react";
-
-const MemoizedDithering = React.memo(Dithering);
-
-type PaperDitheringProps = React.ComponentProps<typeof Dithering>;
+import {
+  defaultPatternSizing,
+  ditheringFragmentShader,
+  DitheringShapes,
+  DitheringTypes,
+  getShaderColorFromString,
+  ShaderFitOptions,
+  ShaderMount,
+  type DitheringShape,
+  type DitheringType,
+  type DitheringUniforms,
+  type ShaderMountUniforms,
+} from "@paper-design/shaders";
 
 export interface HeroDitherProps
   extends Omit<React.ComponentPropsWithoutRef<"div">, "children"> {
   /** Apply the fallback's radial fade to the whole visual, including WebGL. */
   fade?: boolean;
-  shape?: PaperDitheringProps["shape"];
-  type?: PaperDitheringProps["type"];
-  size?: PaperDitheringProps["size"];
-  frame?: PaperDitheringProps["frame"];
-  speed?: PaperDitheringProps["speed"];
+  shape?: DitheringShape;
+  type?: DitheringType;
+  size?: number;
+  frame?: number;
+  speed?: number;
   /** Hard device-pixel-ratio ceiling, enforced through the pixel budget. */
   maxPixelRatio?: number;
   /** Absolute upper bound for rendered shader pixels. */
@@ -56,6 +64,204 @@ class ShaderBoundary extends React.Component<
     return this.state.failed ? this.props.fallback : this.props.children;
   }
 }
+
+interface SafeDitheringProps {
+  frame: number;
+  maxPixelCount: number;
+  minPixelRatio: number;
+  onError: () => void;
+  shape: DitheringShape;
+  size: number;
+  speed: number;
+  type: DitheringType;
+}
+
+type DitheringMountUniforms = DitheringUniforms & ShaderMountUniforms;
+type ShaderHostElement = HTMLDivElement & { paperShaderMount?: ShaderMount };
+
+const DITHER_COLOR_BACK = getShaderColorFromString("#000000");
+const DITHER_COLOR_FRONT = getShaderColorFromString("#5f5f5f");
+
+function createDitheringUniforms(
+  shape: DitheringShape,
+  size: number,
+  type: DitheringType,
+): DitheringMountUniforms {
+  const uniforms = {
+    u_colorBack: DITHER_COLOR_BACK,
+    u_colorFront: DITHER_COLOR_FRONT,
+    u_fit: ShaderFitOptions.cover,
+    u_offsetX: defaultPatternSizing.offsetX,
+    u_offsetY: defaultPatternSizing.offsetY,
+    u_originX: defaultPatternSizing.originX,
+    u_originY: defaultPatternSizing.originY,
+    u_pxSize: size,
+    u_rotation: defaultPatternSizing.rotation,
+    u_scale: 0.62,
+    u_shape: DitheringShapes[shape],
+    u_type: DitheringTypes[type],
+    u_worldHeight: defaultPatternSizing.worldHeight,
+    u_worldWidth: defaultPatternSizing.worldWidth,
+  } satisfies DitheringUniforms;
+
+  return uniforms as DitheringMountUniforms;
+}
+
+function releaseShaderElement(
+  element: ShaderHostElement,
+  mount?: ShaderMount,
+) {
+  const recoverableMount = mount ?? element.paperShaderMount;
+  try {
+    recoverableMount?.dispose();
+  } catch {
+    // Continue with local cleanup if a partially initialized mount cannot dispose.
+  }
+
+  // ShaderMount prepends its canvas before WebGL/program initialization. If its
+  // constructor throws, JavaScript does not return the instance, so release any
+  // context and canvas left in this otherwise childless, dedicated mount point.
+  element
+    .querySelectorAll<HTMLCanvasElement>(":scope > canvas")
+    .forEach((canvas) => {
+      try {
+        canvas
+          .getContext("webgl2")
+          ?.getExtension("WEBGL_lose_context")
+          ?.loseContext();
+      } catch {
+        // Removing the failed canvas is still the safest available local fallback.
+      }
+      canvas.remove();
+    });
+
+  element.removeAttribute("data-paper-shader");
+  delete element.paperShaderMount;
+}
+
+/**
+ * Local adapter for the image-free Dithering shader. Paper's React wrapper
+ * initializes inside an unhandled async function, turning a synchronous
+ * ShaderMount constructor error into an unhandled rejection. Keeping the
+ * vanilla constructor inside this effect makes that failure locally catchable.
+ */
+function SafeDithering({
+  frame,
+  maxPixelCount,
+  minPixelRatio,
+  onError,
+  shape,
+  size,
+  speed,
+  type,
+}: SafeDitheringProps) {
+  const elementRef = React.useRef<ShaderHostElement>(null);
+  const shaderRef = React.useRef<ShaderMount | null>(null);
+  const failedRef = React.useRef(false);
+  const uniforms = React.useMemo(
+    () => createDitheringUniforms(shape, size, type),
+    [shape, size, type],
+  );
+  const [initialSettings] = React.useState(() => ({
+    frame,
+    maxPixelCount,
+    minPixelRatio,
+    uniforms,
+  }));
+
+  const handleFailure = React.useCallback(
+    (mount?: ShaderMount) => {
+      if (failedRef.current) return;
+      failedRef.current = true;
+      shaderRef.current = null;
+
+      if (elementRef.current) {
+        releaseShaderElement(elementRef.current, mount);
+      }
+      onError();
+    },
+    [onError],
+  );
+
+  const updateShader = React.useCallback(
+    (update: (mount: ShaderMount) => void) => {
+      const mount = shaderRef.current;
+      if (!mount || failedRef.current) return;
+
+      try {
+        update(mount);
+      } catch {
+        handleFailure(mount);
+      }
+    },
+    [handleFailure],
+  );
+
+  React.useEffect(() => {
+    const element = elementRef.current;
+    if (!element || failedRef.current) return;
+
+    try {
+      const mount = new ShaderMount(
+        element,
+        ditheringFragmentShader,
+        initialSettings.uniforms,
+        undefined,
+        // Start paused so a late constructor failure cannot strand a rAF before
+        // ShaderMount publishes its recoverable instance on the parent element.
+        0,
+        initialSettings.frame,
+        initialSettings.minPixelRatio,
+        initialSettings.maxPixelCount,
+      );
+      shaderRef.current = mount;
+
+      return () => {
+        if (shaderRef.current !== mount) return;
+        shaderRef.current = null;
+        releaseShaderElement(element, mount);
+      };
+    } catch {
+      handleFailure();
+    }
+  }, [handleFailure, initialSettings]);
+
+  React.useEffect(() => {
+    updateShader((mount) => mount.setUniforms(uniforms));
+  }, [uniforms, updateShader]);
+
+  React.useEffect(() => {
+    updateShader((mount) => mount.setSpeed(speed));
+  }, [speed, updateShader]);
+
+  React.useEffect(() => {
+    updateShader((mount) => mount.setMaxPixelCount(maxPixelCount));
+  }, [maxPixelCount, updateShader]);
+
+  React.useEffect(() => {
+    updateShader((mount) => mount.setMinPixelRatio(minPixelRatio));
+  }, [minPixelRatio, updateShader]);
+
+  React.useEffect(() => {
+    updateShader((mount) => mount.setFrame(frame));
+  }, [frame, updateShader]);
+
+  return (
+    <div
+      data-slot="hero-dither-shader"
+      ref={elementRef}
+      style={{
+        display: "block",
+        height: "100%",
+        inset: 0,
+        position: "absolute",
+        width: "100%",
+      }}
+    />
+  );
+}
+
+const MemoizedDithering = React.memo(SafeDithering);
 
 interface Dimensions {
   height: number;
@@ -194,6 +400,21 @@ function supportsWebGL2(ownerDocument: Document): boolean {
   }
 }
 
+function supportsShaderRuntime(): boolean {
+  // ShaderMount 0.0.77 references this global without a typeof guard after
+  // allocating its ResizeObserver. Fail closed before construction so older
+  // browsers cannot leave a partially initialized observer behind.
+  return (
+    typeof ResizeObserver !== "undefined" &&
+    typeof requestAnimationFrame === "function" &&
+    typeof cancelAnimationFrame === "function" &&
+    typeof visualViewport !== "undefined" &&
+    (visualViewport === null ||
+      (typeof visualViewport.addEventListener === "function" &&
+        typeof visualViewport.removeEventListener === "function"))
+  );
+}
+
 function safePositive(value: number, fallback: number) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
@@ -225,6 +446,9 @@ export function HeroDither({
     null,
   );
   const [shaderFailed, setShaderFailed] = React.useState(false);
+  const handleShaderFailure = React.useCallback(() => {
+    setShaderFailed(true);
+  }, []);
 
   React.useEffect(() => {
     const element = containerRef.current;
@@ -234,7 +458,7 @@ export function HeroDither({
       element &&
       isNearViewport &&
       webGLSupported === null &&
-      typeof ResizeObserver !== "undefined"
+      supportsShaderRuntime()
     ) {
       setWebGLSupported(supportsWebGL2(element.ownerDocument));
     }
@@ -279,21 +503,18 @@ export function HeroDither({
 
   const fallback = (
     <div
-      className={classes("absolute inset-0 bg-black", fallbackClassName)}
+      className={classes(
+        "hero-dither__fallback absolute inset-0 bg-black",
+        fallbackClassName,
+      )}
       data-slot="hero-dither-fallback"
-      style={{
-        backgroundImage:
-          "radial-gradient(circle, rgba(95,95,95,0.72) 0 1px, transparent 1.2px)",
-        backgroundPosition: "center",
-        backgroundSize: "6px 6px",
-        ...(fade ? undefined : DITHER_FADE_STYLE),
-      }}
+      style={fade ? undefined : DITHER_FADE_STYLE}
     />
   );
 
   const canMountShader =
     isNearViewport &&
-    typeof ResizeObserver !== "undefined" &&
+    supportsShaderRuntime() &&
     webGLSupported === true &&
     !shaderFailed &&
     dimensions.height > 0 &&
@@ -313,29 +534,16 @@ export function HeroDither({
     >
       {fallback}
       {canMountShader ? (
-        <ShaderBoundary fallback={null} onError={() => setShaderFailed(true)}>
+        <ShaderBoundary fallback={null} onError={handleShaderFailure}>
           <MemoizedDithering
-            colorBack="#000000"
-            colorFront="#5f5f5f"
-            data-slot="hero-dither-shader"
-            fit="cover"
             frame={frame}
-            height={dimensions.height}
             maxPixelCount={pixelBudget}
             minPixelRatio={renderRatio}
-            scale={0.62}
+            onError={handleShaderFailure}
             shape={shape}
             size={size}
             speed={reducedMotion ? 0 : speed}
-            style={{
-              display: "block",
-              height: "100%",
-              inset: 0,
-              position: "absolute",
-              width: "100%",
-            }}
             type={type}
-            width={dimensions.width}
           />
         </ShaderBoundary>
       ) : null}

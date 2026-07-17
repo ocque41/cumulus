@@ -1,6 +1,6 @@
-import { DitherCloudMark } from "@/components/brand/DitherCloudMark";
 import { GitHubContributionGraph } from "@/components/github/GitHubContributionGraph";
 import {
+  articleHref,
   DitherPlate,
   FeaturedPost,
   PostCard,
@@ -28,7 +28,16 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
   return (
     <>
       <section aria-labelledby="home-title" className="home-hero">
-        <DitherCloudMark className="home-hero__cloud" decorative />
+        <HeroDither
+          className="home-hero__dither"
+          fallbackClassName="home-hero__dither-fallback"
+          frame={288}
+          maxPixelCount={420_000}
+          shape="wave"
+          size={3}
+          speed={0.1}
+          type="8x8"
+        />
         <div className="home-hero__veil" aria-hidden="true" />
         <div className="home-hero__content">
           <div className="home-hero__type page-shell">
@@ -40,10 +49,8 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
             <GitHubContributionGraph />
           </div>
           <div className="home-hero__footer page-shell">
-            <p>Independent research and build logs.</p>
-            <a href="https://github.com/ocque41" rel="noreferrer" target="_blank">
-              GitHub
-            </a>
+            <p>Independent notes on Requisia, Insuja, Hyoka Hanesu, and gy.</p>
+            <AppLink href="/work">Four active systems</AppLink>
           </div>
         </div>
       </section>
@@ -55,13 +62,13 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
         </h2>
         <div className="opening-statement__copy">
           <p>
-            Cumulus studies the systems built across a working Mac: local tools,
-            browser products, infrastructure boundaries, release evidence, and the
-            small decisions that make them legible.
+            Cumulus studies four systems in depth: Requisia for procurement
+            operations, Insuja for controlled acquisition infrastructure, Hyoka
+            Hanesu for local repository assistance, and gy for Git and forge research.
           </p>
           <p>
-            Every entry is public to read. Sign-in exists only for readers who ask
-            to receive the next one by email.
+            Every entry is public to read. Email confirmation is offered only to
+            readers who choose a new-log notification preference.
           </p>
         </div>
       </section>
@@ -78,11 +85,11 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
         <div className="section-intro section-intro--split">
           <div>
             <p className="eyebrow">Recent entries / 003</p>
-            <h2 id="latest-title">Notes from live systems</h2>
+            <h2 id="latest-title">Notes from active builds</h2>
           </div>
           <p>
-            Mixed project journals, ordered by publication. Each entry opens into a
-            full reading page with its source trail and neighboring notes.
+            Focused project journals, ordered by publication. Each entry opens into a
+            full reading page with evidence limits and neighboring notes.
           </p>
         </div>
         <div className="post-grid">
@@ -118,11 +125,20 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           <h2 id="stories-title">Systems told from the inside.</h2>
         </div>
         <div className="field-note-grid">
-          {stories.map((post, index) => (
+          {stories.map((post) => (
             <article className="field-note" key={post.slug}>
-              {index === 0 || index === 3 ? (
-                <DitherPlate className="field-note__plate" post={post} />
-              ) : null}
+              <AppLink
+                aria-label={`Read ${post.title}`}
+                className="field-note__visual"
+                href={articleHref(post)}
+              >
+                <DitherPlate
+                  className="field-note__plate"
+                  decorative
+                  placement="home-story"
+                  post={post}
+                />
+              </AppLink>
               <p className="eyebrow">{post.category}</p>
               <h3>
                 <AppLink href={`/logs/${post.slug}`}>{post.title}</AppLink>
@@ -137,11 +153,11 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
         <div className="section-intro section-intro--split">
           <div>
             <p className="eyebrow">Latest research / 005</p>
-            <h2 id="research-title">Public source, inspected closely.</h2>
+            <h2 id="research-title">Engineering boundaries, inspected closely.</h2>
           </div>
           <p>
-            Commit-pinned readings of workflow engines, agent coordination, and
-            the limits that keep an implementation claim honest.
+            First-party readings of runtime behavior, tool boundaries, and the
+            evidence that keeps an implementation claim honest.
           </p>
         </div>
         <div className="post-grid">
@@ -157,11 +173,20 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           <h2 id="business-title">Authority, identity, and durable operations.</h2>
         </div>
         <div className="field-note-grid">
-          {business.map((post, index) => (
+          {business.map((post) => (
             <article className="field-note" key={post.slug}>
-              {index === 1 || index === 4 ? (
-                <DitherPlate className="field-note__plate" post={post} />
-              ) : null}
+              <AppLink
+                aria-label={`Read ${post.title}`}
+                className="field-note__visual"
+                href={articleHref(post)}
+              >
+                <DitherPlate
+                  className="field-note__plate"
+                  decorative
+                  placement="home-business"
+                  post={post}
+                />
+              </AppLink>
               <p className="eyebrow">{post.category}</p>
               <h3>
                 <AppLink href={`/logs/${post.slug}`}>{post.title}</AppLink>
@@ -177,12 +202,12 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           <p className="eyebrow">Optional dispatch / 007</p>
           <h2 id="notify-title">One email when a new log lands.</h2>
           <p>
-            No account wall, no digest machinery, no access tier. Sign in by email
-            only if you want publication notifications, and turn them off whenever
-            you like.
+            No reading wall, no digest machinery, no access tier. Confirm an email
+            only if you want new-log notifications, and turn them off whenever you
+            like.
           </p>
           <button className="button-primary" onClick={onOpenAuth} type="button">
-            Sign in with email
+            Set notification preference
           </button>
         </div>
         <NotificationPreferences className="notify-section__preferences" />

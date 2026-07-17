@@ -29,6 +29,10 @@ const secretPatterns = [
     "generic secret assignment",
     /^(?:export\s+)?[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD)[A-Z0-9_]*\s*=\s*(?!replace-with-|<|$)[^\s#'"]{16,}/m,
   ],
+  [
+    "licensed production font data",
+    /^(?:export\s+)?ALCYONE_MEDIUM_WOFF2_BASE64[ \t]*=[ \t]*(?!#|$).+/m,
+  ],
 ];
 
 const privatePathPatterns = [
@@ -41,7 +45,7 @@ const privatePathPatterns = [
 const browserBundlePatterns = [
   [
     "server-only environment identifier",
-    /\b(?:RESEND_API_KEY|RESEND_WEBHOOK_SECRET|RESEND_NOTIFICATION_SEGMENT_ID|RESEND_NOTIFICATION_TOPIC_ID|GITHUB_ACCESS_TOKEN|NOTIFICATION_FROM_EMAIL|NOTIFICATION_POSTAL_ADDRESS|NOTIFICATION_PUBLISH_SECRET|NOTIFICATION_UNSUBSCRIBE_SECRET)\b/,
+    /\b(?:ALCYONE_MEDIUM_WOFF2_BASE64|RESEND_API_KEY|RESEND_WEBHOOK_SECRET|RESEND_NOTIFICATION_SEGMENT_ID|RESEND_NOTIFICATION_TOPIC_ID|GITHUB_ACCESS_TOKEN|NOTIFICATION_FROM_EMAIL|NOTIFICATION_POSTAL_ADDRESS|NOTIFICATION_PUBLISH_SECRET|NOTIFICATION_UNSUBSCRIBE_SECRET)\b/,
   ],
   ["local absolute path", /(?:\/Users\/|\/private\/tmp\/|[A-Za-z]:\\Users\\)/],
 ];

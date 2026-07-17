@@ -33,7 +33,7 @@ All `NEXT_PUBLIC_*` values are deliberately browser-visible. The compatibility p
 - Use `#000000` as the canvas and structural black.
 - Use neutral gray tones for all text and dividers.
 - Use `#ff4d00` only for small, high-contrast accents and focus/status details.
-- Use only the supplied Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 fonts. The charted variants are intentionally excluded.
+- Use the supplied Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 fonts, plus operator-licensed Alcyone Medium for body reading copy only. Preserve every heading, navigation, control, label, and metadata font. The charted variants are intentionally excluded, and no Alcyone binary, archive, license PDF, or encoded value may enter Git or browser build output; Local and Preview use the Jacquard fallback.
 - Do not add another UI kit. The allowed component vocabulary is Tripwire Dither Kit, Dither Image, Edge Blur, Hero Dithering, and faithful locally authored derivatives.
 - Native semantic HTML is allowed and preferred. It is not a second component system.
 - A pasted Next.js component is a visual reference only. Port behavior to React/Vite; do not introduce Next.js or `next/image`.

@@ -1,10 +1,12 @@
 # New-post notifications
 
-Cumulus uses email identity only to manage optional new-log notifications. It does not create profiles, social identities, or publishing accounts.
+Cumulus uses an email address only to manage optional new-log notifications. It does not create profiles, social identities, or publishing accounts.
 
 ## Reader promise
 
 Before requesting a magic link, the interface states that the address is used for new-log notifications, every broadcast includes an unsubscribe path, and reading remains public. The reader must explicitly accept this disclosure. Addresses are normalized to lowercase and never written to application logs.
+
+On the first eligible visit, Cumulus can open the notification invitation automatically. Once either that invitation or a manually requested notification-settings surface has actually been displayed, the browser stores the versioned marker `cumulus.notificationPrompt.seen.v1` with the value `1` in local storage, with session or in-memory fallback only when local storage is unavailable. The automatic path writes the marker only after the dialog is open. A manually opened unavailable-state surface also writes it because the surface was still displayed. The marker contains no email address, consent decision, subscription status, or other identifier; it is evidence only that a notification surface was displayed, and it prevents repeated automatic prompts in that browser. Clearing site data removes it, and notification settings remain available manually regardless of the marker. The privacy page, notification callback, and unknown routes never open the invitation automatically, and an already-open automatic invitation closes when navigation reaches one of those routes.
 
 ## Resend data model
 
@@ -20,7 +22,7 @@ The Segment and Topic IDs are private deployment configuration. Cumulus checks b
 
 ## Notification access
 
-`POST /api/notifications/sign-in` sends a 30-minute, purpose-bound signed link through Resend. The token is placed in the URL fragment so it is not sent in the callback request or access logs. `POST /api/notifications/session` exchanges it for a 30-day signed `HttpOnly`, `SameSite=Lax`, secure cookie. That cookie grants only notification-preference access. State-changing requests require the canonical browser origin. Signing out clears the cookie but does not change consent.
+`POST /api/notifications/sign-in` sends an at-most-30-minute, purpose-bound confirmation link through Resend. The token is placed in the URL fragment so it is not sent in the callback request or access logs. `POST /api/notifications/session` exchanges it for a 30-day signed `HttpOnly`, `SameSite=Lax`, secure cookie. That cookie grants only notification-preference access. State-changing requests require the canonical browser origin. Forgetting the email on a browser clears the cookie but does not change consent.
 
 `GET /api/notifications/preferences` reads the Contact's Segment and Topic state. `PUT` activates or deactivates only the Cumulus Topic. Reactivation requires an authenticated, explicit reader action. Repeated actions are safe.
 
@@ -48,4 +50,4 @@ Real values belong in Resend and Vercel, never in Git. Preview and Production us
 
 ## Operations and assumptions
 
-Monitor volume, errors, bounces, complaints, and unusual publish attempts in the providers. Use approved synthetic recipients for lifecycle tests. A verified deletion request to `hi@cumulush.com` must remove the Cumulus Contact where operational and legal requirements allow; provider retention and suppression obligations may preserve limited records. Production readiness requires a verified sender/domain, truthful postal address, configured webhook, and controlled sign-in, opt-in, receipt, unsubscribe, and suppression evidence.
+Monitor volume, errors, bounces, complaints, and unusual publish attempts in the providers. Use approved synthetic recipients for lifecycle tests. A verified deletion request to `hi@cumulush.com` must remove the Cumulus Contact where operational and legal requirements allow; provider retention and suppression obligations may preserve limited records. Production readiness requires a verified sender/domain, truthful postal address, configured webhook, and controlled email-confirmation, opt-in, receipt, unsubscribe, and suppression evidence.

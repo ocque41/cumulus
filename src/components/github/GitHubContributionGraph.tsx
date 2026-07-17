@@ -1,12 +1,15 @@
 import {
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { HeroDither } from "@/components/visual/HeroDither";
 
@@ -57,6 +60,48 @@ interface CalendarDay {
 }
 
 type LoadState = "fallback" | "live" | "loading";
+
+type PopoverSide = "bottom" | "left" | "right" | "sheet" | "top";
+
+interface PopoverPosition {
+  arrowLeft: number;
+  arrowTop: number;
+  left: number;
+  maxHeight: number;
+  side: PopoverSide;
+  top: number;
+  width: number;
+}
+
+type PopoverStyle = CSSProperties & {
+  "--popover-arrow-left": string;
+  "--popover-arrow-top": string;
+  "--popover-left": string;
+  "--popover-max-height": string;
+  "--popover-top": string;
+  "--popover-width": string;
+};
+
+const POPOVER_ID = "github-contribution-details";
+const POPOVER_HEADING_ID = "github-contribution-details-title";
+const POPOVER_GAP = 14;
+const POPOVER_MARGIN = 16;
+const POPOVER_HEADER_GAP = 8;
+const POPOVER_FALLBACK_WIDTH = 384;
+const POPOVER_FALLBACK_HEIGHT = 320;
+const POPOVER_ARROW_MARGIN = 20;
+const ACTIVE_CELL_SCALE = 1.5;
+const PICKER_MEDIA_QUERY = "(pointer: coarse), (max-width: 760px)";
+
+function clamped(value: number, minimum: number, maximum: number): number {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function matchesPickerMedia(): boolean {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia(PICKER_MEDIA_QUERY).matches;
+}
 
 function dayKey(value: Date): string {
   return value.toISOString().slice(0, 10);
@@ -201,13 +246,39 @@ function cellLabel(day: CalendarDay, activity?: ActivityDay): string {
 export function GitHubContributionGraph() {
   const [payload, setPayload] = useState<ContributionsResponse>();
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [activeDate, setActiveDate] = useState<string>();
+  const [focusedDate, setFocusedDate] = useState<string>();
+  const [hoveredDate, setHoveredDate] = useState<string>();
   const [pinnedDate, setPinnedDate] = useState<string>();
+  const [pickerMode, setPickerMode] = useState(matchesPickerMedia);
+  const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({
+    arrowLeft: POPOVER_ARROW_MARGIN,
+    arrowTop: POPOVER_ARROW_MARGIN,
+    left: POPOVER_MARGIN,
+    maxHeight: POPOVER_FALLBACK_HEIGHT,
+    side: "right",
+    top: POPOVER_MARGIN,
+    width: POPOVER_FALLBACK_WIDTH,
+  });
+  const [rovingIndex, setRovingIndex] = useState<number>();
   const frameRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLElement>(null);
+  const pickerRef = useRef<HTMLSelectElement>(null);
+  const pinnedTriggerRef = useRef<HTMLElement>(null);
   const pointerFrameRef = useRef<number | undefined>(undefined);
-  const latestPointerRef = useRef<{ clientX: number; clientY: number } | undefined>(undefined);
+  const popoverRef = useRef<HTMLElement>(null);
+  const suppressRestoredFocusRef = useRef(false);
+  const latestPointerRef = useRef<{ clientX: number; clientY: number } | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia(PICKER_MEDIA_QUERY);
+    const updatePickerMode = () => setPickerMode(media.matches);
+    updatePickerMode();
+    media.addEventListener("change", updatePickerMode);
+    return () => media.removeEventListener("change", updatePickerMode);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -251,10 +322,11 @@ export function GitHubContributionGraph() {
     [activityByDate, calendar],
   );
   const activeDays = payload?.contributions.filter((day) => day.count > 0).length ?? 0;
-  const selectedDay = activeDate
-    ? calendar.find((day) => day.date === activeDate)
+  const selectedDate = pinnedDate ?? hoveredDate ?? focusedDate;
+  const selectedDay = selectedDate
+    ? calendar.find((day) => day.date === selectedDate)
     : undefined;
-  const selectedActivity = activeDate ? activityByDate.get(activeDate) : undefined;
+  const selectedActivity = selectedDate ? activityByDate.get(selectedDate) : undefined;
   const today = dayKey(new Date());
   const initialTabIndex = useMemo(
     () => calendar.reduce(
@@ -263,6 +335,257 @@ export function GitHubContributionGraph() {
     ),
     [calendar, today],
   );
+  const tabStopIndex = rovingIndex ?? initialTabIndex;
+  const graphAvailable = loadState === "live" && payload !== undefined;
+  const gridInteractive = graphAvailable && !pickerMode;
+
+  const dismissPinnedDate = useCallback((restoreFocus: boolean) => {
+    const trigger = pinnedTriggerRef.current;
+    pinnedTriggerRef.current = null;
+    setFocusedDate(undefined);
+    setHoveredDate(undefined);
+    setPinnedDate(undefined);
+
+    if (!restoreFocus || !trigger) return;
+    requestAnimationFrame(() => {
+      suppressRestoredFocusRef.current = true;
+      trigger.focus({ preventScroll: true });
+      queueMicrotask(() => {
+        suppressRestoredFocusRef.current = false;
+      });
+    });
+  }, []);
+
+  const pinDate = useCallback(
+    (date: string, trigger?: HTMLElement, moveFocusToDetails = false) => {
+      pinnedTriggerRef.current = trigger ?? null;
+      setFocusedDate(date);
+      setHoveredDate(undefined);
+      setPinnedDate(date);
+
+      if (!moveFocusToDetails) return;
+      requestAnimationFrame(() => {
+        popoverRef.current?.focus({ preventScroll: true });
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!pickerMode && graphAvailable) return;
+
+    let active = true;
+    queueMicrotask(() => {
+      if (active) dismissPinnedDate(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [dismissPinnedDate, graphAvailable, pickerMode]);
+
+  useEffect(() => {
+    if (typeof MutationObserver === "undefined") return;
+    const siteFrame = document.querySelector<HTMLElement>(".site-frame");
+    const siteHeader = document.querySelector<HTMLElement>(".site-header");
+    if (!siteFrame && !siteHeader) return;
+
+    const dismissForBlockingSurface = () => {
+      const modalOwnsFocus = siteFrame?.hasAttribute("inert")
+        || siteFrame?.getAttribute("aria-hidden") === "true";
+      const menuOwnsFocus = siteHeader?.hasAttribute("data-open");
+      if (modalOwnsFocus || menuOwnsFocus) dismissPinnedDate(false);
+    };
+    const observer = new MutationObserver(dismissForBlockingSurface);
+    if (siteFrame) {
+      observer.observe(siteFrame, {
+        attributeFilter: ["aria-hidden", "inert"],
+        attributes: true,
+      });
+    }
+    if (siteHeader) {
+      observer.observe(siteHeader, {
+        attributeFilter: ["data-open"],
+        attributes: true,
+      });
+    }
+    dismissForBlockingSurface();
+    return () => observer.disconnect();
+  }, [dismissPinnedDate]);
+
+  const positionPopover = useCallback(() => {
+    if (!selectedDate || typeof window === "undefined") return;
+    const anchor = gridRef.current?.querySelector<HTMLButtonElement>(
+      `button[data-date="${selectedDate}"]`,
+    );
+    const popover = popoverRef.current;
+    if (!anchor || !popover) return;
+
+    const anchorRect = anchor.getBoundingClientRect();
+    const visualViewport = window.visualViewport;
+    const viewportLeft = visualViewport?.offsetLeft ?? 0;
+    const viewportTop = visualViewport?.offsetTop ?? 0;
+    const viewportWidth = Math.max(
+      visualViewport?.width || document.documentElement.clientWidth || window.innerWidth,
+      1,
+    );
+    const viewportHeight = Math.max(
+      visualViewport?.height || document.documentElement.clientHeight || window.innerHeight,
+      1,
+    );
+    const viewportRight = viewportLeft + viewportWidth;
+    const viewportBottom = viewportTop + viewportHeight;
+    const headerBottom = document.querySelector<HTMLElement>(".site-header")
+      ?.getBoundingClientRect().bottom ?? viewportTop;
+    const minTop = Math.min(
+      Math.max(viewportTop + POPOVER_MARGIN, headerBottom + POPOVER_HEADER_GAP),
+      Math.max(viewportTop, viewportBottom - POPOVER_MARGIN),
+    );
+    const availableWidth = Math.max(1, viewportWidth - POPOVER_MARGIN * 2);
+    const measuredWidth = popover.offsetWidth || POPOVER_FALLBACK_WIDTH;
+    const panelWidth = Math.min(measuredWidth, availableWidth);
+    const minLeft = viewportLeft + POPOVER_MARGIN;
+    const maxLeft = Math.max(minLeft, viewportRight - POPOVER_MARGIN - panelWidth);
+    const maxAvailableHeight = Math.max(1, viewportBottom - minTop - POPOVER_MARGIN);
+    const measuredHeight = popover.offsetHeight || POPOVER_FALLBACK_HEIGHT;
+    const panelHeight = Math.min(measuredHeight, maxAvailableHeight);
+    const anchorCenterX = anchorRect.left + anchorRect.width / 2;
+    const anchorCenterY = anchorRect.top + anchorRect.height / 2;
+    const horizontalGap = POPOVER_GAP + anchorRect.width * (ACTIVE_CELL_SCALE - 1) / 2;
+    const verticalGap = POPOVER_GAP + anchorRect.height * (ACTIVE_CELL_SCALE - 1) / 2;
+    const rightSpace = viewportRight - POPOVER_MARGIN - anchorRect.right - horizontalGap;
+    const leftSpace = anchorRect.left - horizontalGap - minLeft;
+    const bottomSpace = viewportBottom - POPOVER_MARGIN - anchorRect.bottom - verticalGap;
+    const topSpace = anchorRect.top - verticalGap - minTop;
+    const anchorVisible = anchorRect.right >= viewportLeft
+      && anchorRect.left <= viewportRight
+      && anchorRect.bottom >= minTop
+      && anchorRect.top <= viewportBottom;
+
+    let side: PopoverSide;
+    let left: number;
+    let top: number;
+    let width = panelWidth;
+    let maxHeight = maxAvailableHeight;
+
+    if (pickerMode || !anchorVisible) {
+      side = "sheet";
+      width = availableWidth;
+      left = minLeft;
+      maxHeight = Math.min(352, maxAvailableHeight);
+      top = Math.max(minTop, viewportBottom - POPOVER_MARGIN - Math.min(measuredHeight, maxHeight));
+    } else if (rightSpace >= panelWidth || leftSpace >= panelWidth) {
+      const useRight = rightSpace >= panelWidth
+        && (leftSpace < panelWidth || rightSpace >= leftSpace);
+      side = useRight ? "right" : "left";
+      left = useRight
+        ? anchorRect.right + horizontalGap
+        : anchorRect.left - horizontalGap - panelWidth;
+      top = clamped(
+        anchorCenterY - panelHeight / 2,
+        minTop,
+        Math.max(minTop, viewportBottom - POPOVER_MARGIN - panelHeight),
+      );
+    } else {
+      const useBottom = bottomSpace >= topSpace;
+      side = useBottom ? "bottom" : "top";
+      maxHeight = Math.max(1, useBottom ? bottomSpace : topSpace);
+      const verticalPanelHeight = Math.min(measuredHeight, maxHeight);
+      left = clamped(anchorCenterX - panelWidth / 2, minLeft, maxLeft);
+      top = useBottom
+        ? anchorRect.bottom + verticalGap
+        : anchorRect.top - verticalGap - verticalPanelHeight;
+    }
+
+    const renderedHeight = Math.min(measuredHeight, maxHeight);
+    const arrowLeft = clamped(
+      anchorCenterX - left,
+      POPOVER_ARROW_MARGIN,
+      Math.max(POPOVER_ARROW_MARGIN, width - POPOVER_ARROW_MARGIN),
+    );
+    const arrowTop = clamped(
+      anchorCenterY - top,
+      POPOVER_ARROW_MARGIN,
+      Math.max(POPOVER_ARROW_MARGIN, renderedHeight - POPOVER_ARROW_MARGIN),
+    );
+
+    setPopoverPosition((current) => {
+      if (
+        current.arrowLeft === arrowLeft
+        && current.arrowTop === arrowTop
+        && current.left === left
+        && current.maxHeight === maxHeight
+        && current.side === side
+        && current.top === top
+        && current.width === width
+      ) {
+        return current;
+      }
+      return { arrowLeft, arrowTop, left, maxHeight, side, top, width };
+    });
+  }, [pickerMode, selectedDate]);
+
+  useLayoutEffect(() => {
+    if (!selectedDate || typeof window === "undefined") return;
+    const initialPositionFrame = requestAnimationFrame(positionPopover);
+
+    const handleViewportChange = () => {
+      positionPopover();
+    };
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    window.visualViewport?.addEventListener("resize", handleViewportChange);
+    window.visualViewport?.addEventListener("scroll", handleViewportChange);
+
+    const anchor = gridRef.current?.querySelector<HTMLButtonElement>(
+      `button[data-date="${selectedDate}"]`,
+    );
+    const resizeObserver = typeof ResizeObserver === "undefined"
+      ? undefined
+      : new ResizeObserver(handleViewportChange);
+    if (anchor) resizeObserver?.observe(anchor);
+    if (popoverRef.current) resizeObserver?.observe(popoverRef.current);
+
+    return () => {
+      cancelAnimationFrame(initialPositionFrame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+      window.visualViewport?.removeEventListener("resize", handleViewportChange);
+      window.visualViewport?.removeEventListener("scroll", handleViewportChange);
+    };
+  }, [positionPopover, selectedDate]);
+
+  useEffect(() => {
+    if (!pinnedDate) return;
+
+    const handleOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (popoverRef.current?.contains(target)) return;
+      if (target instanceof Element) {
+        const targetCell = target.closest("button.contribution-cell");
+        if (targetCell && gridRef.current?.contains(targetCell)) return;
+        const touchPicker = target.closest(".contribution-touch-picker");
+        if (touchPicker) return;
+      }
+      dismissPinnedDate(false);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      const restoreFocus = Boolean(
+        document.activeElement && popoverRef.current?.contains(document.activeElement),
+      );
+      dismissPinnedDate(restoreFocus);
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointer, true);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointer, true);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [dismissPinnedDate, pinnedDate]);
 
   const applyPointerFrame = useCallback(() => {
     pointerFrameRef.current = undefined;
@@ -275,39 +598,34 @@ export function GitHubContributionGraph() {
     const y = Math.max(0, Math.min(rect.height, pointer.clientY - rect.top));
     const normalizedX = x / Math.max(rect.width, 1) - 0.5;
     const normalizedY = y / Math.max(rect.height, 1) - 0.5;
-    const popover = popoverRef.current;
-    const popoverWidth = popover?.offsetWidth ?? 0;
 
     frame.style.setProperty("--graph-rotate-x", `${normalizedY * -5}deg`);
     frame.style.setProperty("--graph-rotate-y", `${normalizedX * 7}deg`);
     frame.style.setProperty("--graph-shift-x", `${normalizedX * 6}px`);
     frame.style.setProperty("--graph-shift-y", `${normalizedY * 5}px`);
-
-    if (!popover) return;
-    const edge = 16;
-    const gap = 14;
-    const measuredWidth = popoverWidth || Math.min(384, window.innerWidth - 32);
-    const useLeftSide =
-      x >= rect.width * 0.62 || x + gap + measuredWidth > rect.width - edge;
-    const preferredLeft = useLeftSide
-      ? x - measuredWidth - gap
-      : x + gap;
-    const maxLeft = Math.max(edge, rect.width - measuredWidth - edge);
-    const left = Math.max(edge, Math.min(maxLeft, preferredLeft));
-    const top = Math.max(edge, Math.min(Math.max(edge, rect.height - 64), y - 24));
-    const side = useLeftSide ? "left" : "right";
-
-    if (frame.dataset.popoverSide !== side) frame.dataset.popoverSide = side;
-    frame.style.setProperty("--popover-left", `${left}px`);
-    frame.style.setProperty("--popover-top", `${top}px`);
-  }, []);
+    positionPopover();
+  }, [positionPopover]);
 
   const schedulePointerFrame = useCallback(() => {
     if (pointerFrameRef.current !== undefined || !latestPointerRef.current) return;
-    pointerFrameRef.current = requestAnimationFrame(() => {
-      applyPointerFrame();
-    });
+    pointerFrameRef.current = requestAnimationFrame(applyPointerFrame);
   }, [applyPointerFrame]);
+
+  const settleFrameForGrid = useCallback(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    if (pointerFrameRef.current !== undefined) {
+      cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = undefined;
+    }
+    latestPointerRef.current = undefined;
+    frame.dataset.gridInteracting = "true";
+    frame.style.setProperty("--graph-rotate-x", "0deg");
+    frame.style.setProperty("--graph-rotate-y", "0deg");
+    frame.style.setProperty("--graph-shift-x", "0px");
+    frame.style.setProperty("--graph-shift-y", "0px");
+    positionPopover();
+  }, [positionPopover]);
 
   useEffect(() => {
     if (selectedDay) schedulePointerFrame();
@@ -315,6 +633,14 @@ export function GitHubContributionGraph() {
 
   const moveFrame = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "touch") return;
+    if (
+      event.target instanceof Element
+      && event.target.closest(".contribution-grid")
+    ) {
+      settleFrameForGrid();
+      return;
+    }
+    delete event.currentTarget.dataset.gridInteracting;
     latestPointerRef.current = { clientX: event.clientX, clientY: event.clientY };
     schedulePointerFrame();
   };
@@ -327,11 +653,12 @@ export function GitHubContributionGraph() {
       pointerFrameRef.current = undefined;
     }
     latestPointerRef.current = undefined;
+    delete frame.dataset.gridInteracting;
     frame.style.setProperty("--graph-rotate-x", "0deg");
     frame.style.setProperty("--graph-rotate-y", "0deg");
     frame.style.setProperty("--graph-shift-x", "0px");
     frame.style.setProperty("--graph-shift-y", "0px");
-    if (!pinnedDate) setActiveDate(undefined);
+    if (!pinnedDate) setHoveredDate(undefined);
   };
 
   const moveCellFocus = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -342,188 +669,259 @@ export function GitHubContributionGraph() {
       ArrowUp: -1,
     };
     if (event.key === "Escape") {
-      setPinnedDate(undefined);
-      setActiveDate(undefined);
+      if (!pinnedDate) {
+        event.preventDefault();
+        setFocusedDate(undefined);
+        setHoveredDate(undefined);
+      }
       return;
     }
-    const offset = offsets[event.key];
-    if (!offset) return;
+    const targetIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? calendar.length - 1
+        : offsets[event.key] === undefined
+          ? undefined
+          : Math.max(0, Math.min(calendar.length - 1, index + offsets[event.key]));
+    if (targetIndex === undefined) return;
     event.preventDefault();
-    const targetIndex = Math.max(0, Math.min(calendar.length - 1, index + offset));
+    setRovingIndex(targetIndex);
     gridRef.current
       ?.querySelector<HTMLButtonElement>(`button[data-index="${targetIndex}"]`)
       ?.focus();
   };
 
-  return (
-    <section aria-labelledby="github-title" className="github-panel" id="github">
-      <h2 className="visually-hidden" id="github-title">GitHub activity graph</h2>
-      <div className="contribution-stage">
-        <div
-          className="contribution-frame"
-          data-load-state={loadState}
-          data-popover-side="right"
+  const popoverStyle: PopoverStyle = {
+    "--popover-arrow-left": `${popoverPosition.arrowLeft}px`,
+    "--popover-arrow-top": `${popoverPosition.arrowTop}px`,
+    "--popover-left": `${popoverPosition.left}px`,
+    "--popover-max-height": `${popoverPosition.maxHeight}px`,
+    "--popover-top": `${popoverPosition.top}px`,
+    "--popover-width": `${popoverPosition.width}px`,
+  };
+  const popoverPinned = pinnedDate !== undefined;
+
+  const popover = selectedDay && typeof document !== "undefined"
+    ? createPortal(
+        <aside
+          aria-atomic="true"
+          aria-labelledby={POPOVER_HEADING_ID}
+          aria-live="polite"
+          className="contribution-popover"
+          data-anchor-date={selectedDay.date}
+          data-popover-side={popoverPosition.side}
+          data-popover-state={popoverPinned ? "pinned" : "transient"}
           data-texture="dither"
-          onPointerLeave={resetFrame}
-          onPointerMove={moveFrame}
-          ref={frameRef}
+          data-viewport-portal="true"
+          id={POPOVER_ID}
+          ref={popoverRef}
+          role={popoverPinned ? "region" : "status"}
+          style={popoverStyle}
+          tabIndex={popoverPinned ? -1 : undefined}
         >
-          <HeroDither
-            className="contribution-dither"
-            fade
-            fallbackClassName="contribution-dither__fallback"
-            frame={841}
-            maxPixelCount={520_000}
-            shape="ripple"
-            size={1.7}
-            speed={0.12}
-            type="8x8"
-          />
-          <div className="contribution-surface" data-texture="dither">
-            <div className="contribution-heading">
-              <span>CUMULUS / GITHUB</span>
-              <strong>Activity field</strong>
-              <small>
-                <span className="contribution-instruction contribution-instruction--pointer">
-                  Hover, focus, or tap a day
-                </span>
-                <span className="contribution-instruction contribution-instruction--touch">
-                  Choose a day below
-                </span>
-              </small>
-            </div>
-            <div
-              aria-label={
-                payload
-                  ? `${payload.totalContributions} GitHub contributions across ${activeDays} active day${activeDays === 1 ? "" : "s"} in the reported calendar.`
-                  : "The GitHub contribution graph is currently unavailable. Use the profile link for the current record."
-              }
-              className="contribution-grid"
-              data-texture="dither"
-              ref={gridRef}
-              role="group"
+          {popoverPinned ? (
+            <button
+              aria-label="Close activity details"
+              className="contribution-popover__close"
+              onClick={() => {
+                dismissPinnedDate(true);
+              }}
+              type="button"
             >
-              {calendar.map((day, index) => {
-                const activity = activityByDate.get(day.date);
-                const label = cellLabels[index] ?? cellLabel(day, activity);
-                return (
-                  <button
-                    aria-label={label}
-                    aria-pressed={pinnedDate === day.date}
-                    className="contribution-cell"
-                    data-active={activeDate === day.date ? true : undefined}
-                    data-density={day.contribution?.level ?? 0}
-                    data-index={index}
-                    data-known={day.contribution ? true : undefined}
-                    data-texture="dither"
-                    key={day.date}
-                    onClick={() => {
-                      const nextPinned = pinnedDate === day.date ? undefined : day.date;
-                      setPinnedDate(nextPinned);
-                      setActiveDate(nextPinned);
-                    }}
-                    onFocus={() => setActiveDate(day.date)}
-                    onKeyDown={(event) => moveCellFocus(event, index)}
-                    onPointerEnter={() => setActiveDate(day.date)}
-                    tabIndex={index === initialTabIndex ? 0 : -1}
-                    title={label}
-                    type="button"
-                  />
-                );
-              })}
-            </div>
+              ×
+            </button>
+          ) : null}
+          <p>CUMULUS / GITHUB SIGNAL</p>
+          <h3 id={POPOVER_HEADING_ID}>{formattedDate(selectedDay.date)}</h3>
+          <div className="contribution-popover__metrics">
+            <span><strong>{selectedDay.contribution?.count ?? "—"}</strong> contributions</span>
+            <span><strong>{selectedActivity?.commits ?? "—"}</strong> commits</span>
+            <span><strong>{selectedActivity?.pullRequests ?? "—"}</strong> PRs</span>
+            <span><strong>{selectedActivity?.issues ?? "—"}</strong> issues</span>
+          </div>
+          {selectedActivity?.highlights.length ? (
+            <ul>
+              {selectedActivity.highlights.map((highlight, index) => (
+                <li key={`${highlight.kind}-${highlight.repository}-${index}`}>
+                  <span>{highlight.kind.replace("pull-request", "PR")}</span>
+                  {popoverPinned && highlight.url ? (
+                    <a href={highlight.url} rel="noreferrer" target="_blank">{highlight.title}</a>
+                  ) : <strong>{highlight.title}</strong>}
+                  <small>{publicRepositoryLabel(highlight.repository)}</small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <small className="contribution-popover__note">
+              {payload?.activityDetailStatus === "live"
+                ? "No public commit, pull-request, or issue detail was reported for this day."
+                : "The aggregate count is verified; public item detail is unavailable for this day."}
+            </small>
+          )}
+        </aside>,
+        document.body,
+      )
+    : null;
 
-            <label className="contribution-touch-picker">
-              <span>Choose a day</span>
-              <select
-                value={pinnedDate ?? ""}
-                onChange={(event) => {
-                  const nextDate = event.target.value || undefined;
-                  setPinnedDate(nextDate);
-                  setActiveDate(nextDate);
-                }}
-              >
-                <option value="">No day selected</option>
-                {[...calendar.filter((day) => day.date <= today)]
-                  .reverse()
-                  .map((day) => (
-                    <option key={day.date} value={day.date}>
-                      {formattedDate(day.date)} — {day.contribution?.count ?? "—"} contributions
-                    </option>
-                  ))}
-              </select>
-            </label>
-
-            {selectedDay ? (
-              <aside
-                aria-live="polite"
-                className="contribution-popover"
-                data-texture="dither"
-                onPointerMove={(event) => event.stopPropagation()}
-                ref={popoverRef}
-              >
-                <button
-                  aria-label="Close activity details"
-                  className="contribution-popover__close"
-                  onClick={() => {
-                    setPinnedDate(undefined);
-                    setActiveDate(undefined);
-                  }}
-                  type="button"
-                >
-                  ×
-                </button>
-                <p>CUMULUS / GITHUB SIGNAL</p>
-                <h3>{formattedDate(selectedDay.date)}</h3>
-                <div className="contribution-popover__metrics">
-                  <span><strong>{selectedDay.contribution?.count ?? "—"}</strong> contributions</span>
-                  <span><strong>{selectedActivity?.commits ?? "—"}</strong> commits</span>
-                  <span><strong>{selectedActivity?.pullRequests ?? "—"}</strong> PRs</span>
-                  <span><strong>{selectedActivity?.issues ?? "—"}</strong> issues</span>
-                </div>
-                {selectedActivity?.highlights.length ? (
-                  <ul>
-                    {selectedActivity.highlights.map((highlight, index) => (
-                      <li key={`${highlight.kind}-${highlight.repository}-${index}`}>
-                        <span>{highlight.kind.replace("pull-request", "PR")}</span>
-                        {highlight.url ? (
-                          <a href={highlight.url} rel="noreferrer" target="_blank">{highlight.title}</a>
-                        ) : <strong>{highlight.title}</strong>}
-                        <small>{publicRepositoryLabel(highlight.repository)}</small>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <small className="contribution-popover__note">
-                    {payload?.activityDetailStatus === "live"
-                      ? "No public commit, pull-request, or issue detail was reported for this day."
-                      : "The aggregate count is verified; public item detail is unavailable for this day."}
-                  </small>
-                )}
-              </aside>
-            ) : null}
-
-            <div className="contribution-meta" data-texture="dither">
-              <div aria-label="Contribution density from quiet to active" className="contribution-legend" data-texture="dither">
-                <span>Quiet</span>
-                {[0, 1, 2, 3, 4].map((density) => (
-                  <span aria-hidden="true" className="contribution-cell" data-density={density} key={density} />
-                ))}
-                <span>Active</span>
+  return (
+    <>
+      <section aria-labelledby="github-title" className="github-panel" id="github">
+        <h2 className="visually-hidden" id="github-title">GitHub activity graph</h2>
+        <div className="contribution-stage">
+          <div
+            className="contribution-frame"
+            data-load-state={loadState}
+            data-picker-mode={pickerMode ? "true" : undefined}
+            data-popover-side={popoverPosition.side}
+            data-texture="dither"
+            onPointerLeave={resetFrame}
+            onPointerMove={moveFrame}
+            ref={frameRef}
+          >
+            <HeroDither
+              className="contribution-dither"
+              fade
+              fallbackClassName="contribution-dither__fallback"
+              frame={841}
+              maxPixelCount={520_000}
+              shape="ripple"
+              size={1.7}
+              speed={0}
+              type="8x8"
+            />
+            <div className="contribution-surface" data-texture="dither">
+              <div className="contribution-heading">
+                <span>CUMULUS / GITHUB</span>
+                <strong>Activity field</strong>
+                <small>
+                  <span className="contribution-instruction contribution-instruction--pointer">
+                    Hover, focus, or click a day; click outside to unpin
+                  </span>
+                  <span className="contribution-instruction contribution-instruction--touch">
+                    Choose a day below
+                  </span>
+                </small>
               </div>
-              <p aria-live="polite">
-                {loadState === "loading" && "Loading the contribution calendar…"}
-                {loadState === "live" && `${payload?.totalContributions ?? 0} contributions in the reported calendar.`}
-                {loadState === "fallback" && "Live contribution data is unavailable; this empty grid contains no inferred counts."}
-              </p>
-              <div className="contribution-links">
-                <a href={`https://github.com/${USERNAME}`} rel="noreferrer" target="_blank">GitHub ↗</a>
-                <a href={`https://github.com/${USERNAME}?tab=repositories`} rel="noreferrer" target="_blank">Repositories ↗</a>
+              <div
+                aria-hidden={gridInteractive ? undefined : true}
+                aria-label={
+                  payload
+                    ? `${payload.totalContributions} GitHub contributions across ${activeDays} active day${activeDays === 1 ? "" : "s"} in the reported calendar.`
+                    : "The GitHub contribution graph is currently unavailable. Use the profile link for the current record."
+                }
+                className="contribution-grid"
+                data-texture="dither"
+                inert={!gridInteractive}
+                onPointerEnter={(event) => {
+                  if (event.pointerType !== "touch") settleFrameForGrid();
+                }}
+                onPointerLeave={() => {
+                  if (frameRef.current) {
+                    delete frameRef.current.dataset.gridInteracting;
+                  }
+                }}
+                ref={gridRef}
+                role="group"
+              >
+                {calendar.map((day, index) => {
+                  const activity = activityByDate.get(day.date);
+                  const label = cellLabels[index] ?? cellLabel(day, activity);
+                  const isPinned = pinnedDate === day.date;
+                  return (
+                    <button
+                      aria-controls={isPinned ? POPOVER_ID : undefined}
+                      aria-expanded={isPinned ? true : undefined}
+                      aria-label={label}
+                      aria-pressed={isPinned}
+                      className="contribution-cell"
+                      data-active={selectedDate === day.date ? true : undefined}
+                      data-date={day.date}
+                      data-density={day.contribution?.level ?? 0}
+                      data-index={index}
+                      data-known={day.contribution ? true : undefined}
+                      data-texture="dither"
+                      disabled={!gridInteractive}
+                      key={day.date}
+                      onBlur={() => {
+                        if (!pinnedDate) {
+                          setFocusedDate((current) => current === day.date ? undefined : current);
+                        }
+                      }}
+                      onClick={(event) => {
+                        setRovingIndex(index);
+                        pinDate(day.date, event.currentTarget, event.detail === 0);
+                      }}
+                      onFocus={() => {
+                        setRovingIndex(index);
+                        if (suppressRestoredFocusRef.current) return;
+                        if (!pinnedDate) setFocusedDate(day.date);
+                      }}
+                      onKeyDown={(event) => moveCellFocus(event, index)}
+                      onPointerEnter={(event) => {
+                        if (event.pointerType !== "touch" && !pinnedDate) {
+                          setHoveredDate(day.date);
+                        }
+                      }}
+                      onPointerLeave={() => {
+                        if (!pinnedDate) {
+                          setHoveredDate((current) => current === day.date ? undefined : current);
+                        }
+                      }}
+                      tabIndex={gridInteractive && index === tabStopIndex ? 0 : -1}
+                      title={label}
+                      type="button"
+                    />
+                  );
+                })}
+              </div>
+
+              <label className="contribution-touch-picker">
+                <span>Choose a day</span>
+                <select
+                  aria-controls={pinnedDate ? POPOVER_ID : undefined}
+                  disabled={!graphAvailable}
+                  ref={pickerRef}
+                  value={pinnedDate ?? ""}
+                  onChange={(event) => {
+                    const nextDate = event.currentTarget.value || undefined;
+                    if (nextDate) pinDate(nextDate, event.currentTarget, true);
+                    else dismissPinnedDate(false);
+                  }}
+                >
+                  <option value="">No day selected</option>
+                  {[...calendar.filter((day) => day.date <= today)]
+                    .reverse()
+                    .map((day) => (
+                      <option key={day.date} value={day.date}>
+                        {formattedDate(day.date)} — {day.contribution?.count ?? "—"} contributions
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <div className="contribution-meta" data-texture="dither">
+                <div aria-label="Contribution density from quiet to active" className="contribution-legend" data-texture="dither">
+                  <span>Quiet</span>
+                  {[0, 1, 2, 3, 4].map((density) => (
+                    <span aria-hidden="true" className="contribution-cell" data-density={density} key={density} />
+                  ))}
+                  <span>Active</span>
+                </div>
+                <p aria-live="polite">
+                  {loadState === "loading" && "Loading the contribution calendar…"}
+                  {loadState === "live" && `${payload?.totalContributions ?? 0} contributions in the reported calendar.`}
+                  {loadState === "fallback" && "Live contribution data is unavailable; this empty grid contains no inferred counts."}
+                </p>
+                <div className="contribution-links">
+                  <a href={`https://github.com/${USERNAME}`} rel="noreferrer" target="_blank">GitHub ↗</a>
+                  <a href={`https://github.com/${USERNAME}?tab=repositories`} rel="noreferrer" target="_blank">Repositories ↗</a>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+      {popover}
+    </>
   );
 }

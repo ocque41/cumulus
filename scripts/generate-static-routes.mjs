@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { URL } from "node:url";
 
-import { RESEARCHED_POSTS as publishedPosts } from "../src/content/researched-posts.ts";
+import { FOCUSED_POSTS as publishedPosts } from "../src/content/focused-posts.ts";
 
 const DIST = new URL("../dist/", import.meta.url);
 const ORIGIN = "https://cumulush.com";
@@ -60,12 +60,12 @@ const publicRoutes = [
   },
   {
     canonicalPath: "/logs",
-    description: "Browse every public Cumulus field note, with project filters, source trails, and related reading.",
+    description: "Browse every public Cumulus field note, with project filters, first-party evidence limits, and related reading.",
     title: "Log index — Cumulus lab",
   },
   {
     canonicalPath: "/work",
-    description: "Explore current Cumulus lab projects, their latest verified work, public status, and source boundaries.",
+    description: "Explore current Cumulus lab projects, their reviewed public summaries, stated status, and source boundaries.",
     title: "Public work — Cumulus lab",
   },
   {

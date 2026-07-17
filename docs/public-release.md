@@ -15,13 +15,15 @@ Use this checklist for Cumulus 0.0.8 before pushing either design branch, publis
 - [ ] `.env.example` contains placeholders only.
 - [ ] No `.env.local`, token, cookie, key, database dump, subscriber address, delivery payload, private URL, real project ID, or dashboard screenshot is tracked.
 - [ ] Browser bundles contain only approved `NEXT_PUBLIC_*` values.
-- [ ] `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, Resend Segment/Topic IDs, optional `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_POSTAL_ADDRESS`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` remain server-only.
+- [ ] `ALCYONE_MEDIUM_WOFF2_BASE64`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, Resend Segment/Topic IDs, optional `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_POSTAL_ADDRESS`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` remain outside public files and browser bundles.
 - [ ] If configured, `GITHUB_ACCESS_TOKEN` belongs to a separate least-privilege viewer identity with no private-repository access; otherwise the endpoint uses only the fixed public profile. In both cases, the endpoint matches the public profile.
 - [ ] Test fixtures use synthetic identities.
 
 ## 3. Brand and third-party material
 
-- [ ] Only Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 regular fonts are bundled.
+- [ ] Only Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 regular fonts are bundled in Git and browser assets.
+- [ ] No Alcyone binary, archive, license PDF, encoded value, or source-map copy is tracked or emitted; Local and Preview use the Jacquard fallback.
+- [ ] The Alcyone value, if approved for promotion, is scoped only to the licensed Production environment and served through the same-origin font route.
 - [ ] No charted font archive, file, preload, or generated derivative is present.
 - [ ] `NOTICE` includes the upstream font copyrights and full SIL OFL 1.1 text.
 - [ ] No unapproved component library or unlicensed copied component source is present.
@@ -67,10 +69,11 @@ npm run test:e2e
 - [ ] The existing domain association was recorded privately; no domain config was added to Git.
 - [ ] Push approval was given before publishing the selected candidate branch.
 - [ ] The branch created a preview on the existing project, not a replacement project.
-- [ ] Preview environment variables and server-only scoping were verified.
+- [ ] Preview environment variables and server-only scoping were verified, and `ALCYONE_MEDIUM_WOFF2_BASE64` remained unset.
 - [ ] The preview passed smoke and end-to-end checks with synthetic data.
 - [ ] Main replacement or merge has separate explicit approval.
 - [ ] Production promotion and live domain cutover have separate explicit approval.
+- [ ] Immediately before an approved Production promotion, the licensed domain and Production-only Alcyone environment scope were verified from provider evidence.
 - [ ] The prior production deployment remains available for rollback until post-cutover checks pass.
 
 ## 7. Public handoff

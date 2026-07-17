@@ -1,12 +1,21 @@
-import { lazy, Suspense, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   AuthCallbackPage,
   AuthDialog,
   AuthProvider,
+  useAuth,
 } from "@/components/auth";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { getPublishedPostBySlug } from "@/content/posts";
+import { notificationPromptStorage } from "@/features/notifications/prompt-storage";
 import { navigate, usePathname } from "@/lib/router";
 import { HomePage } from "@/pages/HomePage";
 import { LogsPage } from "@/pages/LogsPage";
@@ -31,10 +40,85 @@ function decodeSlug(value: string): string | undefined {
   }
 }
 
+type NotificationDialogMode = "automatic" | "manual";
+
+function allowsAutomaticNotificationPrompt(path: string): boolean {
+  if (path === "/" || path === "/logs" || path === "/work") return true;
+  if (!path.startsWith("/logs/")) return false;
+
+  const slug = decodeSlug(path.slice("/logs/".length));
+  return Boolean(slug && getPublishedPostBySlug(slug));
+}
+
 function PublicRoutes() {
   const pathname = usePathname();
-  const [authOpen, setAuthOpen] = useState(false);
+  const { available, loading, user } = useAuth();
+  const [notificationDialogMode, setNotificationDialogMode] =
+    useState<NotificationDialogMode | null>(null);
+  const automaticPromptChecked = useRef(false);
   const path = normalizePath(pathname);
+  const automaticPromptAllowed = allowsAutomaticNotificationPrompt(path);
+  const notificationDialogOpen = notificationDialogMode === "manual"
+    || (
+      notificationDialogMode === "automatic"
+      && automaticPromptAllowed
+    );
+
+  const openNotificationSettings = useCallback(() => {
+    automaticPromptChecked.current = true;
+    setNotificationDialogMode("manual");
+  }, []);
+
+  const closeNotificationSettings = useCallback(() => {
+    setNotificationDialogMode(null);
+  }, []);
+
+  useEffect(() => {
+    if (notificationDialogOpen) notificationPromptStorage.markSeen();
+  }, [notificationDialogOpen]);
+
+  useEffect(() => {
+    if (
+      notificationDialogMode !== "automatic"
+      || automaticPromptAllowed
+    ) {
+      return;
+    }
+
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setNotificationDialogMode((current) =>
+        current === "automatic" ? null : current
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [automaticPromptAllowed, notificationDialogMode]);
+
+  useEffect(() => {
+    if (
+      automaticPromptChecked.current
+      || !automaticPromptAllowed
+      || loading
+      || !available
+    ) {
+      return;
+    }
+
+    let active = true;
+    queueMicrotask(() => {
+      if (!active || automaticPromptChecked.current) return;
+      automaticPromptChecked.current = true;
+      if (user || notificationPromptStorage.hasSeen()) return;
+
+      setNotificationDialogMode("automatic");
+    });
+    return () => {
+      active = false;
+    };
+  }, [automaticPromptAllowed, available, loading, user]);
 
   if (path === "/auth/callback") {
     return <AuthCallbackPage onComplete={() => navigate("/", { replace: true })} />;
@@ -43,7 +127,7 @@ function PublicRoutes() {
   let page;
 
   if (path === "/") {
-    page = <HomePage onOpenAuth={() => setAuthOpen(true)} />;
+    page = <HomePage onOpenAuth={openNotificationSettings} />;
   } else if (path === "/logs") {
     page = <LogsPage />;
   } else if (path.startsWith("/logs/")) {
@@ -54,9 +138,9 @@ function PublicRoutes() {
     page = (
       <Suspense
         fallback={(
-          <main className="route-pending page-shell" role="status">
+          <div className="route-pending page-shell" role="status">
             Loading the project field…
-          </main>
+          </div>
         )}
       >
         <WorkPage />
@@ -70,8 +154,12 @@ function PublicRoutes() {
 
   return (
     <>
-      <SiteLayout onOpenAuth={() => setAuthOpen(true)}>{page}</SiteLayout>
-      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
+      <SiteLayout onOpenAuth={openNotificationSettings}>{page}</SiteLayout>
+      <AuthDialog
+        mode={notificationDialogMode ?? "manual"}
+        open={notificationDialogOpen}
+        onClose={closeNotificationSettings}
+      />
     </>
   );
 }

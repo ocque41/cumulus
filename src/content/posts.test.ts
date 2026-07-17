@@ -11,14 +11,13 @@ import {
   validatePosts,
   type Post,
 } from "./posts";
+import { FIRST_PARTY_JOURNAL_NOTICE } from "./focused-posts";
 
-const EXPECTED_REPOSITORY_COMMITS = new Map([
-  ["cumulus", "ec98f05dece09b3a4ed48468f90a24639b3e848b"],
-  ["grok-build", "4508303932620fac40a63541d18be83609609240"],
-  ["psicoayuda", "13bd5fe471e8be651a6782560a88349741274caa"],
-  ["skills", "724413ac4ffaa5abddc8ba7a6342c8f9c86cce92"],
-  ["rune", "d0a73dd0fa99c7a001eea954e7066ec32a4416b7"],
-  ["relay", "5f8f116bb1cd82db789e165c2e22bd5566cfe952"],
+const EXPECTED_PROJECTS = new Map([
+  ["requisia", { category: "Requisia", count: 8 }],
+  ["insuja", { category: "Insuja", count: 7 }],
+  ["hyoka-hanesu", { category: "Hyoka Hanesu", count: 3 }],
+  ["gy", { category: "gy", count: 2 }],
 ]);
 
 function editablePosts(): Post[] {
@@ -36,17 +35,20 @@ function editablePosts(): Post[] {
 }
 
 describe("POSTS", () => {
-  it("publishes at least 24 substantial posts across every audited project family", () => {
-    expect(publishedPosts.length).toBeGreaterThanOrEqual(24);
+  it("publishes exactly twenty journals in the approved four-project split", () => {
+    expect(publishedPosts).toHaveLength(20);
     expect(new Set(POSTS.map((post) => post.slug)).size).toBe(POSTS.length);
-    expect(POSTS.some((post) => post.status === "draft")).toBe(true);
+    expect(POSTS.filter((post) => post.status === "draft")).toHaveLength(1);
 
-    for (const project of EXPECTED_REPOSITORY_COMMITS.keys()) {
+    for (const [project, expected] of EXPECTED_PROJECTS) {
       const projectPosts = publishedPosts.filter((post) => post.project === project);
-      expect(projectPosts.length, project).toBeGreaterThanOrEqual(4);
+      expect(projectPosts, project).toHaveLength(expected.count);
+      expect(projectPosts.every((post) => post.category === expected.category)).toBe(true);
     }
 
-    expect(new Set(publishedPosts.map((post) => post.date)).size).toBe(24);
+    expect(new Set(publishedPosts.map((post) => post.project))).toEqual(
+      new Set(EXPECTED_PROJECTS.keys()),
+    );
     expect(
       POSTS.every(
         (post, index) => index === 0 || POSTS[index - 1].date >= post.date,
@@ -55,29 +57,32 @@ describe("POSTS", () => {
     expect(validatePosts()).toEqual([]);
   });
 
-  it("gives every published post at least 600 meaningful body words", () => {
+  it("gives every published journal substantial, topic-specific copy", () => {
+    const seenParagraphs = new Map<string, string>();
     const sectionCounts = new Set<number>();
 
     for (const post of publishedPosts) {
       expect(post.title.trim().length).toBeGreaterThan(10);
-      expect(post.excerpt.trim().length).toBeGreaterThan(80);
+      expect(post.excerpt.trim().length).toBeGreaterThan(90);
       expect(post.project?.trim()).not.toBe("");
-      expect(post.category.trim()).not.toBe("");
-      expect(post.tags.length).toBeGreaterThanOrEqual(2);
+      expect(post.tags.length).toBeGreaterThanOrEqual(3);
+      expect(new Set(post.tags.map((tag) => tag.toLocaleLowerCase("en-US"))).size)
+        .toBe(post.tags.length);
+
       const bodyWords = countBodyWords(post.body);
       expect(bodyWords, post.slug).toBeGreaterThanOrEqual(600);
-      expect(
-        Math.abs(post.readingTime - calculateReadingTime(post.body)),
-        post.slug,
-      ).toBeLessThanOrEqual(1);
-      expect(post.visual.variant.trim()).not.toBe("");
-      expect(post.visual.alt.trim().length).toBeGreaterThan(20);
+      expect(post.readingTime, post.slug).toBe(calculateReadingTime(post.body));
+      expect(post.visual.alt.trim().length).toBeGreaterThan(24);
       expect(post.body.length).toBeGreaterThanOrEqual(3);
       expect(post.body.length).toBeLessThanOrEqual(6);
-      sectionCounts.add(post.body.length);
       expect(post.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(Number.isNaN(Date.parse(`${post.verifiedAt}T00:00:00.000Z`))).toBe(
-        false,
+      sectionCounts.add(post.body.length);
+
+      const completeBody = post.body
+        .flatMap((bodySection) => bodySection.paragraphs)
+        .join(" ");
+      expect(completeBody, post.slug).toMatch(
+        /evidence|first-party|private|production|deployment|public/i,
       );
 
       for (const bodySection of post.body) {
@@ -85,40 +90,79 @@ describe("POSTS", () => {
         expect(bodySection.paragraphs.length).toBeGreaterThanOrEqual(2);
         for (const paragraph of bodySection.paragraphs) {
           expect(paragraph.trim().length).toBeGreaterThanOrEqual(80);
+          const normalized = paragraph.trim().replace(/\s+/g, " ");
+          expect(
+            seenParagraphs.get(normalized),
+            `${post.slug} repeats a paragraph from ${seenParagraphs.get(normalized)}`,
+          ).toBeUndefined();
+          seenParagraphs.set(normalized, post.slug);
         }
       }
     }
 
-    expect([...sectionCounts].sort()).toEqual([5, 6]);
+    expect(sectionCounts).toContain(4);
+    expect(sectionCounts).toContain(5);
   });
 
-  it("uses immutable source links for the six verified public repositories", () => {
-    const sources = POSTS.flatMap((post) => post.sourceLinks ?? []);
-    expect(sources.length).toBeGreaterThan(0);
+  it("publishes one explicit authorship notice without a corpus-wide prose formula", () => {
+    expect(FIRST_PARTY_JOURNAL_NOTICE.label).toBe(
+      "Maintainer-authored first-party journal",
+    );
+    expect(FIRST_PARTY_JOURNAL_NOTICE.detail).toMatch(
+      /private evidence.*no public-source.*production verification/i,
+    );
 
-    for (const source of sources) {
-      const url = new URL(source.href);
-      expect(source.label.trim()).not.toBe("");
-      expect(url.protocol).toBe("https:");
-      expect(url.username).toBe("");
-      expect(url.password).toBe("");
-      const match = source.href.match(
-        /^https:\/\/github\.com\/ocque41\/([^/]+)\/blob\/([a-f0-9]{40})\/.+$/,
-      );
-      expect(match, source.href).not.toBeNull();
-      expect(EXPECTED_REPOSITORY_COMMITS.get(match?.[1] ?? "")).toBe(match?.[2]);
-    }
+    const formulaicEvidenceOpenings = publishedPosts.filter((post) => {
+      const openingEvidenceParagraph = post.body[0]?.paragraphs[1] ?? "";
+      return /(?:private|first-party).{0,45}(?:material|materials|work|design).{0,45}(?:reviewed|examined|observed)/i
+        .test(openingEvidenceParagraph);
+    });
+    const formulaicClosings = publishedPosts.filter((post) => {
+      const closing = post.body.at(-1)?.paragraphs.at(-1) ?? "";
+      return /(?:until (?:then|that|such)|the (?:accurate|defensible|honest) (?:claim|conclusion|statement)|this (?:public )?(?:article|journal|note) (?:does not|cannot|claims no|makes no))/i
+        .test(closing);
+    });
 
+    expect(formulaicEvidenceOpenings).toHaveLength(0);
+    expect(formulaicClosings.length).toBeLessThanOrEqual(4);
+  });
+
+  it("uses the first-party journal boundary without invented source links", () => {
     for (const post of publishedPosts) {
-      expect(post.sourceLinks?.length, post.slug).toBe(3);
+      expect(post.sourceLinks ?? [], post.slug).toEqual([]);
     }
+
+    const serialized = JSON.stringify(POSTS);
+    expect(serialized).not.toMatch(
+      /\/Users\/|\/private\/|localhost|127\.0\.0\.1|ocque41/i,
+    );
+    expect(serialized).not.toMatch(
+      /api[_-]?key|service[_-]?role|access[_-]?token|customer[_-]?id/i,
+    );
   });
 
-  it("resolves every related backlink to a published post", () => {
+  it("has one featured journal and only home-rendered placements", () => {
+    expect(publishedPosts.filter((post) => post.placement === "featured"))
+      .toEqual([featuredPost]);
+    expect(featuredPost.status).toBe("published");
+
+    const placements = new Set(publishedPosts.map((post) => post.placement));
+    expect(placements).toEqual(
+      new Set([
+        "featured",
+        "recent",
+        "stories",
+        "research",
+        "build-business",
+      ]),
+    );
+  });
+
+  it("resolves every related backlink to a different published journal", () => {
     const publishedSlugs = new Set(publishedPosts.map((post) => post.slug));
 
     for (const post of POSTS) {
-      expect(post.relatedSlugs?.length ?? 0).toBeGreaterThanOrEqual(2);
+      expect(post.relatedSlugs?.length ?? 0, post.slug).toBeGreaterThanOrEqual(2);
       expect(new Set(post.relatedSlugs).size).toBe(post.relatedSlugs?.length);
       for (const relatedSlug of post.relatedSlugs ?? []) {
         expect(relatedSlug).not.toBe(post.slug);
@@ -126,19 +170,6 @@ describe("POSTS", () => {
           true,
         );
       }
-    }
-  });
-
-  it("contains no local paths, local endpoints, or inaccessible project backlinks", () => {
-    const serialized = JSON.stringify(POSTS);
-    const forbidden = [
-      /\/Users\//i,
-      /\/private\//i,
-      /localhost/i,
-    ];
-
-    for (const pattern of forbidden) {
-      expect(serialized).not.toMatch(pattern);
     }
   });
 });
@@ -153,9 +184,8 @@ describe("published post selectors", () => {
     expect(searchPublishedPosts(draft!.title)).toEqual([]);
   });
 
-  it("selects the published feature and resolves a normalized slug", () => {
+  it("selects the feature and resolves a normalized slug", () => {
     expect(featuredPost.placement).toBe("featured");
-    expect(featuredPost.status).toBe("published");
     expect(getPublishedPostBySlug(`  ${featuredPost.slug.toUpperCase()}  `)).toBe(
       featuredPost,
     );
@@ -163,28 +193,28 @@ describe("published post selectors", () => {
 });
 
 describe("searchPublishedPosts", () => {
-  it("matches all terms across project metadata and body copy", () => {
-    const skillsResults = searchPublishedPosts("skills");
-    const skillsProjectSlugs = publishedPosts
-      .filter((post) => post.project === "skills")
-      .map((post) => post.slug);
-    expect(skillsResults.map((post) => post.slug)).toEqual(
-      expect.arrayContaining(skillsProjectSlugs),
+  it("matches project metadata and unique article language", () => {
+    const requisia = searchPublishedPosts("requisia");
+    expect(requisia.length).toBeGreaterThanOrEqual(8);
+    expect(requisia).toEqual(
+      expect.arrayContaining(
+        publishedPosts.filter((post) => post.project === "requisia"),
+      ),
     );
 
-    const graphResults = searchPublishedPosts("fixed-user server boundary");
-    expect(graphResults.map((post) => post.slug)).toContain(
-      "honest-github-activity-field",
+    const phrase = publishedPosts[0].tags.at(-1)!;
+    expect(searchPublishedPosts(phrase).map((post) => post.slug)).toContain(
+      publishedPosts[0].slug,
     );
   });
 
   it("combines case-insensitive category and text filters", () => {
-    const results = searchPublishedPosts("boundary", " grok-build ");
+    const results = searchPublishedPosts("boundary", " rEqUiSiA ");
     expect(results.length).toBeGreaterThan(0);
-    expect(results.every((post) => post.category === "grok-build")).toBe(true);
+    expect(results.every((post) => post.category === "Requisia")).toBe(true);
   });
 
-  it("preserves published date order for empty and all filters", () => {
+  it("preserves published order for empty and all filters", () => {
     expect(searchPublishedPosts()).toEqual(publishedPosts);
     expect(searchPublishedPosts("", "ALL")).toEqual(publishedPosts);
     expect(searchPublishedPosts("", "not-a-category")).toEqual([]);
@@ -233,7 +263,7 @@ describe("validatePosts", () => {
     );
   });
 
-  it("rejects unsafe source URLs", () => {
+  it("rejects unsafe source URLs when a future public review supplies them", () => {
     const posts = editablePosts();
     posts[0] = {
       ...posts[0],

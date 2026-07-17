@@ -70,7 +70,7 @@ export function NotificationPreferences({
   const saveStatus = useCallback(
     async (nextStatus: NotificationSubscriptionStatus) => {
       if (!user) {
-        setMessage("Sign in with your email link to change notifications.");
+        setMessage("Confirm your email link to change notifications.");
         return;
       }
 
@@ -120,8 +120,8 @@ export function NotificationPreferences({
       <section className={`auth-preferences ${className}`.trim()}>
         <h3 className="auth-preferences-title">New-post notifications</h3>
         <p className="auth-copy">
-          Sign in with an email link to view or change this optional preference.
-          Every log remains public without signing in.
+          Confirm your email with a notification link to view or change this
+          optional preference. Every log remains public without this step.
         </p>
       </section>
     );

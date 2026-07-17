@@ -49,7 +49,7 @@ export function SiteHeader({ onOpenAuth }: SiteHeaderProps) {
             Log index
           </AppLink>
           <AppLink href="/#github" onClick={() => setMenuOpen(false)}>
-            GitHub
+            Activity
           </AppLink>
           <AppLink href="/#notify" onClick={() => setMenuOpen(false)}>
             Notifications
@@ -69,7 +69,7 @@ export function SiteHeader({ onOpenAuth }: SiteHeaderProps) {
             }}
             type="button"
           >
-            Sign in
+            Notification settings
           </button>
         </nav>
       </div>

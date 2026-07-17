@@ -14,6 +14,7 @@ export interface AuthContextValue {
   loading: boolean;
   available: boolean;
   unavailableReason: string | null;
+  refreshSession: () => Promise<void>;
   requestMagicLink: (
     email: string,
     notificationDisclosureAccepted: boolean,
