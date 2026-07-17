@@ -12,13 +12,16 @@ import {
   type Post,
 } from "./posts";
 
-const EXPECTED_REPOSITORY_COMMITS = new Map([
-  ["cumulus", "ec98f05dece09b3a4ed48468f90a24639b3e848b"],
-  ["grok-build", "4508303932620fac40a63541d18be83609609240"],
-  ["psicoayuda", "13bd5fe471e8be651a6782560a88349741274caa"],
-  ["skills", "724413ac4ffaa5abddc8ba7a6342c8f9c86cce92"],
-  ["rune", "d0a73dd0fa99c7a001eea954e7066ec32a4416b7"],
-  ["relay", "5f8f116bb1cd82db789e165c2e22bd5566cfe952"],
+const EXPECTED_REPOSITORY_COMMITS = new Map<string, ReadonlySet<string>>([
+  ["cumulus", new Set([
+    "ec98f05dece09b3a4ed48468f90a24639b3e848b",
+    "89db41e8b089f73efc45f822049473ae8942e02a",
+  ])],
+  ["grok-build", new Set(["4508303932620fac40a63541d18be83609609240"])],
+  ["psicoayuda", new Set(["13bd5fe471e8be651a6782560a88349741274caa"])],
+  ["skills", new Set(["724413ac4ffaa5abddc8ba7a6342c8f9c86cce92"])],
+  ["rune", new Set(["d0a73dd0fa99c7a001eea954e7066ec32a4416b7"])],
+  ["relay", new Set(["5f8f116bb1cd82db789e165c2e22bd5566cfe952"])],
 ]);
 
 function editablePosts(): Post[] {
@@ -46,7 +49,9 @@ describe("POSTS", () => {
       expect(projectPosts.length, project).toBeGreaterThanOrEqual(4);
     }
 
-    expect(new Set(publishedPosts.map((post) => post.date)).size).toBe(24);
+    expect(new Set(publishedPosts.map((post) => post.date)).size).toBe(
+      publishedPosts.length,
+    );
     expect(
       POSTS.every(
         (post, index) => index === 0 || POSTS[index - 1].date >= post.date,
@@ -106,7 +111,10 @@ describe("POSTS", () => {
         /^https:\/\/github\.com\/ocque41\/([^/]+)\/blob\/([a-f0-9]{40})\/.+$/,
       );
       expect(match, source.href).not.toBeNull();
-      expect(EXPECTED_REPOSITORY_COMMITS.get(match?.[1] ?? "")).toBe(match?.[2]);
+      expect(
+        EXPECTED_REPOSITORY_COMMITS.get(match?.[1] ?? "")?.has(match?.[2] ?? ""),
+        source.href,
+      ).toBe(true);
     }
 
     for (const post of publishedPosts) {

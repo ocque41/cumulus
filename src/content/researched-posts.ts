@@ -2,6 +2,83 @@ import type { Post } from "./post-types.js";
 
 export const RESEARCHED_POSTS = [
   {
+    "title": "A Post Is Not a Notification: Testing the Missing Publication Trigger",
+    "slug": "testing-the-missing-publication-trigger",
+    "body": [
+      {
+        "heading": "The experiment starts with two different events",
+        "paragraphs": [
+          "Publishing a log and announcing a log sound like one action, but Cumulus currently represents them as two distinct events. A Git push gives Vercel a new source revision to build, while the notification API gives Resend a specific immutable slug to broadcast. This field note records a controlled test of the space between those events: whether a successfully deployed post causes the protected notification endpoint to run without an operator explicitly calling it.",
+          "Keeping the events separate is useful for safety. A preview build should not email production readers, a failed deployment should never announce a broken route, and a retry should not create a second message. The missing piece is therefore not permission to send from browser code. It is a narrow, authenticated production workflow that waits for the selected deployment to become ready, identifies only newly published slugs, performs a dry validation, and then requests one idempotent broadcast."
+        ]
+      },
+      {
+        "heading": "What the repository already proves",
+        "paragraphs": [
+          "The existing endpoint accepts only a lowercase post slug and an optional dry-run flag. It reads the deployed content artifact rather than accepting a caller-provided title, excerpt, date, or HTML body. Authorization uses a server-only publication secret, and the Resend adapter checks that the configured Segment exists and that the dedicated Topic defaults to opt-out. These boundaries prevent an untrusted workflow input from choosing arbitrary recipients or injecting arbitrary email content.",
+          "The delivery adapter derives both its internal Broadcast name and idempotency key from the immutable slug. Before sending, it searches for an existing Broadcast with that name and compares the Segment, Topic, sender, subject, HTML, and text. An exact previously sent message becomes an already-sent success, while changed content under the same slug becomes a conflict. That behavior makes retries safe and also establishes an editorial rule: the title, excerpt, date, and slug must be final before notification publication."
+        ]
+      },
+      {
+        "heading": "What a branch push can and cannot demonstrate",
+        "paragraphs": [
+          "A non-production branch push is a useful first observation because Vercel Git integration should create a Preview deployment with an immutable URL. The preview can prove that the new log builds, that its direct route exists, and that the server function recognizes the slug inside that artifact. It cannot safely prove production fanout: preview secrets may be independently scoped, preview contacts may differ from production contacts, and a branch that has not been selected for release must not announce itself to the production audience.",
+          "The decisive evidence comes from deployment and runtime records. If Vercel reports the pushed commit as ready but no request reaches the publication endpoint and no matching Resend Broadcast appears, the push-to-email connection does not exist. That is not an email provider failure. It means the application has reliable publication machinery but no orchestration layer invoking it after deployment. Naming that boundary avoids debugging sender DNS, subscriber consent, or inbox placement for an API call that never occurred."
+        ]
+      },
+      {
+        "heading": "The safe automatic path is production-only",
+        "paragraphs": [
+          "A complete automation should activate only after the production artifact for the authorized branch is ready. It should compare the previous and current deployed revisions, select slugs that are newly published in the current revision, and refuse an empty, malformed, draft, deleted, or rewritten candidate. Each candidate should be validated against the deployed endpoint with dry-run enabled before the real request. Secrets must remain in the deployment or workflow control plane and must never cross into the Vite browser bundle.",
+          "The workflow must also stay observable without logging subscriber addresses or secret values. A successful run can record the deployment identifier, commit, slug, dry-run result, and created or already-sent status. Authentication failure, missing provider resources, content conflict, and upstream unavailability should stop the run. The Resend Broadcast remains the delivery system of record, while Vercel and the automation record explain why and when the application requested that delivery."
+        ]
+      },
+      {
+        "heading": "Evidence required before calling it automatic",
+        "paragraphs": [
+          "Source and unit tests can establish the trigger filters, request authentication, idempotent retry behavior, and failure handling. A Preview deployment can establish that the route and static post are present in a Vercel artifact. Neither proves that the Production environment contains the right secrets, that the intended reader has opted into the configured Topic, or that a recipient mail server accepted the message. Those are separate lifecycle observations and must remain separate in the release record.",
+          "The final controlled proof is one newly published production slug and one consented test recipient. The exact production deployment must become ready, the automation must call the protected endpoint once, Resend must create and send the matching Broadcast, and provider events must show the delivery outcome. The recipient should then use the included unsubscribe link and a second controlled check should confirm that future broadcasts exclude the opted-out address. Only that end-to-end evidence justifies describing new-log email as automatic."
+        ]
+      }
+    ],
+    "sourceLinks": [
+      {
+        "label": "Protected publication endpoint",
+        "href": "https://github.com/ocque41/cumulus/blob/89db41e8b089f73efc45f822049473ae8942e02a/api/notifications/publish.ts"
+      },
+      {
+        "label": "Idempotent Resend broadcast adapter",
+        "href": "https://github.com/ocque41/cumulus/blob/89db41e8b089f73efc45f822049473ae8942e02a/server/notifications/resend.ts"
+      },
+      {
+        "label": "Notification operations contract",
+        "href": "https://github.com/ocque41/cumulus/blob/89db41e8b089f73efc45f822049473ae8942e02a/docs/notifications.md"
+      }
+    ],
+    "relatedSlugs": [
+      "sending-a-new-post-email-once",
+      "public-repository-private-operations",
+      "release-proof-without-paid-api-calls"
+    ],
+    "category": "Cumulus lab",
+    "project": "cumulus",
+    "date": "2026-07-17",
+    "excerpt": "A controlled deployment experiment shows why a published Cumulus log does not yet trigger a Resend broadcast, and defines the production-only automation needed to connect those events safely.",
+    "status": "published",
+    "tags": [
+      "Cumulus lab",
+      "Notification delivery",
+      "Deployment automation"
+    ],
+    "readingTime": 0,
+    "placement": "recent",
+    "visual": {
+      "variant": "event-river",
+      "alt": "Dithered deployment and notification events separated by a missing trigger"
+    },
+    "verifiedAt": "2026-07-17"
+  },
+  {
     "title": "An Honest GitHub Activity Field: Rich Interaction Without Invented Data",
     "slug": "honest-github-activity-field",
     "body": [
