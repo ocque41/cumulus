@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -56,9 +57,11 @@ export function AuthProvider({
   const [loading, setLoading] = useState(true);
   const [available, setAvailable] = useState(true);
   const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
+  const sessionRevision = useRef(0);
 
   useEffect(() => {
     let active = true;
+    const revision = sessionRevision.current;
     void fetcher(sessionEndpoint, {
       method: "GET",
       credentials: "same-origin",
@@ -66,7 +69,7 @@ export function AuthProvider({
     })
       .then(async (response) => {
         const value = await readJson(response);
-        if (!active) return;
+        if (!active || sessionRevision.current !== revision) return;
         if (!response.ok || !value) {
           setAvailable(false);
           setUnavailableReason(
@@ -80,7 +83,7 @@ export function AuthProvider({
         setUser(parseUser(value.user));
       })
       .catch(() => {
-        if (!active) return;
+        if (!active || sessionRevision.current !== revision) return;
         setAvailable(false);
         setUnavailableReason(
           "Notification access is temporarily unavailable. The public logs remain available.",
@@ -142,6 +145,7 @@ export function AuthProvider({
       if (!token || token.length > 1024) {
         return { ok: false, message: "This email link is incomplete or invalid." };
       }
+      sessionRevision.current += 1;
       try {
         const response = await fetcher(sessionEndpoint, {
           method: "POST",
@@ -171,6 +175,7 @@ export function AuthProvider({
   );
 
   const signOut = useCallback(async (): Promise<AuthActionResult> => {
+    sessionRevision.current += 1;
     try {
       const response = await fetcher(sessionEndpoint, {
         method: "DELETE",
