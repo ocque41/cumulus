@@ -104,7 +104,7 @@ export function PostPage({ post }: { post: Post }) {
         </div>
         <div className="related-logs__grid">
           {related.map((candidate, index) => (
-            <AppLink href={articleHref(candidate)} key={candidate.slug}>
+            <AppLink data-signal-host href={articleHref(candidate)} key={candidate.slug}>
               <DitherPlate
                 className="related-logs__plate"
                 decorative

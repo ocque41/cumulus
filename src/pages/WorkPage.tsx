@@ -122,7 +122,7 @@ export function WorkPage() {
                     <p className="eyebrow">Project logs</p>
                     <div>
                       {notes.map((post, noteIndex) => (
-                        <AppLink href={articleHref(post)} key={post.slug}>
+                        <AppLink data-signal-host href={articleHref(post)} key={post.slug}>
                           <DitherPlate
                             className="work-project__note-plate"
                             decorative

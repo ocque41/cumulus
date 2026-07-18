@@ -56,6 +56,18 @@ describe("licensed Alcyone font route", () => {
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
 
+  it("answers an unavailable HEAD capability probe without a console-level request error", async () => {
+    const response = handlerWith(undefined)(
+      new Request(FONT_URL, { method: "HEAD" }),
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store, max-age=0");
+    expect(response.headers.get("Cross-Origin-Resource-Policy")).toBe("same-origin");
+    expect(response.headers.has("Content-Type")).toBe(false);
+    expect((await response.arrayBuffer()).byteLength).toBe(0);
+  });
+
   it.each(["not-base64%", "AAAA=", "A==="])("rejects malformed base64 configuration", (value) => {
     expect(handlerWith(value)(new Request(FONT_URL)).status).toBe(503);
   });

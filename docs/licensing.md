@@ -10,6 +10,7 @@ Cumulus 0.0.8 deliberately separates project code from third-party font assets.
 | Jacquard 12 and Jacquard 24 font software | SIL Open Font License 1.1 | Copyright 2023 The Soft Type Project Authors. |
 | Jacquarda Bastarda 9 font software | SIL Open Font License 1.1 | Copyright 2023 The Soft Type Project Authors. |
 | Alcyone Medium webfont | Commercial one-website webfont license | Supplied by the operator only to the licensed Production environment; never stored in this public repository or browser build. |
+| Anime.js 4.5.0 | MIT License | Smooth post-signal motion. Its complete notice is retained in `public/licenses/animejs-MIT.txt` and copied into every browser build. |
 | Installed npm packages | Their respective upstream licenses | The lockfile and `license:check` define the release input. |
 
 No AGPL code is included in this fresh reference project. Do not add AGPL-derived implementation to an Apache-2.0 path. If a future architecture needs an AGPL service, keep it in a separately licensed repository or service and communicate through a documented network API.

@@ -29,6 +29,7 @@ const required = [
   ["licenses/fonts/JacquardaBastarda/OFL.txt", "SIL OPEN FONT LICENSE"],
   ["licenses/components/Cult-UI-MIT.txt", "MIT License"],
   ["licenses/components/dither-plugin-MIT.txt", "MIT License"],
+  ["public/licenses/animejs-MIT.txt", "Copyright (c) 2025 Julian Garnier"],
   ["licenses/paper-shaders/LICENSE", "Apache License"],
   ["licenses/paper-shaders/NOTICE", "Paper Shaders"],
   ["docs/licensing.md", "ALCYONE_MEDIUM_WOFF2_BASE64"],
@@ -150,4 +151,4 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-console.log("LICENSE_BOUNDARY_OK root=Apache-2.0 public_fonts=OFL-1.1 private_webfont=external components=MIT paper=Apache-2.0");
+console.log("LICENSE_BOUNDARY_OK root=Apache-2.0 public_fonts=OFL-1.1 private_webfont=external components=MIT animation=MIT paper=Apache-2.0");

@@ -1,12 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { ComponentProps } from "react";
 
-import {
-  DitherArtwork,
-  stableDitherSeed,
-} from "@/components/visual/DitherArtwork";
+import { stableDitherSeed } from "@/components/visual/DitherArtwork";
 import { HeroDither } from "@/components/visual/HeroDither";
+import { PostSignalArtwork } from "@/components/visual/PostSignalArtwork";
 import type { Post } from "@/content/posts";
+import type { DitherVariant } from "@/content/post-types";
 import { AppLink } from "@/lib/router";
 
 type EnrichedPost = Post & {
@@ -27,6 +26,15 @@ const TYPES: Array<ComponentProps<typeof HeroDither>["type"]> = [
   "2x2",
   "4x4",
   "8x8",
+];
+const INLINE_SIGNAL_VARIANTS: readonly DitherVariant[] = [
+  "record-lattice",
+  "event-river",
+  "contract-bridge",
+  "context-rings",
+  "plan-stack",
+  "terminal-rain",
+  "signal-window",
 ];
 
 export function formatPostDate(value: string): string {
@@ -84,15 +92,24 @@ export function DitherPlate({
       };
 
   if (mode === "artwork") {
+    const artworkVariant = placement.startsWith("article-inline-")
+      ? INLINE_SIGNAL_VARIANTS[seed % INLINE_SIGNAL_VARIANTS.length]
+        ?? post.visual.variant
+      : post.visual.variant;
+
     return (
-      <DitherArtwork
+      <PostSignalArtwork
         {...semantics}
         className={`dither-plate ${className}`.trim()}
         seed={seedKey}
-        variant={post.visual.variant}
+        variant={artworkVariant}
       >
-        {label ? <span aria-hidden="true">{label}</span> : null}
-      </DitherArtwork>
+        {label ? (
+          <span aria-hidden="true" className="dither-plate__label">
+            {label}
+          </span>
+        ) : null}
+      </PostSignalArtwork>
     );
   }
 
@@ -113,7 +130,11 @@ export function DitherPlate({
         speed={0.12 + (seed % 4) * 0.04}
         type={type}
       />
-      {label ? <span aria-hidden="true">{label}</span> : null}
+      {label ? (
+        <span aria-hidden="true" className="dither-plate__label">
+          {label}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -160,7 +181,7 @@ export function FeaturedPost({ post }: { post: Post }) {
 
 export function PostCard({ index, post }: { index: number; post: Post }) {
   return (
-    <article className="post-card">
+    <article className="post-card" data-signal-host>
       <div className="post-card__index" aria-hidden="true">
         {String(index + 1).padStart(2, "0")}
       </div>
@@ -190,7 +211,7 @@ export function PostCard({ index, post }: { index: number; post: Post }) {
 
 export function PostIndexRow({ index, post }: { index: number; post: Post }) {
   return (
-    <article className="post-index-row">
+    <article className="post-index-row" data-signal-host>
       <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
       <div className="post-index-row__visual">
         <DitherPlate

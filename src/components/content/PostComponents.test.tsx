@@ -5,7 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Post } from "@/content/posts";
 
 vi.mock("@/components/visual/DitherArtwork", () => ({
-  DitherArtwork: ({
+  stableDitherSeed: () => 17,
+}));
+
+vi.mock("@/components/visual/PostSignalArtwork", () => ({
+  PostSignalArtwork: ({
     children,
     className,
     decorative,
@@ -25,7 +29,6 @@ vi.mock("@/components/visual/DitherArtwork", () => ({
       {children}
     </div>
   ),
-  stableDitherSeed: () => 17,
 }));
 
 vi.mock("@/components/visual/HeroDither", () => ({

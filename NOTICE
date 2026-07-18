@@ -4,6 +4,10 @@ Copyright 2026 Cumulus contributors
 This product includes software developed by Cumulus contributors and made
 available under the Apache License, Version 2.0.
 
+This product includes Anime.js 4.5.0, Copyright (c) 2025 Julian Garnier,
+under the MIT License. The complete notice is distributed at
+`public/licenses/animejs-MIT.txt` and copied into the browser build.
+
 This product includes the following font software:
 
   Jacquard 12 and Jacquard 24

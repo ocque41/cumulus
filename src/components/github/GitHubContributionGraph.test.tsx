@@ -38,8 +38,35 @@ const LIVE_PAYLOAD = {
   fetchedAt: "2026-07-16T10:00:00.000Z",
 };
 
-function liveResponse() {
-  return new Response(JSON.stringify(LIVE_PAYLOAD), {
+const DENSE_HIGHLIGHT_PAYLOAD = {
+  ...LIVE_PAYLOAD,
+  activityDays: [
+    {
+      ...LIVE_PAYLOAD.activityDays[0],
+      highlights: [
+        ...LIVE_PAYLOAD.activityDays[0].highlights,
+        {
+          kind: "issue",
+          repository: "cumulus/cloud",
+          title: "Document keyboard focus",
+        },
+        {
+          kind: "commit",
+          repository: "cumulus/cloud",
+          title: "Refine responsive graph",
+        },
+        {
+          kind: "pull-request",
+          repository: "cumulus/cloud",
+          title: "Keep page scroll native",
+        },
+      ],
+    },
+  ],
+};
+
+function liveResponse(payload: unknown = LIVE_PAYLOAD) {
+  return new Response(JSON.stringify(payload), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
@@ -85,6 +112,13 @@ describe("GitHubContributionGraph", () => {
     expect(screen.getByRole("group")).toHaveAccessibleName(
       /37 GitHub contributions across 1 active day in the reported calendar/i,
     );
+    expect(screen.getByRole("group")).toHaveAttribute(
+      "aria-describedby",
+      "github-contribution-keyboard-instructions",
+    );
+    expect(screen.getByRole("group")).toHaveAccessibleDescription(
+      "Arrow keys move between days. Enter opens details. Escape closes details.",
+    );
     expect(screen.getByRole("group")).not.toHaveAttribute("inert");
     const graphCells = document.querySelectorAll(
       ".contribution-grid .contribution-cell",
@@ -99,6 +133,7 @@ describe("GitHubContributionGraph", () => {
       ".contribution-frame [data-slot='hero-dither']",
     );
     expect(dither).not.toBeNull();
+    expect(dither).toHaveAttribute("data-dither-speed", "0.06");
     expect(dither?.style.maskImage).toContain("radial-gradient");
     expect(
       document.querySelector('.contribution-frame[data-texture="dither"]'),
@@ -138,6 +173,9 @@ describe("GitHubContributionGraph", () => {
     );
     expect(STYLES).toMatch(
       /\.contribution-cell:focus-visible\s*\{[\s\S]*?outline:\s*2px solid var\(--signal\)/,
+    );
+    expect(STYLES).toMatch(
+      /\.contribution-popover\[data-viewport-portal="true"\]\[data-popover-state="pinned"\]\s*\{[\s\S]*?overflow-y:\s*auto/,
     );
     expect(
       screen.getByLabelText("Contribution density from quiet to active"),
@@ -350,9 +388,40 @@ describe("GitHubContributionGraph", () => {
     expect(activeCell).toHaveAttribute("aria-pressed", "false");
   }, 20_000);
 
+  it("caps desktop highlights and announces omitted public items", async () => {
+    stubPickerMedia(false);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(liveResponse(DENSE_HIGHLIGHT_PAYLOAD)),
+    );
+
+    render(<GitHubContributionGraph />);
+
+    await waitFor(() =>
+      expect(screen.getByText("37 contributions in the reported calendar.")).toBeInTheDocument(),
+    );
+    const activeCell = document.querySelector<HTMLButtonElement>('button[data-index="0"]');
+    if (!activeCell) throw new Error("Expected the first contribution cell");
+    fireEvent.pointerEnter(activeCell, { pointerType: "mouse" });
+
+    const popover = screen.getByRole("status");
+    expect(popover).toHaveAttribute("data-highlight-limit", "3");
+    expect(popover).toHaveAttribute("data-highlights-truncated", "true");
+    expect(popover.querySelectorAll("li")).toHaveLength(3);
+    expect(screen.getByText("2 more public items not shown.")).toHaveAttribute(
+      "data-highlight-overflow-note",
+      "true",
+    );
+    expect(screen.queryByText("Refine responsive graph")).not.toBeInTheDocument();
+    expect(screen.queryByText("Keep page scroll native")).not.toBeInTheDocument();
+  });
+
   it("uses the picker as the sole responsive interaction and restores its focus", async () => {
     stubPickerMedia(true);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(liveResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(liveResponse(DENSE_HIGHLIGHT_PAYLOAD)),
+    );
 
     render(<GitHubContributionGraph />);
 
@@ -377,9 +446,33 @@ describe("GitHubContributionGraph", () => {
     await waitFor(() =>
       expect(document.querySelector(".contribution-popover")).toHaveAttribute(
         "data-popover-side",
-        "sheet",
+        "inline",
       ),
     );
+    const popover = document.querySelector<HTMLElement>(".contribution-popover");
+    expect(popover).not.toHaveAttribute("data-viewport-portal");
+    expect(popover?.parentElement).toHaveClass("contribution-surface");
+    expect(popover).toHaveAttribute("data-highlight-limit", "2");
+    expect(popover).toHaveAttribute("data-highlights-truncated", "true");
+    expect(popover?.querySelectorAll("li")).toHaveLength(2);
+    expect(screen.getByText("3 more public items not shown.")).toHaveAttribute(
+      "data-highlight-overflow-note",
+      "true",
+    );
+    expect(screen.queryByText("Document keyboard focus")).not.toBeInTheDocument();
+
+    const frame = document.querySelector<HTMLElement>(".contribution-frame");
+    if (!frame) throw new Error("Expected the contribution frame");
+    const frameRect = vi.spyOn(frame, "getBoundingClientRect");
+    fireEvent.pointerMove(frame, {
+      clientX: 900,
+      clientY: 100,
+      pointerType: "mouse",
+    });
+    expect(frame).toHaveAttribute("data-tilt-enabled", "false");
+    expect(frameRect).not.toHaveBeenCalled();
+    expect(frame.style.getPropertyValue("--graph-rotate-x")).toBe("0deg");
+    expect(frame.style.getPropertyValue("--graph-rotate-y")).toBe("0deg");
 
     fireEvent.click(screen.getByRole("button", { name: "Close activity details" }));
     await waitFor(() => expect(document.activeElement).toBe(picker));

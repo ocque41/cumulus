@@ -1,3 +1,15 @@
+import {
+  ALCYONE_FONT_AVAILABLE_CACHE_CONTROL,
+  ALCYONE_FONT_CONTENT_TYPE,
+  ALCYONE_FONT_METHOD_NOT_ALLOWED_HEADERS,
+  ALCYONE_FONT_METHOD_NOT_ALLOWED_STATUS,
+  ALCYONE_FONT_SECURITY_HEADERS,
+  ALCYONE_FONT_UNAVAILABLE_HEADERS,
+  getAlcyoneFontUnavailableStatus,
+  isAlcyoneFontRequestMethod,
+} from "../../src/lib/alcyone-font-protocol.js";
+import type { AlcyoneFontRequestMethod } from "../../src/lib/alcyone-font-protocol.js";
+
 const FONT_ENV = "ALCYONE_MEDIUM_WOFF2_BASE64";
 const WOFF2_MAGIC = "wOF2";
 const MIN_FONT_BYTES = 8_000;
@@ -6,16 +18,10 @@ const MAX_ENCODED_BYTES = 120_000;
 
 type FontEnvironment = Readonly<Record<string, string | undefined>>;
 
-const unavailableHeaders = {
-  "Cache-Control": "private, no-store, max-age=0",
-  "Cross-Origin-Resource-Policy": "same-origin",
-  "X-Content-Type-Options": "nosniff",
-};
-
-function unavailableResponse(status = 503): Response {
+function unavailableResponse(method: AlcyoneFontRequestMethod): Response {
   return new Response(null, {
-    status,
-    headers: unavailableHeaders,
+    status: getAlcyoneFontUnavailableStatus(method),
+    headers: ALCYONE_FONT_UNAVAILABLE_HEADERS,
   });
 }
 
@@ -54,22 +60,26 @@ function decodeConfiguredFont(encoded: string | undefined): Buffer | null {
 
 export function createAlcyoneMediumFontHandler(env: FontEnvironment) {
   return (request: Request): Response => {
-    if (request.method !== "GET" && request.method !== "HEAD") {
+    if (!isAlcyoneFontRequestMethod(request.method)) {
       return new Response(null, {
-        status: 405,
-        headers: { ...unavailableHeaders, Allow: "GET, HEAD" },
+        status: ALCYONE_FONT_METHOD_NOT_ALLOWED_STATUS,
+        headers: ALCYONE_FONT_METHOD_NOT_ALLOWED_HEADERS,
       });
     }
 
     const font = decodeConfiguredFont(env[FONT_ENV]);
-    if (!font) return unavailableResponse();
+    if (!font) {
+      // The browser probes with HEAD before enabling the licensed family.
+      // A bodyless success keeps expected Local/Preview fallback out of the
+      // console while GET remains fail-closed and never exposes invalid bytes.
+      return unavailableResponse(request.method);
+    }
 
     const headers = {
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": ALCYONE_FONT_AVAILABLE_CACHE_CONTROL,
       "Content-Length": String(font.byteLength),
-      "Content-Type": "font/woff2",
-      "Cross-Origin-Resource-Policy": "same-origin",
-      "X-Content-Type-Options": "nosniff",
+      "Content-Type": ALCYONE_FONT_CONTENT_TYPE,
+      ...ALCYONE_FONT_SECURITY_HEADERS,
     };
 
     const body = request.method === "HEAD" ? null : Uint8Array.from(font);

@@ -27,6 +27,10 @@ export interface HeroDitherProps
   shape?: DitheringShape;
   type?: DitheringType;
   size?: number;
+  /** Overall shape zoom, clamped to Paper's supported range. */
+  scale?: number;
+  /** Brand-safe neutral foreground contrast. */
+  tone?: "quiet" | "muted";
   frame?: number;
   speed?: number;
   /** Hard device-pixel-ratio ceiling, enforced through the pixel budget. */
@@ -70,9 +74,11 @@ interface SafeDitheringProps {
   maxPixelCount: number;
   minPixelRatio: number;
   onError: () => void;
+  scale: number;
   shape: DitheringShape;
   size: number;
   speed: number;
+  tone: NonNullable<HeroDitherProps["tone"]>;
   type: DitheringType;
 }
 
@@ -80,16 +86,32 @@ type DitheringMountUniforms = DitheringUniforms & ShaderMountUniforms;
 type ShaderHostElement = HTMLDivElement & { paperShaderMount?: ShaderMount };
 
 const DITHER_COLOR_BACK = getShaderColorFromString("#000000");
-const DITHER_COLOR_FRONT = getShaderColorFromString("#5f5f5f");
+const DITHER_COLOR_FRONTS = {
+  muted: getShaderColorFromString("#8a8a8a"),
+  quiet: getShaderColorFromString("#5f5f5f"),
+} satisfies Record<
+  NonNullable<HeroDitherProps["tone"]>,
+  DitheringUniforms["u_colorFront"]
+>;
+const DEFAULT_DITHER_SCALE = 0.62;
+const MIN_DITHER_SCALE = 0.01;
+const MAX_DITHER_SCALE = 4;
+
+function safeScale(value: number) {
+  if (!Number.isFinite(value)) return DEFAULT_DITHER_SCALE;
+  return Math.min(MAX_DITHER_SCALE, Math.max(MIN_DITHER_SCALE, value));
+}
 
 function createDitheringUniforms(
+  scale: number,
   shape: DitheringShape,
   size: number,
+  tone: NonNullable<HeroDitherProps["tone"]>,
   type: DitheringType,
 ): DitheringMountUniforms {
   const uniforms = {
     u_colorBack: DITHER_COLOR_BACK,
-    u_colorFront: DITHER_COLOR_FRONT,
+    u_colorFront: DITHER_COLOR_FRONTS[tone],
     u_fit: ShaderFitOptions.cover,
     u_offsetX: defaultPatternSizing.offsetX,
     u_offsetY: defaultPatternSizing.offsetY,
@@ -97,7 +119,7 @@ function createDitheringUniforms(
     u_originY: defaultPatternSizing.originY,
     u_pxSize: size,
     u_rotation: defaultPatternSizing.rotation,
-    u_scale: 0.62,
+    u_scale: safeScale(scale),
     u_shape: DitheringShapes[shape],
     u_type: DitheringTypes[type],
     u_worldHeight: defaultPatternSizing.worldHeight,
@@ -150,17 +172,19 @@ function SafeDithering({
   maxPixelCount,
   minPixelRatio,
   onError,
+  scale,
   shape,
   size,
   speed,
+  tone,
   type,
 }: SafeDitheringProps) {
   const elementRef = React.useRef<ShaderHostElement>(null);
   const shaderRef = React.useRef<ShaderMount | null>(null);
   const failedRef = React.useRef(false);
   const uniforms = React.useMemo(
-    () => createDitheringUniforms(shape, size, type),
-    [shape, size, type],
+    () => createDitheringUniforms(scale, shape, size, tone, type),
+    [scale, shape, size, tone, type],
   );
   const [initialSettings] = React.useState(() => ({
     frame,
@@ -431,10 +455,12 @@ export function HeroDither({
   frame = 0,
   maxPixelCount = DEFAULT_MAX_PIXEL_COUNT,
   maxPixelRatio = DEFAULT_MAX_PIXEL_RATIO,
+  scale = DEFAULT_DITHER_SCALE,
   shape = "swirl",
   size = 2,
   speed = 0.35,
   style,
+  tone = "quiet",
   type = "4x4",
   ...props
 }: HeroDitherProps) {
@@ -540,9 +566,11 @@ export function HeroDither({
             maxPixelCount={pixelBudget}
             minPixelRatio={renderRatio}
             onError={handleShaderFailure}
+            scale={scale}
             shape={shape}
             size={size}
             speed={reducedMotion ? 0 : speed}
+            tone={tone}
             type={type}
           />
         </ShaderBoundary>

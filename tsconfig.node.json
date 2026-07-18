@@ -9,5 +9,11 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "eslint.config.js"]
+  "include": [
+    "vite.config.ts",
+    "vite-alcyone-font-boundary.ts",
+    "src/lib/alcyone-font-protocol.ts",
+    "playwright.config.ts",
+    "eslint.config.js"
+  ]
 }

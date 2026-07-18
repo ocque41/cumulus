@@ -8,26 +8,29 @@ export type PostPlacement =
   | "research"
   | "build-business";
 
-export type DitherVariant =
-  | "cloud-gate"
-  | "signal-window"
-  | "terminal-rain"
-  | "archive-lines"
-  | "split-horizon"
-  | "key-vault"
-  | "paper-field"
-  | "local-orbit"
-  | "record-lattice"
-  | "release-bars"
-  | "shared-notebook"
-  | "event-river"
-  | "handoff-map"
-  | "compact-grid"
-  | "plan-stack"
-  | "context-rings"
-  | "cost-contours"
-  | "contract-bridge"
-  | "workspace-beacon";
+export const DITHER_VARIANTS = [
+  "cloud-gate",
+  "signal-window",
+  "terminal-rain",
+  "archive-lines",
+  "split-horizon",
+  "key-vault",
+  "paper-field",
+  "local-orbit",
+  "record-lattice",
+  "release-bars",
+  "shared-notebook",
+  "event-river",
+  "handoff-map",
+  "compact-grid",
+  "plan-stack",
+  "context-rings",
+  "cost-contours",
+  "contract-bridge",
+  "workspace-beacon",
+] as const;
+
+export type DitherVariant = (typeof DITHER_VARIANTS)[number];
 
 export interface PostVisual {
   variant: DitherVariant;

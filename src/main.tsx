@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 import { App } from "./App";
+import { LicensedBodyFont } from "./components/brand/LicensedBodyFont";
 import "./styles.css";
 
 const root = document.getElementById("root");
@@ -17,6 +18,7 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
+    <LicensedBodyFont />
     <App />
     {telemetryAllowed ? (
       <>

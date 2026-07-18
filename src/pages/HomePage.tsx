@@ -33,9 +33,11 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           fallbackClassName="home-hero__dither-fallback"
           frame={288}
           maxPixelCount={420_000}
-          shape="wave"
-          size={3}
-          speed={0.1}
+          scale={0.9}
+          shape="warp"
+          size={2.25}
+          speed={0.2}
+          tone="muted"
           type="8x8"
         />
         <div className="home-hero__veil" aria-hidden="true" />
@@ -126,22 +128,18 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
         </div>
         <div className="field-note-grid">
           {stories.map((post) => (
-            <article className="field-note" key={post.slug}>
-              <AppLink
-                aria-label={`Read ${post.title}`}
-                className="field-note__visual"
-                href={articleHref(post)}
-              >
+            <article className="field-note" data-signal-host key={post.slug}>
+              <div className="field-note__visual">
                 <DitherPlate
                   className="field-note__plate"
                   decorative
                   placement="home-story"
                   post={post}
                 />
-              </AppLink>
+              </div>
               <p className="eyebrow">{post.category}</p>
               <h3>
-                <AppLink href={`/logs/${post.slug}`}>{post.title}</AppLink>
+                <AppLink href={articleHref(post)}>{post.title}</AppLink>
               </h3>
               <p>{post.excerpt}</p>
             </article>
@@ -174,22 +172,18 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
         </div>
         <div className="field-note-grid">
           {business.map((post) => (
-            <article className="field-note" key={post.slug}>
-              <AppLink
-                aria-label={`Read ${post.title}`}
-                className="field-note__visual"
-                href={articleHref(post)}
-              >
+            <article className="field-note" data-signal-host key={post.slug}>
+              <div className="field-note__visual">
                 <DitherPlate
                   className="field-note__plate"
                   decorative
                   placement="home-business"
                   post={post}
                 />
-              </AppLink>
+              </div>
               <p className="eyebrow">{post.category}</p>
               <h3>
-                <AppLink href={`/logs/${post.slug}`}>{post.title}</AppLink>
+                <AppLink href={articleHref(post)}>{post.title}</AppLink>
               </h3>
               <p>{post.excerpt}</p>
             </article>

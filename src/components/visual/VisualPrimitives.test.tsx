@@ -51,8 +51,11 @@ vi.mock("@paper-design/shaders", () => ({
     wave: 4,
   },
   DitheringTypes: { "2x2": 2, "4x4": 3, "8x8": 4, random: 1 },
-  getShaderColorFromString: (color: string) =>
-    color === "#5f5f5f" ? [95 / 255, 95 / 255, 95 / 255, 1] : [0, 0, 0, 1],
+  getShaderColorFromString: (color: string) => {
+    if (color === "#5f5f5f") return [95 / 255, 95 / 255, 95 / 255, 1];
+    if (color === "#8a8a8a") return [138 / 255, 138 / 255, 138 / 255, 1];
+    return [0, 0, 0, 1];
+  },
   ShaderFitOptions: { contain: 1, cover: 2, none: 0 },
   ShaderMount: class ShaderMountMock {
     private readonly canvas: HTMLCanvasElement;
@@ -403,9 +406,11 @@ describe("HeroDither", () => {
           frame={42}
           maxPixelCount={300_000}
           maxPixelRatio={2}
+          scale={0.9}
           shape="dots"
           size={3}
           speed={2}
+          tone="muted"
           type="8x8"
         />
         <HeroDither frame={7} shape="wave" speed={1} />
@@ -428,7 +433,7 @@ describe("HeroDither", () => {
     expect(fragmentShader).toBe("dithering-fragment-shader");
     expect(uniforms).toEqual({
       u_colorBack: [0, 0, 0, 1],
-      u_colorFront: [95 / 255, 95 / 255, 95 / 255, 1],
+      u_colorFront: [138 / 255, 138 / 255, 138 / 255, 1],
       u_fit: 2,
       u_offsetX: 0,
       u_offsetY: 0,
@@ -436,7 +441,7 @@ describe("HeroDither", () => {
       u_originY: 0.5,
       u_pxSize: 3,
       u_rotation: 0,
-      u_scale: 0.62,
+      u_scale: 0.9,
       u_shape: 3,
       u_type: 4,
       u_worldHeight: 0,
@@ -457,6 +462,12 @@ describe("HeroDither", () => {
     act(() => intersectionObservers[1]?.trigger(true));
     await waitFor(() => expect(shaderMountMock.construct).toHaveBeenCalledTimes(2));
     expect(getContext).toHaveBeenCalledOnce();
+    expect(shaderMountMock.construct.mock.calls[1]?.[2]).toEqual(
+      expect.objectContaining({
+        u_colorFront: [95 / 255, 95 / 255, 95 / 255, 1],
+        u_scale: 0.62,
+      }),
+    );
 
     reducedMotion = false;
     act(() => motionListeners.forEach((notify) => notify()));
@@ -476,9 +487,11 @@ describe("HeroDither", () => {
           frame={43}
           maxPixelCount={300_000}
           maxPixelRatio={2}
+          scale={9}
           shape="sphere"
           size={4}
           speed={2}
+          tone="quiet"
           type="2x2"
         />
         <HeroDither frame={7} shape="wave" speed={1} />
@@ -487,7 +500,13 @@ describe("HeroDither", () => {
     await waitFor(() => {
       expect(shaderMountMock.setFrame).toHaveBeenCalledWith(43);
       expect(shaderMountMock.setUniforms).toHaveBeenCalledWith(
-        expect.objectContaining({ u_pxSize: 4, u_shape: 7, u_type: 2 }),
+        expect.objectContaining({
+          u_colorFront: [95 / 255, 95 / 255, 95 / 255, 1],
+          u_pxSize: 4,
+          u_scale: 4,
+          u_shape: 7,
+          u_type: 2,
+        }),
       );
     });
     expect(shaderMountMock.construct).toHaveBeenCalledTimes(2);

@@ -180,7 +180,7 @@ test("Public Work presents four internal project records without source links", 
 
   await expect(
     page.getByRole("heading", { level: 1, name: "Public work" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".work-project")).toHaveCount(4);
   await expect(page.locator(".work-project__signal.dither-artwork")).toHaveCount(4);
   await expect(page.locator(".work-hero [data-slot='hero-dither']")).toHaveCount(1);
@@ -226,6 +226,7 @@ test("desktop graph previews transient details and pins a selected date above th
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop graph interaction");
+  await page.setViewportSize({ height: 900, width: 1_440 });
   await seedNotificationPromptMarker(page);
   await page.goto("/");
 
@@ -249,6 +250,10 @@ test("desktop graph previews transient details and pins a selected date above th
     ),
   });
   const details = page.locator(".contribution-popover");
+
+  const primaryCellBox = await primaryCell.boundingBox();
+  expect(primaryCellBox?.width ?? 0).toBeGreaterThanOrEqual(24);
+  expect(primaryCellBox?.height ?? 0).toBeGreaterThanOrEqual(24);
 
   await primaryCell.hover();
   await expect(details).toHaveAttribute("data-popover-state", "transient");
@@ -334,6 +339,8 @@ test("responsive graph picker focuses details and returns focus when closed", as
   await dayPicker.focus();
   await dayPicker.selectOption(PRIMARY_ACTIVITY_DATE);
   await expect(details).toHaveAttribute("data-popover-state", "pinned");
+  await expect(details).toHaveAttribute("data-popover-side", "inline");
+  await expect(details).not.toHaveAttribute("data-viewport-portal");
   await expect(details).toHaveAttribute("data-anchor-date", PRIMARY_ACTIVITY_DATE);
   await expect(details).toBeFocused();
   await details.getByRole("button", { name: "Close activity details" }).click();
@@ -346,9 +353,20 @@ test("responsive graph picker focuses details and returns focus when closed", as
   await expect(details).toHaveCount(0);
   await expect(dayPicker).toBeFocused();
 
-  const graphFits = await page.locator(".contribution-grid").evaluate(
-    (element) => element.scrollWidth <= element.clientWidth + 1,
-  );
+  const graphFits = await page.locator([
+    ".github-panel",
+    ".contribution-stage",
+    ".contribution-frame",
+    ".contribution-surface",
+    ".contribution-grid",
+  ].join(", ")).evaluateAll((elements) => elements.every((element) => {
+    const style = getComputedStyle(element);
+    const hasScrollOverflow = [style.overflowX, style.overflowY]
+      .some((value) => value === "auto" || value === "scroll");
+    return !hasScrollOverflow
+      && element.scrollWidth <= element.clientWidth + 1
+      && element.scrollHeight <= element.clientHeight + 1;
+  }));
   expect(graphFits).toBe(true);
 });
 

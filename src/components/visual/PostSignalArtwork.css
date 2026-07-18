@@ -1,0 +1,334 @@
+/* Post signal instruments */
+.post-signal {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(42, 42, 42, 0.72), transparent 58%),
+    var(--canvas);
+  contain: layout paint;
+  isolation: isolate;
+  overflow: clip;
+}
+
+.post-signal__texture,
+.post-signal__diagram {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.post-signal__texture {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(138, 138, 138, 0.34) 0 0.72px, transparent 0.82px),
+    linear-gradient(90deg, transparent 49.8%, rgba(95, 95, 95, 0.18) 50%, transparent 50.2%),
+    linear-gradient(transparent 49.8%, rgba(95, 95, 95, 0.16) 50%, transparent 50.2%);
+  background-size: 6px 6px, 20% 100%, 100% 25%;
+  mask-image: radial-gradient(ellipse at center, #000 12%, rgba(0, 0, 0, 0.84) 55%, transparent 94%);
+  opacity: 0.82;
+  z-index: 0;
+}
+
+.post-signal__diagram {
+  height: 100%;
+  overflow: visible;
+  transform: scale(0.94);
+  transition: filter 450ms ease, transform 650ms cubic-bezier(0.2, 0.75, 0.25, 1);
+  width: 100%;
+  z-index: 1;
+}
+
+.post-signal__diagram * {
+  transform-box: fill-box;
+  transform-origin: center;
+  vector-effect: non-scaling-stroke;
+}
+
+.post-signal__grid,
+.post-signal__axis {
+  fill: none;
+  opacity: 0.42;
+  stroke: var(--quiet);
+  stroke-width: 1;
+}
+
+.post-signal__trace,
+.post-signal__archive-line,
+.post-signal__river,
+.post-signal__map,
+.post-signal__contour,
+.post-signal__bridge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-dasharray: 9 13;
+  stroke-linecap: square;
+  stroke-width: 1.4;
+}
+
+.post-signal__trace--strong,
+.post-signal__bridge {
+  stroke: var(--body);
+  stroke-width: 2;
+}
+
+.post-signal__frame,
+.post-signal__paper,
+.post-signal__notebook,
+.post-signal__plan,
+.post-signal__beacon,
+.post-signal__vault {
+  fill: rgba(17, 17, 17, 0.62);
+  stroke: var(--muted);
+  stroke-width: 1.4;
+}
+
+.post-signal__frame--inner,
+.post-signal__paper,
+.post-signal__plan {
+  stroke: var(--quiet);
+}
+
+.post-signal__ring {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.4;
+}
+
+.post-signal__ring--broken {
+  stroke-dasharray: 8 11;
+}
+
+.post-signal__node,
+.post-signal__node-core {
+  fill: var(--signal);
+  stroke: var(--canvas);
+  stroke-width: 1;
+}
+
+.post-signal__nodes .post-signal__node {
+  fill: var(--body);
+  opacity: 0.74;
+}
+
+.post-signal__core {
+  fill: rgba(255, 77, 0, 0.08);
+  stroke: var(--signal);
+  stroke-width: 2;
+}
+
+.post-signal__sweep {
+  fill: rgba(255, 77, 0, 0.17);
+  stroke: var(--signal);
+  stroke-width: 1;
+}
+
+.post-signal__rain,
+.post-signal__bridge-strut {
+  fill: none;
+  stroke: var(--muted);
+  stroke-dasharray: 4 8;
+  stroke-width: 1.4;
+}
+
+.post-signal__bar {
+  fill: var(--quiet);
+  opacity: 0.82;
+  transform-origin: center bottom;
+}
+
+.post-signal__cell {
+  fill: rgba(95, 95, 95, 0.16);
+  stroke: var(--quiet);
+  stroke-width: 1;
+}
+
+.post-signal__cell:nth-child(5n + 1) {
+  fill: rgba(255, 77, 0, 0.22);
+  stroke: var(--signal);
+}
+
+.post-signal__corner {
+  align-items: center;
+  color: var(--body);
+  display: flex;
+  height: clamp(2.5rem, 6vw, 4.5rem);
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
+  width: clamp(2.5rem, 6vw, 4.5rem);
+  z-index: 3;
+}
+
+.post-signal__corner::before,
+.post-signal__corner::after {
+  content: "";
+  position: absolute;
+}
+
+.post-signal__corner::before {
+  border-color: var(--signal);
+  border-style: solid;
+  height: 0.75rem;
+  opacity: 0.92;
+  width: 0.75rem;
+}
+
+.post-signal__corner::after {
+  background: var(--muted);
+  height: 1px;
+  opacity: 0.54;
+  width: 48%;
+}
+
+.post-signal__corner[data-corner="top-left"] {
+  left: 0.55rem;
+  top: 0.55rem;
+}
+
+.post-signal__corner[data-corner="top-left"]::before {
+  border-width: 1px 0 0 1px;
+  left: 0;
+  top: 0;
+}
+
+.post-signal__corner[data-corner="top-right"] {
+  right: 0.55rem;
+  top: 0.55rem;
+}
+
+.post-signal__corner[data-corner="top-right"]::before {
+  border-width: 1px 1px 0 0;
+  right: 0;
+  top: 0;
+}
+
+.post-signal__corner[data-corner="bottom-right"] {
+  bottom: 0.55rem;
+  right: 0.55rem;
+}
+
+.post-signal__corner[data-corner="bottom-right"]::before {
+  border-width: 0 1px 1px 0;
+  bottom: 0;
+  right: 0;
+}
+
+.post-signal__corner[data-corner="bottom-left"] {
+  bottom: 0.55rem;
+  left: 0.55rem;
+}
+
+.post-signal__corner[data-corner="bottom-left"]::before {
+  border-width: 0 0 1px 1px;
+  bottom: 0;
+  left: 0;
+}
+
+.post-signal__corner[data-corner^="bottom"]::after {
+  bottom: 0;
+}
+
+.post-signal__corner[data-corner^="top"]::after {
+  top: 0;
+}
+
+.post-signal__corner[data-corner$="left"]::after {
+  left: 0;
+}
+
+.post-signal__corner[data-corner$="right"]::after {
+  right: 0;
+}
+
+.post-signal__corner[data-corner-motif="pulse"] {
+  gap: 0.24rem;
+}
+
+.post-signal__corner[data-corner-motif="pulse"] i {
+  background: var(--signal);
+  border-radius: 50%;
+  display: block;
+  height: 0.28rem;
+  width: 0.28rem;
+}
+
+.post-signal__corner[data-corner-motif="bars"] {
+  align-items: end;
+  gap: 0.18rem;
+  padding: 28% 22%;
+}
+
+.post-signal__corner[data-corner-motif="bars"] i {
+  background: var(--muted);
+  display: block;
+  height: 100%;
+  transform-origin: center bottom;
+  width: 2px;
+}
+
+.post-signal__corner[data-corner-motif="bars"] i:nth-child(2n) {
+  background: var(--signal);
+  height: 62%;
+}
+
+.post-signal__corner[data-corner-motif="orbit"] > i {
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  display: block;
+  height: 46%;
+  position: relative;
+  width: 46%;
+}
+
+.post-signal__corner[data-corner-motif="orbit"] b {
+  background: var(--signal);
+  border-radius: 50%;
+  height: 0.3rem;
+  position: absolute;
+  right: -0.18rem;
+  top: 45%;
+  width: 0.3rem;
+}
+
+.post-signal__corner[data-corner-motif="scan"] > i {
+  border: 1px solid var(--muted);
+  display: block;
+  height: 38%;
+  overflow: hidden;
+  position: relative;
+  width: 55%;
+}
+
+.post-signal__corner[data-corner-motif="scan"] > b {
+  background: var(--signal);
+  display: block;
+  height: 38%;
+  left: 24%;
+  opacity: 0.9;
+  position: absolute;
+  width: 1px;
+}
+
+.post-signal__code {
+  bottom: 0.65rem;
+  color: var(--muted);
+  font-family: var(--font-label);
+  font-size: clamp(0.55rem, 0.7vw, 0.7rem);
+  left: 50%;
+  letter-spacing: 0.09em;
+  max-width: calc(100% - 8rem);
+  overflow: hidden;
+  position: absolute;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.post-signal:is(:hover, :focus-within) .post-signal__diagram,
+[data-signal-host]:is(:hover, :focus-within) .post-signal__diagram {
+  filter: brightness(1.16) contrast(1.08);
+  transform: scale(0.975);
+}
+
+.post-signal[data-motion="active"] [data-signal-motion] {
+  will-change: opacity, transform;
+}

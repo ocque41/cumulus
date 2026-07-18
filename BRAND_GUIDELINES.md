@@ -88,6 +88,7 @@ Before copying third-party source, verify its redistribution terms and record th
 - Keep captions outside filtered containers so they remain crisp.
 - Edge Blur must not intercept pointer input and must stay outside the scrolling element it decorates.
 - Keep shader movement calm and stop or simplify it for `prefers-reduced-motion`.
+- Give each named post visual its own deterministic signal diagram and four nonrepeating corner instruments. Animate only visible artwork and keep every reduced-motion frame static.
 - Preserve a static readable frame if WebGL, canvas, or an image fails.
 - Avoid dither density that produces flicker, moiré, or unreadable edges on small screens.
 

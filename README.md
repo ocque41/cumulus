@@ -62,6 +62,8 @@ The following values are server-only and must never be referenced through `impor
 
 `ALCYONE_MEDIUM_WOFF2_BASE64` is a licensing boundary rather than a browser secret: the configured WOFF2 is necessarily delivered to readers through the same-origin font route. Leave the value empty for Local and Preview. The authorized operator sets it only in the Production environment for the single licensed website; other operators must obtain their own suitable license. A missing value fails closed at the route and the interface uses its bundled Jacquard fallback.
 
+The browser enables the Alcyone body-family variable only after a bodyless same-origin `HEAD` probe confirms a valid `font/woff2` response. Local and Preview answer that capability probe without loading or decoding font bytes, so their intentional Jacquard fallback stays quiet and deterministic.
+
 `NOTIFICATION_PUBLISH_SECRET` is the admin/publishing boundary for triggering a new-post send. `NOTIFICATION_UNSUBSCRIBE_SECRET` is retained as a compatibility name and signs notification-only magic links and HttpOnly sessions. Deployment credentials are operator credentials rather than app runtime settings; keep them in the provider, an approved secret manager, or an authenticated CLI session, never in this repository.
 
 `NOTIFICATION_POSTAL_ADDRESS` is private operational configuration, but it is rendered in every notification footer. Supply a truthful address that satisfies the operator's applicable email rules; the server fails closed when it is missing. Do not put a fabricated address in Production.
@@ -119,6 +121,8 @@ Reader-facing notification data boundaries and the manual correction/deletion co
 ## Design and licensing
 
 The visual system uses pure black, neutral gray typography, and very small touches of `#ff4d00`. Only the three bundled non-charted Jacquard fonts, the externally supplied Production-only Alcyone Medium webfont, and the approved dither/blur component vocabulary may be used. See [brand guidelines](BRAND_GUIDELINES.md).
+
+Post summaries use deterministic signal instruments instead of repeating one dither illustration. Each named visual has its own diagram and corner treatment; motion loads only when the artwork is visible and remains static when reduced motion is requested.
 
 Repository code is Apache-2.0. The bundled Jacquard font files remain under SIL OFL 1.1 and retain their upstream license text. Alcyone Medium remains outside Git and the Apache-2.0 distribution under its separate commercial license. No AGPL source is included. See [licensing](docs/licensing.md), [NOTICE](NOTICE), and [trademarks](TRADEMARKS.md).
 

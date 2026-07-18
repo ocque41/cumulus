@@ -1,7 +1,6 @@
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -12,6 +11,8 @@ import {
 import { createPortal } from "react-dom";
 
 import { HeroDither } from "@/components/visual/HeroDither";
+
+import { useContributionTilt } from "./useContributionTilt";
 
 const USERNAME = "ocque41";
 const ENDPOINT = "/api/github/contributions";
@@ -61,7 +62,7 @@ interface CalendarDay {
 
 type LoadState = "fallback" | "live" | "loading";
 
-type PopoverSide = "bottom" | "left" | "right" | "sheet" | "top";
+type PopoverSide = "bottom" | "inline" | "left" | "right" | "sheet" | "top";
 
 interface PopoverPosition {
   arrowLeft: number;
@@ -84,6 +85,7 @@ type PopoverStyle = CSSProperties & {
 
 const POPOVER_ID = "github-contribution-details";
 const POPOVER_HEADING_ID = "github-contribution-details-title";
+const GRID_KEYBOARD_INSTRUCTIONS_ID = "github-contribution-keyboard-instructions";
 const POPOVER_GAP = 14;
 const POPOVER_MARGIN = 16;
 const POPOVER_HEADER_GAP = 8;
@@ -91,7 +93,10 @@ const POPOVER_FALLBACK_WIDTH = 384;
 const POPOVER_FALLBACK_HEIGHT = 320;
 const POPOVER_ARROW_MARGIN = 20;
 const ACTIVE_CELL_SCALE = 1.5;
-const PICKER_MEDIA_QUERY = "(pointer: coarse), (max-width: 760px)";
+const PICKER_MEDIA_QUERY = "(pointer: coarse), (max-width: 1365px), (max-height: 640px)";
+const CONTRIBUTION_DITHER_SPEED = 0.06;
+const DESKTOP_HIGHLIGHT_LIMIT = 3;
+const PICKER_HIGHLIGHT_LIMIT = 2;
 
 function clamped(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value));
@@ -260,16 +265,11 @@ export function GitHubContributionGraph() {
     width: POPOVER_FALLBACK_WIDTH,
   });
   const [rovingIndex, setRovingIndex] = useState<number>();
-  const frameRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLSelectElement>(null);
   const pinnedTriggerRef = useRef<HTMLElement>(null);
-  const pointerFrameRef = useRef<number | undefined>(undefined);
   const popoverRef = useRef<HTMLElement>(null);
   const suppressRestoredFocusRef = useRef(false);
-  const latestPointerRef = useRef<{ clientX: number; clientY: number } | undefined>(
-    undefined,
-  );
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
@@ -303,9 +303,6 @@ export function GitHubContributionGraph() {
       });
     return () => {
       controller.abort();
-      if (pointerFrameRef.current !== undefined) {
-        cancelAnimationFrame(pointerFrameRef.current);
-      }
     };
   }, []);
 
@@ -327,6 +324,12 @@ export function GitHubContributionGraph() {
     ? calendar.find((day) => day.date === selectedDate)
     : undefined;
   const selectedActivity = selectedDate ? activityByDate.get(selectedDate) : undefined;
+  const highlightLimit = pickerMode ? PICKER_HIGHLIGHT_LIMIT : DESKTOP_HIGHLIGHT_LIMIT;
+  const selectedHighlights = selectedActivity?.highlights.slice(0, highlightLimit) ?? [];
+  const hiddenHighlightCount = Math.max(
+    0,
+    (selectedActivity?.highlights.length ?? 0) - selectedHighlights.length,
+  );
   const today = dayKey(new Date());
   const initialTabIndex = useMemo(
     () => calendar.reduce(
@@ -413,7 +416,7 @@ export function GitHubContributionGraph() {
   }, [dismissPinnedDate]);
 
   const positionPopover = useCallback(() => {
-    if (!selectedDate || typeof window === "undefined") return;
+    if (!selectedDate || pickerMode || typeof window === "undefined") return;
     const anchor = gridRef.current?.querySelector<HTMLButtonElement>(
       `button[data-date="${selectedDate}"]`,
     );
@@ -524,6 +527,22 @@ export function GitHubContributionGraph() {
     });
   }, [pickerMode, selectedDate]);
 
+  const resetHoveredDate = useCallback(() => {
+    if (!pinnedDate) setHoveredDate(undefined);
+  }, [pinnedDate]);
+  const {
+    frameRef,
+    onFramePointerLeave,
+    onFramePointerMove,
+    onGridPointerEnter,
+    onGridPointerLeave,
+  } = useContributionTilt({
+    active: selectedDay !== undefined,
+    enabled: !pickerMode,
+    onPositionChange: positionPopover,
+    onResetHover: resetHoveredDate,
+  });
+
   useLayoutEffect(() => {
     if (!selectedDate || typeof window === "undefined") return;
     const initialPositionFrame = requestAnimationFrame(positionPopover);
@@ -587,80 +606,6 @@ export function GitHubContributionGraph() {
     };
   }, [dismissPinnedDate, pinnedDate]);
 
-  const applyPointerFrame = useCallback(() => {
-    pointerFrameRef.current = undefined;
-    const frame = frameRef.current;
-    const pointer = latestPointerRef.current;
-    if (!frame || !pointer) return;
-
-    const rect = frame.getBoundingClientRect();
-    const x = Math.max(0, Math.min(rect.width, pointer.clientX - rect.left));
-    const y = Math.max(0, Math.min(rect.height, pointer.clientY - rect.top));
-    const normalizedX = x / Math.max(rect.width, 1) - 0.5;
-    const normalizedY = y / Math.max(rect.height, 1) - 0.5;
-
-    frame.style.setProperty("--graph-rotate-x", `${normalizedY * -5}deg`);
-    frame.style.setProperty("--graph-rotate-y", `${normalizedX * 7}deg`);
-    frame.style.setProperty("--graph-shift-x", `${normalizedX * 6}px`);
-    frame.style.setProperty("--graph-shift-y", `${normalizedY * 5}px`);
-    positionPopover();
-  }, [positionPopover]);
-
-  const schedulePointerFrame = useCallback(() => {
-    if (pointerFrameRef.current !== undefined || !latestPointerRef.current) return;
-    pointerFrameRef.current = requestAnimationFrame(applyPointerFrame);
-  }, [applyPointerFrame]);
-
-  const settleFrameForGrid = useCallback(() => {
-    const frame = frameRef.current;
-    if (!frame) return;
-    if (pointerFrameRef.current !== undefined) {
-      cancelAnimationFrame(pointerFrameRef.current);
-      pointerFrameRef.current = undefined;
-    }
-    latestPointerRef.current = undefined;
-    frame.dataset.gridInteracting = "true";
-    frame.style.setProperty("--graph-rotate-x", "0deg");
-    frame.style.setProperty("--graph-rotate-y", "0deg");
-    frame.style.setProperty("--graph-shift-x", "0px");
-    frame.style.setProperty("--graph-shift-y", "0px");
-    positionPopover();
-  }, [positionPopover]);
-
-  useEffect(() => {
-    if (selectedDay) schedulePointerFrame();
-  }, [schedulePointerFrame, selectedDay]);
-
-  const moveFrame = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "touch") return;
-    if (
-      event.target instanceof Element
-      && event.target.closest(".contribution-grid")
-    ) {
-      settleFrameForGrid();
-      return;
-    }
-    delete event.currentTarget.dataset.gridInteracting;
-    latestPointerRef.current = { clientX: event.clientX, clientY: event.clientY };
-    schedulePointerFrame();
-  };
-
-  const resetFrame = () => {
-    const frame = frameRef.current;
-    if (!frame) return;
-    if (pointerFrameRef.current !== undefined) {
-      cancelAnimationFrame(pointerFrameRef.current);
-      pointerFrameRef.current = undefined;
-    }
-    latestPointerRef.current = undefined;
-    delete frame.dataset.gridInteracting;
-    frame.style.setProperty("--graph-rotate-x", "0deg");
-    frame.style.setProperty("--graph-rotate-y", "0deg");
-    frame.style.setProperty("--graph-shift-x", "0px");
-    frame.style.setProperty("--graph-shift-y", "0px");
-    if (!pinnedDate) setHoveredDate(undefined);
-  };
-
   const moveCellFocus = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
     const offsets: Record<string, number> = {
       ArrowDown: 1,
@@ -701,22 +646,24 @@ export function GitHubContributionGraph() {
   };
   const popoverPinned = pinnedDate !== undefined;
 
-  const popover = selectedDay && typeof document !== "undefined"
-    ? createPortal(
+  const popoverPanel = selectedDay
+    ? (
         <aside
           aria-atomic="true"
           aria-labelledby={POPOVER_HEADING_ID}
           aria-live="polite"
           className="contribution-popover"
           data-anchor-date={selectedDay.date}
-          data-popover-side={popoverPosition.side}
+          data-highlight-limit={highlightLimit}
+          data-highlights-truncated={hiddenHighlightCount > 0 ? "true" : undefined}
+          data-popover-side={pickerMode ? "inline" : popoverPosition.side}
           data-popover-state={popoverPinned ? "pinned" : "transient"}
           data-texture="dither"
-          data-viewport-portal="true"
+          data-viewport-portal={pickerMode ? undefined : "true"}
           id={POPOVER_ID}
           ref={popoverRef}
           role={popoverPinned ? "region" : "status"}
-          style={popoverStyle}
+          style={pickerMode ? undefined : popoverStyle}
           tabIndex={popoverPinned ? -1 : undefined}
         >
           {popoverPinned ? (
@@ -739,18 +686,28 @@ export function GitHubContributionGraph() {
             <span><strong>{selectedActivity?.pullRequests ?? "—"}</strong> PRs</span>
             <span><strong>{selectedActivity?.issues ?? "—"}</strong> issues</span>
           </div>
-          {selectedActivity?.highlights.length ? (
-            <ul>
-              {selectedActivity.highlights.map((highlight, index) => (
-                <li key={`${highlight.kind}-${highlight.repository}-${index}`}>
-                  <span>{highlight.kind.replace("pull-request", "PR")}</span>
-                  {popoverPinned && highlight.url ? (
-                    <a href={highlight.url} rel="noreferrer" target="_blank">{highlight.title}</a>
-                  ) : <strong>{highlight.title}</strong>}
-                  <small>{publicRepositoryLabel(highlight.repository)}</small>
-                </li>
-              ))}
-            </ul>
+          {selectedHighlights.length ? (
+            <>
+              <ul>
+                {selectedHighlights.map((highlight, index) => (
+                  <li key={`${highlight.kind}-${highlight.repository}-${index}`}>
+                    <span>{highlight.kind.replace("pull-request", "PR")}</span>
+                    {popoverPinned && highlight.url ? (
+                      <a href={highlight.url} rel="noreferrer" target="_blank">{highlight.title}</a>
+                    ) : <strong>{highlight.title}</strong>}
+                    <small>{publicRepositoryLabel(highlight.repository)}</small>
+                  </li>
+                ))}
+              </ul>
+              {hiddenHighlightCount > 0 ? (
+                <small
+                  className="contribution-popover__note"
+                  data-highlight-overflow-note="true"
+                >
+                  {counted(hiddenHighlightCount, "more public item")} not shown.
+                </small>
+              ) : null}
+            </>
           ) : (
             <small className="contribution-popover__note">
               {payload?.activityDetailStatus === "live"
@@ -758,9 +715,11 @@ export function GitHubContributionGraph() {
                 : "The aggregate count is verified; public item detail is unavailable for this day."}
             </small>
           )}
-        </aside>,
-        document.body,
+        </aside>
       )
+    : null;
+  const popover = popoverPanel && !pickerMode && typeof document !== "undefined"
+    ? createPortal(popoverPanel, document.body)
     : null;
 
   return (
@@ -772,10 +731,11 @@ export function GitHubContributionGraph() {
             className="contribution-frame"
             data-load-state={loadState}
             data-picker-mode={pickerMode ? "true" : undefined}
-            data-popover-side={popoverPosition.side}
+            data-popover-side={pickerMode ? "inline" : popoverPosition.side}
             data-texture="dither"
-            onPointerLeave={resetFrame}
-            onPointerMove={moveFrame}
+            data-tilt-enabled={pickerMode ? "false" : "true"}
+            onPointerLeave={onFramePointerLeave}
+            onPointerMove={onFramePointerMove}
             ref={frameRef}
           >
             <HeroDither
@@ -784,9 +744,10 @@ export function GitHubContributionGraph() {
               fallbackClassName="contribution-dither__fallback"
               frame={841}
               maxPixelCount={520_000}
+              data-dither-speed={CONTRIBUTION_DITHER_SPEED}
               shape="ripple"
               size={1.7}
-              speed={0}
+              speed={CONTRIBUTION_DITHER_SPEED}
               type="8x8"
             />
             <div className="contribution-surface" data-texture="dither">
@@ -795,14 +756,18 @@ export function GitHubContributionGraph() {
                 <strong>Activity field</strong>
                 <small>
                   <span className="contribution-instruction contribution-instruction--pointer">
-                    Hover, focus, or click a day; click outside to unpin
+                    Hover / focus. Arrows move; Enter opens; Escape closes.
                   </span>
                   <span className="contribution-instruction contribution-instruction--touch">
                     Choose a day below
                   </span>
                 </small>
               </div>
+              <p className="visually-hidden" id={GRID_KEYBOARD_INSTRUCTIONS_ID}>
+                Arrow keys move between days. Enter opens details. Escape closes details.
+              </p>
               <div
+                aria-describedby={gridInteractive ? GRID_KEYBOARD_INSTRUCTIONS_ID : undefined}
                 aria-hidden={gridInteractive ? undefined : true}
                 aria-label={
                   payload
@@ -812,14 +777,8 @@ export function GitHubContributionGraph() {
                 className="contribution-grid"
                 data-texture="dither"
                 inert={!gridInteractive}
-                onPointerEnter={(event) => {
-                  if (event.pointerType !== "touch") settleFrameForGrid();
-                }}
-                onPointerLeave={() => {
-                  if (frameRef.current) {
-                    delete frameRef.current.dataset.gridInteracting;
-                  }
-                }}
+                onPointerEnter={onGridPointerEnter}
+                onPointerLeave={onGridPointerLeave}
                 ref={gridRef}
                 role="group"
               >
@@ -898,6 +857,8 @@ export function GitHubContributionGraph() {
                     ))}
                 </select>
               </label>
+
+              {pickerMode ? popoverPanel : null}
 
               <div className="contribution-meta" data-texture="dither">
                 <div aria-label="Contribution density from quiet to active" className="contribution-legend" data-texture="dither">
