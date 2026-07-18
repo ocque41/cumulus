@@ -34,6 +34,7 @@ export function renderMagicLinkEmail(input: {
       `<p><a href="${escapeHtml(input.link)}" style="color:#ff4d00">Open notification settings</a></p>`,
       `<p style="color:#8f8f8f;font-size:13px;line-height:1.5;margin-top:44px">This link expires at ${escapeHtml(expiresAt)}. If you did not request it, ignore this message.</p>`,
       `<p style="color:#8f8f8f;font-size:13px;line-height:1.5"><a href="${escapeHtml(privacyUrl)}" style="color:#b7b7b7">Notification privacy and data rights</a></p>`,
+      `<p style="margin:24px 0 0"><a href="${escapeHtml(input.link)}" style="border:1px solid #b7b7b7;color:#f5f5f5;display:inline-block;padding:12px 16px;text-decoration:none">Manage or unsubscribe from new-post emails</a></p>`,
       "</main></body></html>",
     ].join(""),
     text: [
@@ -45,6 +46,8 @@ export function renderMagicLinkEmail(input: {
       "Notifications remain off until you explicitly turn them on.",
       `This link expires at ${expiresAt}.`,
       `Privacy: ${privacyUrl}`,
+      "",
+      `Manage or unsubscribe from new-post emails: ${input.link}`,
     ].join("\n"),
   };
 }
@@ -68,7 +71,8 @@ export function renderPostBroadcast(input: {
       `<p style="color:#b7b7b7;font-size:18px;line-height:1.5;margin:0 0 28px">${escapeHtml(excerpt)}</p>`,
       `<p style="color:#777">${escapeHtml(input.post.date)}</p>`,
       `<p><a href="${escapeHtml(input.postUrl)}" style="color:#ff4d00">Read ${escapeHtml(title)}</a></p>`,
-      `<p style="color:#8f8f8f;font-size:13px;line-height:1.5;margin-top:44px">You receive this because you enabled new-log notifications. <a href="${RESEND_UNSUBSCRIBE_URL}" style="color:#b7b7b7">Unsubscribe from Cumulus log emails</a>.</p>`,
+      '<p style="color:#8f8f8f;font-size:13px;line-height:1.5;margin:44px 0 14px">You receive this because you enabled new-log notifications.</p>',
+      `<p style="margin:0 0 24px"><a href="${RESEND_UNSUBSCRIBE_URL}" style="border:1px solid #b7b7b7;color:#f5f5f5;display:inline-block;padding:12px 16px;text-decoration:none">Unsubscribe from new-post emails</a></p>`,
       `<p style="color:#8f8f8f;font-size:13px;line-height:1.5">Cumulus postal address: ${escapeHtml(input.postalAddress)}</p>`,
       "</main></body></html>",
     ].join(""),
@@ -80,7 +84,7 @@ export function renderPostBroadcast(input: {
       "",
       `Read the log: ${input.postUrl}`,
       "",
-      `Unsubscribe: ${RESEND_UNSUBSCRIBE_URL}`,
+      `Unsubscribe from new-post emails: ${RESEND_UNSUBSCRIBE_URL}`,
       "",
       `Cumulus postal address: ${input.postalAddress}`,
     ].join("\n"),

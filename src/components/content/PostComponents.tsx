@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import type { ComponentProps } from "react";
+import type { ComponentProps, CSSProperties } from "react";
 
 import { stableDitherSeed } from "@/components/visual/DitherArtwork";
 import { HeroDither } from "@/components/visual/HeroDither";
@@ -127,7 +127,7 @@ export function DitherPlate({
         maxPixelCount={420_000}
         shape={shape}
         size={(seed % 3) + 2}
-        speed={0.12 + (seed % 4) * 0.04}
+        speed={0.38 + (seed % 4) * 0.06}
         type={type}
       />
       {label ? (
@@ -179,9 +179,17 @@ export function FeaturedPost({ post }: { post: Post }) {
   );
 }
 
-export function PostCard({ index, post }: { index: number; post: Post }) {
+export function PostCard({
+  index,
+  post,
+  style,
+}: {
+  index: number;
+  post: Post;
+  style?: CSSProperties;
+}) {
   return (
-    <article className="post-card" data-signal-host>
+    <article className="post-card" data-signal-host style={style}>
       <div className="post-card__index" aria-hidden="true">
         {String(index + 1).padStart(2, "0")}
       </div>

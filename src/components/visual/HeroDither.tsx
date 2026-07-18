@@ -37,6 +37,8 @@ export interface HeroDitherProps
   maxPixelRatio?: number;
   /** Absolute upper bound for rendered shader pixels. */
   maxPixelCount?: number;
+  /** Mount the primary above-the-fold shader without waiting for intersection. */
+  priority?: boolean;
   fallbackClassName?: string;
 }
 
@@ -280,6 +282,7 @@ function SafeDithering({
         inset: 0,
         position: "absolute",
         width: "100%",
+        zIndex: 1,
       }}
     />
   );
@@ -296,6 +299,8 @@ const EMPTY_DIMENSIONS: Dimensions = { height: 0, width: 0 };
 const DEFAULT_MAX_PIXEL_RATIO = 1.5;
 const DEFAULT_MAX_PIXEL_COUNT = 1_000_000;
 const NEAR_VIEWPORT_MARGIN = "240px 0px";
+const SHADER_RECOVERY_DELAY_MS = 1_200;
+const SHADER_RECOVERY_LIMIT = 2;
 const DITHER_FADE =
   "radial-gradient(ellipse at center, black 0%, rgba(0,0,0,0.82) 42%, transparent 78%)";
 const DITHER_FADE_STYLE: React.CSSProperties = {
@@ -358,18 +363,33 @@ function useDimensions(ref: React.RefObject<HTMLDivElement | null>) {
 }
 
 function useNearViewport(ref: React.RefObject<HTMLDivElement | null>) {
-  const [isNearViewport, setIsNearViewport] = React.useState(false);
+  const [status, setStatus] = React.useState(() => ({
+    canObserve: typeof IntersectionObserver !== "undefined",
+    hasObserved: false,
+    isNearViewport: false,
+  }));
 
   React.useEffect(() => {
     const element = ref.current;
     if (!element) return;
 
     if (typeof IntersectionObserver === "undefined") {
+      // Older browsers still receive a live CSS fallback. Shader/runtime
+      // guards below decide whether WebGL itself is safe to mount.
+      setStatus({
+        canObserve: false,
+        hasObserved: true,
+        isNearViewport: true,
+      });
       return;
     }
 
     const observer = new IntersectionObserver(
-      ([entry]) => setIsNearViewport(entry?.isIntersecting === true),
+      ([entry]) => setStatus({
+        canObserve: true,
+        hasObserved: true,
+        isNearViewport: entry?.isIntersecting === true,
+      }),
       { rootMargin: NEAR_VIEWPORT_MARGIN },
     );
     observer.observe(element);
@@ -377,7 +397,7 @@ function useNearViewport(ref: React.RefObject<HTMLDivElement | null>) {
     return () => observer.disconnect();
   }, [ref]);
 
-  return isNearViewport;
+  return status;
 }
 
 function usePrefersReducedMotion() {
@@ -455,6 +475,7 @@ export function HeroDither({
   frame = 0,
   maxPixelCount = DEFAULT_MAX_PIXEL_COUNT,
   maxPixelRatio = DEFAULT_MAX_PIXEL_RATIO,
+  priority = false,
   scale = DEFAULT_DITHER_SCALE,
   shape = "swirl",
   size = 2,
@@ -466,14 +487,42 @@ export function HeroDither({
 }: HeroDitherProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const dimensions = useDimensions(containerRef);
-  const isNearViewport = useNearViewport(containerRef);
+  const viewportStatus = useNearViewport(containerRef);
+  // Priority removes the first-observer delay for an above-the-fold visual.
+  // Once the observer reports, every instance resumes normal offscreen cleanup.
+  const isNearViewport = viewportStatus.hasObserved
+    ? viewportStatus.isNearViewport
+    : priority;
   const reducedMotion = usePrefersReducedMotion();
   const [webGLSupported, setWebGLSupported] = React.useState<boolean | null>(
     null,
   );
   const [shaderFailed, setShaderFailed] = React.useState(false);
+  const recoveryAttemptsRef = React.useRef(0);
+  const recoveryTimerRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const handleShaderFailure = React.useCallback(() => {
     setShaderFailed(true);
+    if (
+      recoveryTimerRef.current !== undefined ||
+      recoveryAttemptsRef.current >= SHADER_RECOVERY_LIMIT
+    ) {
+      return;
+    }
+
+    recoveryTimerRef.current = setTimeout(() => {
+      recoveryTimerRef.current = undefined;
+      recoveryAttemptsRef.current += 1;
+      setWebGLSupported(null);
+      setShaderFailed(false);
+    }, SHADER_RECOVERY_DELAY_MS);
+  }, []);
+
+  React.useEffect(() => () => {
+    if (recoveryTimerRef.current !== undefined) {
+      clearTimeout(recoveryTimerRef.current);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -483,12 +532,14 @@ export function HeroDither({
     if (
       element &&
       isNearViewport &&
+      viewportStatus.canObserve &&
+      !reducedMotion &&
       webGLSupported === null &&
       supportsShaderRuntime()
     ) {
       setWebGLSupported(supportsWebGL2(element.ownerDocument));
     }
-  }, [isNearViewport, webGLSupported]);
+  }, [isNearViewport, reducedMotion, viewportStatus.canObserve, webGLSupported]);
 
   React.useEffect(() => {
     const element = containerRef.current;
@@ -496,7 +547,7 @@ export function HeroDither({
 
     const handleContextLoss = (event: Event) => {
       event.preventDefault();
-      setShaderFailed(true);
+      handleShaderFailure();
     };
     element.addEventListener(
       "webglcontextcreationerror",
@@ -512,7 +563,7 @@ export function HeroDither({
       );
       element.removeEventListener("webglcontextlost", handleContextLoss, true);
     };
-  }, []);
+  }, [handleShaderFailure]);
 
   const cssPixelCount = Math.max(1, dimensions.width * dimensions.height);
   const ratioLimit = safePositive(maxPixelRatio, DEFAULT_MAX_PIXEL_RATIO);
@@ -540,11 +591,15 @@ export function HeroDither({
 
   const canMountShader =
     isNearViewport &&
+    viewportStatus.canObserve &&
+    !reducedMotion &&
     supportsShaderRuntime() &&
     webGLSupported === true &&
     !shaderFailed &&
     dimensions.height > 0 &&
     dimensions.width > 0;
+  const motionActive =
+    isNearViewport && !reducedMotion && Number.isFinite(speed) && speed > 0;
 
   return (
     <div
@@ -554,6 +609,9 @@ export function HeroDither({
         "pointer-events-none relative aspect-video h-full w-full overflow-hidden",
         className,
       )}
+      data-motion={motionActive ? "active" : "static"}
+      data-near-viewport={isNearViewport ? "true" : "false"}
+      data-renderer={canMountShader ? "webgl" : "css"}
       data-slot="hero-dither"
       ref={containerRef}
       style={fade ? { ...DITHER_FADE_STYLE, ...style } : style}

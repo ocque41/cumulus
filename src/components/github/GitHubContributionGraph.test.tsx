@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GitHubContributionGraph } from "./GitHubContributionGraph";
@@ -95,11 +102,13 @@ describe("GitHubContributionGraph", () => {
     vi.stubGlobal("fetch", fetcher);
 
     render(<GitHubContributionGraph />);
+    const grid = document.querySelector<HTMLElement>(".contribution-grid");
+    if (!grid) throw new Error("Expected the contribution grid");
     expect(
       document.querySelector('.contribution-frame[data-load-state="loading"]'),
     ).toHaveAttribute("data-texture", "dither");
-    expect(document.querySelector(".contribution-grid")).toHaveAttribute("inert");
-    expect(document.querySelector(".contribution-grid")).toHaveAttribute("aria-hidden", "true");
+    expect(grid).toHaveAttribute("inert");
+    expect(grid).toHaveAttribute("aria-hidden", "true");
     expect(document.querySelector('button[data-index="0"]')).toBeDisabled();
 
     await waitFor(() =>
@@ -109,17 +118,18 @@ describe("GitHubContributionGraph", () => {
       "/api/github/contributions",
       expect.objectContaining({ cache: "no-store", credentials: "same-origin" }),
     );
-    expect(screen.getByRole("group")).toHaveAccessibleName(
+    expect(grid).toHaveAttribute("role", "group");
+    expect(grid).toHaveAccessibleName(
       /37 GitHub contributions across 1 active day in the reported calendar/i,
     );
-    expect(screen.getByRole("group")).toHaveAttribute(
+    expect(grid).toHaveAttribute(
       "aria-describedby",
       "github-contribution-keyboard-instructions",
     );
-    expect(screen.getByRole("group")).toHaveAccessibleDescription(
+    expect(grid).toHaveAccessibleDescription(
       "Arrow keys move between days. Enter opens details. Escape closes details.",
     );
-    expect(screen.getByRole("group")).not.toHaveAttribute("inert");
+    expect(grid).not.toHaveAttribute("inert");
     const graphCells = document.querySelectorAll(
       ".contribution-grid .contribution-cell",
     );
@@ -133,7 +143,7 @@ describe("GitHubContributionGraph", () => {
       ".contribution-frame [data-slot='hero-dither']",
     );
     expect(dither).not.toBeNull();
-    expect(dither).toHaveAttribute("data-dither-speed", "0.06");
+    expect(dither).toHaveAttribute("data-dither-speed", "0.32");
     expect(dither?.style.maskImage).toContain("radial-gradient");
     expect(
       document.querySelector('.contribution-frame[data-texture="dither"]'),
@@ -175,11 +185,15 @@ describe("GitHubContributionGraph", () => {
       /\.contribution-cell:focus-visible\s*\{[\s\S]*?outline:\s*2px solid var\(--signal\)/,
     );
     expect(STYLES).toMatch(
-      /\.contribution-popover\[data-viewport-portal="true"\]\[data-popover-state="pinned"\]\s*\{[\s\S]*?overflow-y:\s*auto/,
+      /\.contribution-popover\s*\{[\s\S]*?overflow:\s*clip/,
     );
-    expect(
-      screen.getByLabelText("Contribution density from quiet to active"),
-    ).toBeInTheDocument();
+    expect(STYLES).not.toMatch(
+      /\.contribution-popover[^{]*\{[^}]*overflow-[xy]:\s*(?:auto|scroll)/,
+    );
+    const legend = document.querySelector<HTMLElement>(".contribution-legend");
+    expect(legend).toHaveAccessibleName(
+      "Contribution density from quiet to active",
+    );
     expect(screen.queryByText("Public activity")).not.toBeInTheDocument();
 
     const activeCell = document.querySelector<HTMLButtonElement>('button[data-index="0"]');
@@ -188,21 +202,40 @@ describe("GitHubContributionGraph", () => {
     );
     if (!activeCell) throw new Error("Expected the first contribution cell");
     fireEvent.pointerEnter(activeCell);
-    expect(screen.getByRole("status")).toHaveTextContent("Fix the activity field");
-    expect(screen.queryByRole("link", { name: "Fix the activity field" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Close activity details" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Sunday, July 13, 2025" })).toBeVisible();
-    expect(screen.getAllByText("cloud")).toHaveLength(2);
-    expect(screen.queryByText("cumulus/cloud")).not.toBeInTheDocument();
-    expect(document.querySelector(".contribution-popover")).toHaveAttribute(
+    const transientPopover = document.querySelector<HTMLElement>(
+      ".contribution-popover",
+    );
+    if (!transientPopover) throw new Error("Expected transient activity details");
+    expect(transientPopover).toHaveAttribute("role", "status");
+    expect(transientPopover).toHaveTextContent("Fix the activity field");
+    expect(within(transientPopover).queryByRole("link", {
+      name: "Fix the activity field",
+    })).not.toBeInTheDocument();
+    expect(transientPopover.querySelector(".contribution-popover__close"))
+      .not.toBeInTheDocument();
+    expect(within(transientPopover).getByRole("heading", {
+      name: "Sunday, July 13, 2025",
+    })).toBeVisible();
+    expect(within(transientPopover).getAllByText("cloud")).toHaveLength(2);
+    expect(within(transientPopover).queryByText("cumulus/cloud"))
+      .not.toBeInTheDocument();
+    expect(transientPopover).toHaveAttribute(
       "data-viewport-portal",
       "true",
     );
-    expect(document.querySelector(".contribution-popover")?.parentElement).toBe(document.body);
+    expect(transientPopover.parentElement).toBe(document.body);
 
     fireEvent.click(activeCell, { detail: 1 });
-    expect(screen.getByRole("button", { name: "Close activity details" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Fix the activity field" })).toHaveAttribute(
+    const pinnedPopover = document.querySelector<HTMLElement>(
+      ".contribution-popover",
+    );
+    if (!pinnedPopover) throw new Error("Expected pinned activity details");
+    expect(within(pinnedPopover).getByRole("button", {
+      name: "Close activity details",
+    })).toBeVisible();
+    expect(within(pinnedPopover).getByRole("link", {
+      name: "Fix the activity field",
+    })).toHaveAttribute(
       "href",
       "https://github.com/cumulus/cloud/pull/12",
     );
@@ -214,26 +247,45 @@ describe("GitHubContributionGraph", () => {
     const otherCell = document.querySelector<HTMLButtonElement>('button[data-index="7"]');
     if (!otherCell) throw new Error("Expected a second contribution cell");
     fireEvent.pointerEnter(otherCell, { pointerType: "mouse" });
-    expect(screen.getByRole("heading", { name: "Sunday, July 13, 2025" })).toBeVisible();
+    expect(within(pinnedPopover).getByRole("heading", {
+      name: "Sunday, July 13, 2025",
+    })).toBeVisible();
 
     fireEvent.click(otherCell, { detail: 1 });
     expect(activeCell).toHaveAttribute("aria-pressed", "false");
     expect(otherCell).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("heading", { name: "Sunday, July 20, 2025" })).toBeVisible();
+    expect(within(pinnedPopover).getByRole("heading", {
+      name: "Sunday, July 20, 2025",
+    })).toBeVisible();
 
     fireEvent.pointerDown(document.body);
     expect(otherCell).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByRole("button", { name: "Close activity details" })).not.toBeInTheDocument();
+    expect(document.querySelector(".contribution-popover__close"))
+      .not.toBeInTheDocument();
 
     fireEvent.pointerEnter(activeCell, { pointerType: "mouse" });
-    expect(screen.getByRole("heading", { name: "Sunday, July 13, 2025" })).toBeVisible();
+    const hoveredPopover = document.querySelector<HTMLElement>(
+      ".contribution-popover",
+    );
+    if (!hoveredPopover) throw new Error("Expected hovered activity details");
+    expect(within(hoveredPopover).getByRole("heading", {
+      name: "Sunday, July 13, 2025",
+    })).toBeVisible();
     fireEvent.pointerLeave(activeCell, { pointerType: "mouse" });
-    expect(screen.queryByRole("button", { name: "Close activity details" })).not.toBeInTheDocument();
+    expect(document.querySelector(".contribution-popover__close"))
+      .not.toBeInTheDocument();
 
     fireEvent.focus(activeCell);
-    expect(screen.getByRole("heading", { name: "Sunday, July 13, 2025" })).toBeVisible();
+    const focusedPopover = document.querySelector<HTMLElement>(
+      ".contribution-popover",
+    );
+    if (!focusedPopover) throw new Error("Expected focused activity details");
+    expect(within(focusedPopover).getByRole("heading", {
+      name: "Sunday, July 13, 2025",
+    })).toBeVisible();
     fireEvent.blur(activeCell);
-    expect(screen.queryByRole("button", { name: "Close activity details" })).not.toBeInTheDocument();
+    expect(document.querySelector(".contribution-popover__close"))
+      .not.toBeInTheDocument();
     fireEvent.pointerEnter(activeCell, { pointerType: "mouse" });
 
     const frame = document.querySelector<HTMLElement>(".contribution-frame");
@@ -357,36 +409,27 @@ describe("GitHubContributionGraph", () => {
     await waitFor(() => expect(document.activeElement).toBe(popover));
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(activeCell).toHaveAttribute("aria-pressed", "false"));
-    expect(screen.queryByRole("button", { name: "Close activity details" })).not.toBeInTheDocument();
+    expect(document.querySelector(".contribution-popover__close"))
+      .not.toBeInTheDocument();
     await waitFor(() => expect(document.activeElement).toBe(activeCell));
 
     fireEvent.click(activeCell, { detail: 1 });
-    const closeButton = screen.getByRole("button", { name: "Close activity details" });
+    const closePopover = document.querySelector<HTMLElement>(
+      ".contribution-popover",
+    );
+    if (!closePopover) throw new Error("Expected closable activity details");
+    const closeButton = within(closePopover).getByRole("button", {
+      name: "Close activity details",
+    });
     fireEvent.focus(closeButton);
     fireEvent.click(closeButton);
     await waitFor(() => expect(document.activeElement).toBe(activeCell));
     expect(activeCell).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByRole("button", { name: "Close activity details" })).not.toBeInTheDocument();
-
-    const touchPicker = screen.getByLabelText("Choose a day");
-    fireEvent.change(touchPicker, { target: { value: "2025-07-13" } });
-    await waitFor(() =>
-      expect(document.activeElement).toBe(document.querySelector(".contribution-popover")),
-    );
-    expect(activeCell).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Close activity details" }));
-    await waitFor(() => expect(document.activeElement).toBe(touchPicker));
-    expect(activeCell).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByRole("button", { name: "Close activity details" })).not.toBeInTheDocument();
-
-    fireEvent.change(touchPicker, { target: { value: "2025-07-13" } });
-    await waitFor(() =>
-      expect(document.activeElement).toBe(document.querySelector(".contribution-popover")),
-    );
-    fireEvent.keyDown(document, { key: "Escape" });
-    await waitFor(() => expect(document.activeElement).toBe(touchPicker));
-    expect(activeCell).toHaveAttribute("aria-pressed", "false");
-  }, 20_000);
+    expect(document.querySelector(".contribution-popover__close"))
+      .not.toBeInTheDocument();
+  // This one case intentionally exercises the complete 371-cell keyboard,
+  // pointer, portal, and positioning contract under parallel jsdom workers.
+  }, 10_000);
 
   it("caps desktop highlights and announces omitted public items", async () => {
     stubPickerMedia(false);
@@ -404,16 +447,20 @@ describe("GitHubContributionGraph", () => {
     if (!activeCell) throw new Error("Expected the first contribution cell");
     fireEvent.pointerEnter(activeCell, { pointerType: "mouse" });
 
-    const popover = screen.getByRole("status");
+    const popover = document.querySelector<HTMLElement>(".contribution-popover");
+    if (!popover) throw new Error("Expected desktop activity details");
+    expect(popover).toHaveAttribute("role", "status");
     expect(popover).toHaveAttribute("data-highlight-limit", "3");
     expect(popover).toHaveAttribute("data-highlights-truncated", "true");
     expect(popover.querySelectorAll("li")).toHaveLength(3);
-    expect(screen.getByText("2 more public items not shown.")).toHaveAttribute(
+    expect(within(popover).getByText("2 more public items not shown.")).toHaveAttribute(
       "data-highlight-overflow-note",
       "true",
     );
-    expect(screen.queryByText("Refine responsive graph")).not.toBeInTheDocument();
-    expect(screen.queryByText("Keep page scroll native")).not.toBeInTheDocument();
+    expect(within(popover).queryByText("Refine responsive graph"))
+      .not.toBeInTheDocument();
+    expect(within(popover).queryByText("Keep page scroll native"))
+      .not.toBeInTheDocument();
   });
 
   it("uses the picker as the sole responsive interaction and restores its focus", async () => {
@@ -435,9 +482,12 @@ describe("GitHubContributionGraph", () => {
     expect(document.querySelector(".contribution-grid")).toHaveAttribute("aria-hidden", "true");
     expect(document.querySelector(".contribution-grid")).toHaveAttribute("inert");
     expect(document.querySelector('button[data-index="0"]')).toBeDisabled();
-    expect(screen.queryByRole("group")).not.toBeInTheDocument();
 
-    const picker = screen.getByLabelText("Choose a day");
+    const picker = document.querySelector<HTMLSelectElement>(
+      ".contribution-touch-picker select",
+    );
+    if (!picker) throw new Error("Expected the responsive contribution picker");
+    expect(picker).toHaveAccessibleName("Choose a day");
     expect(picker).toBeEnabled();
     fireEvent.change(picker, { target: { value: "2025-07-13" } });
     await waitFor(() =>
@@ -450,16 +500,18 @@ describe("GitHubContributionGraph", () => {
       ),
     );
     const popover = document.querySelector<HTMLElement>(".contribution-popover");
+    if (!popover) throw new Error("Expected inline activity details");
     expect(popover).not.toHaveAttribute("data-viewport-portal");
-    expect(popover?.parentElement).toHaveClass("contribution-surface");
+    expect(popover.parentElement).toHaveClass("contribution-surface");
     expect(popover).toHaveAttribute("data-highlight-limit", "2");
     expect(popover).toHaveAttribute("data-highlights-truncated", "true");
-    expect(popover?.querySelectorAll("li")).toHaveLength(2);
-    expect(screen.getByText("3 more public items not shown.")).toHaveAttribute(
+    expect(popover.querySelectorAll("li")).toHaveLength(2);
+    expect(within(popover).getByText("3 more public items not shown.")).toHaveAttribute(
       "data-highlight-overflow-note",
       "true",
     );
-    expect(screen.queryByText("Document keyboard focus")).not.toBeInTheDocument();
+    expect(within(popover).queryByText("Document keyboard focus"))
+      .not.toBeInTheDocument();
 
     const frame = document.querySelector<HTMLElement>(".contribution-frame");
     if (!frame) throw new Error("Expected the contribution frame");
@@ -474,7 +526,16 @@ describe("GitHubContributionGraph", () => {
     expect(frame.style.getPropertyValue("--graph-rotate-x")).toBe("0deg");
     expect(frame.style.getPropertyValue("--graph-rotate-y")).toBe("0deg");
 
-    fireEvent.click(screen.getByRole("button", { name: "Close activity details" }));
+    fireEvent.click(within(popover).getByRole("button", {
+      name: "Close activity details",
+    }));
+    await waitFor(() => expect(document.activeElement).toBe(picker));
+
+    fireEvent.change(picker, { target: { value: "2025-07-13" } });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(document.querySelector(".contribution-popover")),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(document.activeElement).toBe(picker));
   });
 
@@ -510,7 +571,7 @@ describe("GitHubContributionGraph", () => {
     siteFrame.removeAttribute("aria-hidden");
     fireEvent.click(cell, { detail: 1 });
     expect(document.querySelector(".contribution-popover")).toBeInTheDocument();
-    const menu = screen.getByRole("button", { name: "Menu" });
+    const menu = within(siteHeader).getByRole("button", { name: "Menu" });
     menu.focus();
     expect(document.activeElement).toBe(menu);
     siteHeader.setAttribute("data-open", "");
@@ -533,9 +594,12 @@ describe("GitHubContributionGraph", () => {
     const unavailableGrid = document.querySelector(".contribution-grid");
     expect(unavailableGrid).toHaveAttribute("aria-hidden", "true");
     expect(unavailableGrid).toHaveAttribute("inert");
-    expect(screen.queryByRole("group")).not.toBeInTheDocument();
     expect(document.querySelector('button[data-index="0"]')).toBeDisabled();
-    expect(screen.getByLabelText("Choose a day")).toBeDisabled();
+    const picker = document.querySelector<HTMLSelectElement>(
+      ".contribution-touch-picker select",
+    );
+    expect(picker).toHaveAccessibleName("Choose a day");
+    expect(picker).toBeDisabled();
     expect(document.querySelector("[data-known='true']")).toBeNull();
     expect(document.querySelector(".contribution-dither")).not.toBeNull();
     expect(

@@ -11,7 +11,7 @@ export function SiteFooter() {
           maxPixelCount={560_000}
           shape="wave"
           size={3}
-          speed={0.18}
+          speed={0.36}
           type="8x8"
         />
         <p aria-hidden="true" className="site-footer__signal">

@@ -18,9 +18,10 @@ export function NotFoundPage() {
         fallbackClassName="not-found__fallback"
         frame={404}
         maxPixelCount={460_000}
+        priority
         shape="simplex"
         size={4}
-        speed={0.1}
+        speed={0.5}
         type="8x8"
       />
     </section>

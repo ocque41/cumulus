@@ -22,13 +22,13 @@ The Segment and Topic IDs are private deployment configuration. Cumulus checks b
 
 ## Notification access
 
-`POST /api/notifications/sign-in` sends an at-most-30-minute, purpose-bound confirmation link through Resend. The token is placed in the URL fragment so it is not sent in the callback request or access logs. `POST /api/notifications/session` exchanges it for a 30-day signed `HttpOnly`, `SameSite=Lax`, secure cookie. That cookie grants only notification-preference access. State-changing requests require the canonical browser origin. Forgetting the email on a browser clears the cookie but does not change consent.
+`POST /api/notifications/sign-in` sends an at-most-30-minute, purpose-bound confirmation link through Resend. Its footer repeats the signed link as an explicit “Manage or unsubscribe from new-post emails” action, so the message always offers a password-free route back to the preference without activating it. The token is placed in the URL fragment so it is not sent in the callback request or access logs. `POST /api/notifications/session` exchanges it for a 30-day signed `HttpOnly`, `SameSite=Lax`, secure cookie. That cookie grants only notification-preference access. State-changing requests require the canonical browser origin. Forgetting the email on a browser clears the cookie but does not change consent.
 
-`GET /api/notifications/preferences` reads the Contact's Segment and Topic state. `PUT` activates or deactivates only the Cumulus Topic. Reactivation requires an authenticated, explicit reader action. Repeated actions are safe.
+`GET /api/notifications/preferences` reads the Contact's Segment and Topic state. `PUT` activates or deactivates only the Cumulus Topic. After the top-right Notification settings dialog recognizes a signed session, it shows the current state and an explicit unsubscribe action when notifications are active. Reactivation requires an authenticated, explicit reader action. Repeated actions are safe.
 
 ## Publication and unsubscribe
 
-`POST /api/notifications/publish` requires `NOTIFICATION_PUBLISH_SECRET`. It builds a deterministic Broadcast name and idempotency key from the immutable post slug, checks for an existing exact-content Broadcast, and refuses content conflicts. Resend Broadcasts supply the standards-based unsubscribe URL. Both HTML and text include the truthful configured postal address.
+`POST /api/notifications/publish` requires `NOTIFICATION_PUBLISH_SECRET`. It builds a deterministic Broadcast name and idempotency key from the immutable post slug, checks for an existing exact-content Broadcast, and refuses content conflicts. Resend Broadcasts supply the recipient-specific unsubscribe URL; the HTML presents it as a clear footer button and the plain-text part includes the same action. Both HTML and text include the truthful configured postal address.
 
 The authenticated Resend webhook accepts only bounced, complained, and suppressed events. It verifies the Svix signature over the raw body, normalizes unique recipients, and opts the matching Cumulus Topic out. Unsupported events are acknowledged and ignored; provider failures return a retryable error.
 

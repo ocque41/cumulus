@@ -58,6 +58,21 @@ describe("Resend notification provider", () => {
       siteOrigin: "https://cumulush.com", postalAddress: "Madrid, Spain", dryRun: false,
     })).resolves.toEqual({ status: "created" });
     expect(resend.broadcasts.create).toHaveBeenCalledTimes(1);
+    expect(resend.broadcasts.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html: expect.stringContaining(
+          'href="{{{RESEND_UNSUBSCRIBE_URL}}}"',
+        ),
+        segmentId: "segment_123",
+        text: expect.stringContaining(
+          "Unsubscribe from new-post emails: {{{RESEND_UNSUBSCRIBE_URL}}}",
+        ),
+        topicId: "topic_123",
+      }),
+      expect.objectContaining({
+        headers: expect.objectContaining({ "Idempotency-Key": expect.any(String) }),
+      }),
+    );
     expect(resend.broadcasts.send).toHaveBeenCalledWith("broadcast_1");
   });
 

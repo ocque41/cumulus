@@ -1,17 +1,22 @@
 import {
   useEffect,
+  useId,
   useMemo,
   useRef,
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
 
-import { stableDitherSeed } from "@/components/visual/DitherArtwork";
+import {
+  DitherArtwork,
+  stableDitherSeed,
+} from "@/components/visual/DitherArtwork";
+import { ORDERED_BAYER_4X4 } from "@/components/visual/bayer";
 import type { DitherVariant } from "@/content/post-types";
 
 import "./PostSignalArtwork.css";
 
-const SIGNAL_NEAR_VIEWPORT_MARGIN = "0px";
+const SIGNAL_NEAR_VIEWPORT_MARGIN = "180px 0px";
 const SIGNAL_INTERSECTION_THRESHOLD = 0.1;
 const CORNERS = ["top-left", "top-right", "bottom-right", "bottom-left"] as const;
 const CORNER_MOTIFS = ["pulse", "bars", "orbit", "scan"] as const;
@@ -119,6 +124,52 @@ function Nodes({ count, seed }: { count: number; seed: number }) {
         />
       ))}
     </g>
+  );
+}
+
+function BayerDiagramMask({ id, seed }: { id: string; seed: number }) {
+  const patternId = `${id}-pattern`;
+
+  return (
+    <defs>
+      <pattern
+        data-bayer-pattern="ordered-4x4"
+        height="12"
+        id={patternId}
+        patternTransform={`translate(${seed % 3} ${(seed >>> 2) % 3})`}
+        patternUnits="userSpaceOnUse"
+        width="12"
+      >
+        <rect fill="#000" height="12" width="12" />
+        {ORDERED_BAYER_4X4.map((threshold, index) => {
+          const size = 0.72 + ((15 - threshold) / 15) * 1.92;
+          const cellX = (index % 4) * 3;
+          const cellY = Math.floor(index / 4) * 3;
+          return (
+            <rect
+              data-bayer-cell={threshold}
+              fill="#fff"
+              height={size}
+              key={threshold}
+              width={size}
+              x={cellX + (3 - size) / 2}
+              y={cellY + (3 - size) / 2}
+            />
+          );
+        })}
+      </pattern>
+      <mask
+        data-bayer-mask="ordered-4x4"
+        height="360"
+        id={id}
+        maskUnits="userSpaceOnUse"
+        width="720"
+        x="0"
+        y="0"
+      >
+        <rect fill={`url(#${patternId})`} height="360" width="720" />
+      </mask>
+    </defs>
   );
 }
 
@@ -323,56 +374,96 @@ function startSignalMotion(element: HTMLDivElement, seed: number) {
           if (targets.length > 0) animate(targets, parameters);
         };
 
-        run("[data-signal-motion='trace']", {
-          delay: stagger(55),
-          duration: 4_200 + (seed % 1_800),
-          ease: "inOutSine",
+        run(".post-signal__diagram [data-signal-motion='diagram-field']", {
+          alternate: true,
+          duration: 2_800 + (seed % 900),
+          ease: "inOutQuad",
           loop: true,
-          opacity: [0.42, 0.92, 0.42],
-        });
-        run("[data-signal-motion='orbit']", {
-          rotate: [`${seed % 45}deg`, `${360 + (seed % 45)}deg`],
-          duration: 14_000 + (seed % 6_000),
+          rotate: ["-0.42deg", "0.48deg"],
+          translateX: [-5, 6],
+          translateY: [-3, 4],
+        }, 1);
+        run(".post-signal__diagram [data-signal-motion='trace']", {
+          delay: stagger(42),
+          duration: 1_650 + (seed % 750),
           ease: "linear",
           loop: true,
-        }, 1);
-        run("[data-signal-motion='node']", {
-          delay: stagger(120, { from: seed % 2 === 0 ? "first" : "center" }),
-          duration: 2_600 + (seed % 1_400),
-          ease: "inOutSine",
-          loop: true,
-          opacity: [0.28, 1, 0.28],
-          scale: [0.82, 1.18, 0.82],
-        }, 4);
-        run("[data-signal-motion='bar']", {
-          delay: stagger(75, { from: "center" }),
-          duration: 2_100 + (seed % 1_100),
-          ease: "inOutSine",
-          loop: true,
-          scaleY: [0.28, 1, 0.48],
+          opacity: [0.46, 1, 0.58],
+          strokeDashoffset: [0, -88],
         }, 5);
-        run("[data-signal-motion='scan']", {
-          duration: 4_800 + (seed % 1_800),
+        run(".post-signal__diagram [data-signal-motion='orbit']", {
+          rotate: [`${seed % 45}deg`, `${360 + (seed % 45)}deg`],
+          duration: 5_200 + (seed % 2_200),
+          ease: "linear",
+          loop: true,
+        }, 2);
+        run(".post-signal__diagram [data-signal-motion='node']", {
+          delay: stagger(90, { from: seed % 2 === 0 ? "first" : "center" }),
+          duration: 1_150 + (seed % 650),
           ease: "inOutSine",
           loop: true,
-          translateX: ["-18%", "118%"],
-        }, 1);
-        run("[data-signal-motion='float']", {
+          opacity: [0.24, 1, 0.34],
+          scale: [0.72, 1.38, 0.82],
+        }, 4);
+        run(".post-signal__diagram [data-signal-motion='bar']", {
+          delay: stagger(58, { from: "center" }),
+          duration: 1_050 + (seed % 620),
+          ease: "inOutSine",
+          loop: true,
+          scaleY: [0.18, 1.12, 0.34],
+        }, 6);
+        run(".post-signal__diagram [data-signal-motion='scan']", {
+          duration: 1_900 + (seed % 700),
+          ease: "inOutSine",
+          loop: true,
+          opacity: [0.22, 0.94, 0.34],
+          translateX: ["-24%", "142%"],
+        }, 2);
+        run(".post-signal__diagram [data-signal-motion='float']", {
           alternate: true,
+          delay: stagger(64),
+          duration: 1_300 + (seed % 700),
+          ease: "inOutSine",
+          loop: true,
+          rotate: ["-0.8deg", "0.9deg"],
+          translateY: [-8, 10],
+        }, 4);
+        run(".post-signal__diagram [data-signal-motion='pulse']", {
+          delay: stagger(105),
+          duration: 980 + (seed % 520),
+          ease: "inOutSine",
+          loop: true,
+          opacity: [0.22, 1, 0.28],
+          scale: [0.68, 1.42, 0.76],
+        }, 4);
+        run(".post-signal__corner [data-signal-motion='pulse']", {
           delay: stagger(90),
-          duration: 2_800 + (seed % 1_500),
+          duration: 820 + (seed % 360),
           ease: "inOutSine",
           loop: true,
-          translateY: [-3, 4],
+          opacity: [0.22, 1, 0.3],
+          scale: [0.62, 1.55, 0.74],
         }, 3);
-        run("[data-signal-motion='pulse']", {
-          delay: stagger(140),
-          duration: 2_000 + (seed % 900),
+        run(".post-signal__corner [data-signal-motion='bar']", {
+          delay: stagger(62, { from: "center" }),
+          duration: 930 + (seed % 340),
           ease: "inOutSine",
           loop: true,
-          opacity: [0.34, 1, 0.34],
-          scale: [0.8, 1.16, 0.8],
-        }, 3);
+          scaleY: [0.18, 1, 0.32],
+        }, 5);
+        run(".post-signal__corner [data-signal-motion='orbit']", {
+          duration: 3_200 + (seed % 1_100),
+          ease: "linear",
+          loop: true,
+          rotate: ["0deg", "360deg"],
+        }, 1);
+        run(".post-signal__corner [data-signal-motion='scan']", {
+          alternate: true,
+          duration: 900 + (seed % 380),
+          ease: "inOutQuad",
+          loop: true,
+          translateX: ["-70%", "150%"],
+        }, 1);
 
         return () => {
           element.dataset.motion = "static";
@@ -404,44 +495,23 @@ interface SignalMotionRegistration {
 }
 
 const signalMotionCandidates = new Set<SignalMotionCandidate>();
-let activeSignalMotionCandidate: SignalMotionCandidate | undefined;
 let signalMotionPreference: MediaQueryList | undefined;
-
-function selectSignalMotionCandidate() {
-  if (!(signalMotionPreference?.matches ?? true)) return undefined;
-
-  if (
-    activeSignalMotionCandidate
-    && signalMotionCandidates.has(activeSignalMotionCandidate)
-    && activeSignalMotionCandidate.element.isConnected
-    && activeSignalMotionCandidate.isEligible
-  ) {
-    return activeSignalMotionCandidate;
-  }
-
-  for (const candidate of signalMotionCandidates) {
-    if (
-      !candidate.element.isConnected
-      || !candidate.isEligible
-    ) {
-      continue;
-    }
-    return candidate;
-  }
-  return undefined;
-}
+let signalDocumentVisible = true;
+let signalMotionRuntimeReady = false;
 
 function reconcileSignalMotionCandidates() {
-  const selected = selectSignalMotionCandidate();
-  if (selected === activeSignalMotionCandidate) return;
-
-  activeSignalMotionCandidate?.stopMotion?.();
-  if (activeSignalMotionCandidate) {
-    activeSignalMotionCandidate.stopMotion = undefined;
-  }
-  activeSignalMotionCandidate = selected;
-  if (selected) {
-    selected.stopMotion = startSignalMotion(selected.element, selected.seed);
+  const motionAllowed = signalMotionPreference?.matches ?? true;
+  for (const candidate of signalMotionCandidates) {
+    const shouldRun = motionAllowed
+      && signalDocumentVisible
+      && candidate.element.isConnected
+      && candidate.isEligible;
+    if (shouldRun && !candidate.stopMotion) {
+      candidate.stopMotion = startSignalMotion(candidate.element, candidate.seed);
+    } else if (!shouldRun && candidate.stopMotion) {
+      candidate.stopMotion();
+      candidate.stopMotion = undefined;
+    }
   }
 }
 
@@ -449,10 +519,21 @@ function handleSignalMotionPreferenceChange() {
   reconcileSignalMotionCandidates();
 }
 
+function handleSignalVisibilityChange() {
+  signalDocumentVisible = document.visibilityState !== "hidden";
+  reconcileSignalMotionCandidates();
+}
+
 function ensureSignalMotionPreference() {
-  if (signalMotionPreference || typeof window.matchMedia !== "function") return;
-  signalMotionPreference = window.matchMedia("(prefers-reduced-motion: no-preference)");
-  signalMotionPreference.addEventListener("change", handleSignalMotionPreferenceChange);
+  if (signalMotionRuntimeReady) return;
+  signalMotionRuntimeReady = true;
+  signalDocumentVisible = typeof document === "undefined"
+    || document.visibilityState !== "hidden";
+  if (typeof window.matchMedia === "function") {
+    signalMotionPreference = window.matchMedia("(prefers-reduced-motion: no-preference)");
+    signalMotionPreference.addEventListener("change", handleSignalMotionPreferenceChange);
+  }
+  document.addEventListener("visibilitychange", handleSignalVisibilityChange);
 }
 
 function releaseSignalMotionPreference() {
@@ -462,6 +543,8 @@ function releaseSignalMotionPreference() {
     handleSignalMotionPreferenceChange,
   );
   signalMotionPreference = undefined;
+  signalMotionRuntimeReady = false;
+  document.removeEventListener("visibilitychange", handleSignalVisibilityChange);
 }
 
 function registerSignalMotionCandidate(
@@ -479,6 +562,8 @@ function registerSignalMotionCandidate(
   return {
     unregister: () => {
       if (!signalMotionCandidates.delete(candidate)) return;
+      candidate.stopMotion?.();
+      candidate.stopMotion = undefined;
       reconcileSignalMotionCandidates();
       releaseSignalMotionPreference();
       element.dataset.motion = "static";
@@ -505,6 +590,7 @@ export function PostSignalArtwork({
   ...props
 }: PostSignalArtworkProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const instanceId = useId().replaceAll(":", "");
   const numericSeed = useMemo(
     () => stableDitherSeed(`${seed}:${variant}`),
     [seed, variant],
@@ -513,6 +599,7 @@ export function PostSignalArtwork({
     () => cornerAssignments(numericSeed),
     [numericSeed],
   );
+  const maskId = `post-signal-bayer-${instanceId}`;
 
   useEffect(() => {
     const element = rootRef.current;
@@ -559,9 +646,22 @@ export function PostSignalArtwork({
       ref={rootRef}
       role={decorative ? undefined : "img"}
     >
+      <DitherArtwork
+        className="post-signal__dither-field"
+        decorative
+        seed={`${seed}:bayer-field`}
+        variant={variant}
+      />
       <div aria-hidden="true" className="post-signal__texture" />
       <svg aria-hidden="true" className="post-signal__diagram" preserveAspectRatio="xMidYMid meet" viewBox="0 0 720 360">
-        <SignalDiagram seed={numericSeed} variant={variant} />
+        <BayerDiagramMask id={maskId} seed={numericSeed} />
+        <g
+          data-signal-diagram={variant}
+          data-signal-motion="diagram-field"
+          mask={`url(#${maskId})`}
+        >
+          <SignalDiagram seed={numericSeed} variant={variant} />
+        </g>
       </svg>
       {assignments.map((assignment) => (
         <CornerInstrument {...assignment} key={assignment.corner} />

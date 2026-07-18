@@ -9,6 +9,7 @@ import {
   type WorkProject,
 } from "@/content/work";
 import { publishedPosts, type Post } from "@/content/posts";
+import { createAsymmetricGridStyles } from "@/lib/asymmetric-grid";
 import { AppLink, useDocumentMeta } from "@/lib/router";
 
 function projectPosts(project: WorkProject): readonly Post[] {
@@ -32,9 +33,10 @@ export function WorkPage() {
           fallbackClassName="work-hero__dither-fallback"
           frame={288}
           maxPixelCount={420_000}
+          priority
           shape="wave"
           size={3}
-          speed={0.1}
+          speed={0.56}
           type="8x8"
         />
         <div className="work-hero__content page-shell">
@@ -79,6 +81,7 @@ export function WorkPage() {
       <section aria-label="Cumulus lab projects" className="work-projects page-shell">
         {WORK_PROJECTS.map((project, index) => {
           const notes = projectPosts(project);
+          const noteGrid = createAsymmetricGridStyles(notes.length);
 
           return (
             <article
@@ -120,9 +123,14 @@ export function WorkPage() {
                 {notes.length > 0 ? (
                   <div className="work-project__notes">
                     <p className="eyebrow">Project logs</p>
-                    <div>
+                    <div data-card-count={notes.length}>
                       {notes.map((post, noteIndex) => (
-                        <AppLink data-signal-host href={articleHref(post)} key={post.slug}>
+                        <AppLink
+                          data-signal-host
+                          href={articleHref(post)}
+                          key={post.slug}
+                          style={noteGrid[noteIndex]}
+                        >
                           <DitherPlate
                             className="work-project__note-plate"
                             decorative

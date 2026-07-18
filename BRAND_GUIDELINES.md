@@ -52,7 +52,7 @@ Keep long lines around 55–72 characters. Test the smallest body and metadata r
 
 ## Layout
 
-- Use a strong editorial grid and generous black negative space.
+- Use a strong asymmetric editorial grid and generous black negative space. Card rows must always close cleanly for the current item count; never leave an orphaned card-sized hole.
 - Keep the hero focused on one statement and one restrained notification action.
 - Present logs chronologically with visible dates and clear heading order.
 - Favor thin gray rules and spacing over cards within cards.
@@ -88,7 +88,7 @@ Before copying third-party source, verify its redistribution terms and record th
 - Keep captions outside filtered containers so they remain crisp.
 - Edge Blur must not intercept pointer input and must stay outside the scrolling element it decorates.
 - Keep shader movement calm and stop or simplify it for `prefers-reduced-motion`.
-- Give each named post visual its own deterministic signal diagram and four nonrepeating corner instruments. Animate only visible artwork and keep every reduced-motion frame static.
+- Give each named post visual a true ordered 4×4 Bayer field, its own deterministic dither-masked signal diagram, and four nonrepeating corner instruments. Animate every visible artwork independently, release offscreen renderers, and keep every reduced-motion frame static.
 - Preserve a static readable frame if WebGL, canvas, or an image fails.
 - Avoid dither density that produces flicker, moiré, or unreadable edges on small screens.
 

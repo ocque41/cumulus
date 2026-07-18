@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DITHER_VARIANTS } from "@/content/post-types";
+import { ORDERED_BAYER_4X4 } from "./bayer";
 
 const anime = vi.hoisted(() => ({
   animate: vi.fn(),
@@ -37,17 +38,24 @@ interface ObserverHarness {
   callback: IntersectionObserverCallback;
   disconnect: ReturnType<typeof vi.fn>;
   options?: IntersectionObserverInit;
-  target?: Element;
+  targets: Set<Element>;
 }
 
 const observers: ObserverHarness[] = [];
 const motionListeners = new Set<() => void>();
+let visibilityState: DocumentVisibilityState = "visible";
 
 class IntersectionObserverMock {
   private readonly harness: ObserverHarness;
 
   constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
-    this.harness = { callback, disconnect: vi.fn(), options };
+    const targets = new Set<Element>();
+    this.harness = {
+      callback,
+      disconnect: vi.fn(() => targets.clear()),
+      options,
+      targets,
+    };
     observers.push(this.harness);
   }
 
@@ -56,21 +64,24 @@ class IntersectionObserverMock {
   }
 
   observe(target: Element) {
-    this.harness.target = target;
+    this.harness.targets.add(target);
   }
 
-  unobserve() {}
+  unobserve(target: Element) {
+    this.harness.targets.delete(target);
+  }
 }
 
 function setIntersections(
   harness: ObserverHarness,
   entries: Array<{ intersectionRatio: number; isIntersecting: boolean }>,
 ) {
-  if (!harness.target) throw new Error("Expected an observed signal artwork");
+  const target = [...harness.targets][0];
+  if (!target) throw new Error("Expected an observed signal artwork");
   harness.callback(
     entries.map((entry) => ({
       ...entry,
-      target: harness.target,
+      target,
     }) as IntersectionObserverEntry),
     {} as IntersectionObserver,
   );
@@ -85,11 +96,15 @@ function setIntersection(
 }
 
 function observerFor(target: Element) {
-  return observers.find((observer) => observer.target === target);
+  return observers.find((observer) => observer.targets.has(target));
 }
 
 beforeEach(() => {
   anime.motionAllowed = true;
+  visibilityState = "visible";
+  vi.spyOn(document, "visibilityState", "get").mockImplementation(
+    () => visibilityState,
+  );
   vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
   vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
     addEventListener: (_type: string, listener: () => void) => motionListeners.add(listener),
@@ -111,6 +126,7 @@ afterEach(() => {
   anime.createScope.mockClear();
   anime.revert.mockClear();
   anime.stagger.mockClear();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -133,7 +149,7 @@ describe("PostSignalArtwork", () => {
     expect(roots[0]).toHaveAttribute("data-motion", "static");
   });
 
-  it("renders a distinct diagram for every named post variant and four unique corners", () => {
+  it("renders a real Bayer canvas, a dither-masked distinct diagram, and all four corners", () => {
     const { container } = render(
       <>
         {DITHER_VARIANTS.map((variant) => (
@@ -143,15 +159,35 @@ describe("PostSignalArtwork", () => {
     );
 
     const roots = container.querySelectorAll<HTMLElement>("[data-slot='post-signal-artwork']");
-    const diagrams = Array.from(roots, (root) =>
-      root.querySelector(".post-signal__diagram")?.innerHTML,
-    );
+    const diagrams = Array.from(roots, (root) => (
+      root.querySelector("[data-signal-diagram]")?.innerHTML
+    ));
 
     expect(roots).toHaveLength(DITHER_VARIANTS.length);
     expect(new Set(diagrams).size).toBe(DITHER_VARIANTS.length);
     for (const root of roots) {
+      const dither = root.querySelector<HTMLElement>(
+        ":scope > [data-slot='dither-artwork']",
+      );
+      const mask = root.querySelector("[data-bayer-mask='ordered-4x4']");
+      const thresholds = Array.from(
+        root.querySelectorAll<SVGRectElement>("[data-bayer-cell]"),
+        (cell) => Number(cell.dataset.bayerCell),
+      );
+
+      expect(dither).not.toBeNull();
+      expect(dither?.querySelector("canvas.dither-artwork__canvas")).not.toBeNull();
+      expect(mask).not.toBeNull();
+      expect(root.querySelector("[data-signal-diagram]")).toHaveAttribute(
+        "mask",
+        expect.stringContaining("post-signal-bayer-"),
+      );
+      expect(thresholds).toEqual([...ORDERED_BAYER_4X4]);
+
       const corners = root.querySelectorAll<HTMLElement>(".post-signal__corner");
       expect(corners).toHaveLength(4);
+      expect(new Set(Array.from(corners, (corner) => corner.dataset.corner)))
+        .toEqual(new Set(["top-left", "top-right", "bottom-right", "bottom-left"]));
       expect(new Set(Array.from(corners, (corner) => corner.dataset.cornerMotif)).size)
         .toBe(4);
     }
@@ -162,12 +198,12 @@ describe("PostSignalArtwork", () => {
       <PostSignalArtwork decorative seed="post:motion" variant="event-river" />,
     );
     const root = container.querySelector<HTMLElement>("[data-slot='post-signal-artwork']");
-    const observer = observers[0];
+    const observer = root ? observerFor(root) : undefined;
     expect(root).not.toBeNull();
     expect(observer).toBeDefined();
     if (!root || !observer) return;
 
-    expect(observer.options).toEqual({ rootMargin: "0px", threshold: 0.1 });
+    expect(observer.options).toEqual({ rootMargin: "180px 0px", threshold: 0.1 });
     expect(anime.animate).not.toHaveBeenCalled();
 
     setIntersection(observer, true, 0.09);
@@ -180,14 +216,12 @@ describe("PostSignalArtwork", () => {
     expect(anime.animate).toHaveBeenCalled();
     expect(
       anime.animate.mock.calls.every(([targets]) => (
-        Array.isArray(targets) && targets.length <= 5
+        Array.isArray(targets) && targets.length <= 6
       )),
     ).toBe(true);
-    expect(
-      anime.animate.mock.calls.some(([, parameters]) => (
-        Object.hasOwn(parameters as object, "strokeDashoffset")
-      )),
-    ).toBe(false);
+    expect(anime.animate.mock.calls.some(([, parameters]) => (
+      Object.hasOwn(parameters as object, "strokeDashoffset")
+    ))).toBe(true);
 
     setIntersection(observer, false);
     expect(root).toHaveAttribute("data-motion", "static");
@@ -226,8 +260,8 @@ describe("PostSignalArtwork", () => {
     expect(anime.createScope).toHaveBeenCalledOnce();
   });
 
-  it("keeps one eligible candidate active and promotes a fallback", async () => {
-    const { container, rerender } = render(
+  it("animates every eligible signal independently and pauses each one offscreen", async () => {
+    const { container } = render(
       <>
         <PostSignalArtwork decorative key="first" seed="post:first" variant="event-river" />
         <PostSignalArtwork decorative key="second" seed="post:second" variant="local-orbit" />
@@ -244,38 +278,71 @@ describe("PostSignalArtwork", () => {
 
     setIntersection(firstObserver, true, 0.6);
     await waitFor(() => expect(first).toHaveAttribute("data-motion", "active"));
-    expect(container.querySelectorAll("[data-motion='active']")).toHaveLength(1);
 
     setIntersection(secondObserver, true, 0.8);
+    await waitFor(() => expect(second).toHaveAttribute("data-motion", "active"));
     expect(first).toHaveAttribute("data-motion", "active");
-    expect(second).toHaveAttribute("data-motion", "static");
-    expect(anime.createScope).toHaveBeenCalledOnce();
+    expect(container.querySelectorAll(
+      "[data-slot='post-signal-artwork'][data-motion='active']",
+    )).toHaveLength(2);
+    expect(anime.createScope).toHaveBeenCalledTimes(2);
 
     setIntersection(firstObserver, false);
-    await waitFor(() => expect(second).toHaveAttribute("data-motion", "active"));
     expect(first).toHaveAttribute("data-motion", "static");
-    expect(container.querySelectorAll("[data-motion='active']")).toHaveLength(1);
-    expect(anime.createScope).toHaveBeenCalledTimes(2);
+    expect(second).toHaveAttribute("data-motion", "active");
+    expect(container.querySelectorAll(
+      "[data-slot='post-signal-artwork'][data-motion='active']",
+    )).toHaveLength(1);
     expect(anime.revert).toHaveBeenCalledOnce();
 
     setIntersection(firstObserver, true, 0.9);
-    expect(second).toHaveAttribute("data-motion", "active");
-    expect(first).toHaveAttribute("data-motion", "static");
-
-    rerender(
-      <>
-        <PostSignalArtwork decorative key="first" seed="post:first" variant="event-river" />
-      </>,
-    );
-
     await waitFor(() => expect(first).toHaveAttribute("data-motion", "active"));
-    expect(container.querySelectorAll("[data-motion='active']")).toHaveLength(1);
+    expect(second).toHaveAttribute("data-motion", "active");
     expect(anime.createScope).toHaveBeenCalledTimes(3);
-    expect(anime.revert).toHaveBeenCalledTimes(2);
 
-    setIntersection(firstObserver, false);
-    expect(first).toHaveAttribute("data-motion", "static");
-    expect(anime.revert).toHaveBeenCalledTimes(3);
+    setIntersection(secondObserver, false);
+    expect(second).toHaveAttribute("data-motion", "static");
+    expect(first).toHaveAttribute("data-motion", "active");
+    expect(anime.revert).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not start stale lazy motion after a signal leaves immediately", async () => {
+    const { container } = render(
+      <PostSignalArtwork decorative seed="post:quick-exit" variant="compact-grid" />,
+    );
+    const root = container.querySelector<HTMLElement>("[data-slot='post-signal-artwork']");
+    const observer = root ? observerFor(root) : undefined;
+    if (!root || !observer) throw new Error("Expected signal artwork and observer");
+
+    setIntersection(observer, true);
+    setIntersection(observer, false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(root).toHaveAttribute("data-motion", "static");
+    expect(anime.createScope).not.toHaveBeenCalled();
+    expect(anime.animate).not.toHaveBeenCalled();
+  });
+
+  it("pauses all running signals while the document is hidden and resumes them", async () => {
+    const { container } = render(
+      <PostSignalArtwork decorative seed="post:visibility" variant="context-rings" />,
+    );
+    const root = container.querySelector<HTMLElement>("[data-slot='post-signal-artwork']");
+    const observer = root ? observerFor(root) : undefined;
+    if (!root || !observer) throw new Error("Expected signal artwork and observer");
+
+    setIntersection(observer, true);
+    await waitFor(() => expect(root).toHaveAttribute("data-motion", "active"));
+
+    visibilityState = "hidden";
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(root).toHaveAttribute("data-motion", "static");
+    expect(anime.revert).toHaveBeenCalledOnce();
+
+    visibilityState = "visible";
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(root).toHaveAttribute("data-motion", "active"));
+    expect(anime.createScope).toHaveBeenCalledTimes(2);
   });
 
   it("avoids loading motion while reduced motion is requested and reacts to changes", async () => {
@@ -284,7 +351,7 @@ describe("PostSignalArtwork", () => {
       <PostSignalArtwork decorative seed="post:still" variant="local-orbit" />,
     );
     const root = container.querySelector<HTMLElement>("[data-slot='post-signal-artwork']");
-    const observer = observers[0];
+    const observer = root ? observerFor(root) : undefined;
     if (!root || !observer) throw new Error("Expected signal artwork and observer");
 
     setIntersection(observer, true);

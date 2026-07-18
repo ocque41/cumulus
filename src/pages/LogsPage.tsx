@@ -77,9 +77,10 @@ function LogsArchive({
           fallbackClassName="archive-hero__fallback"
           frame={824}
           maxPixelCount={480_000}
+          priority
           shape="warp"
           size={3}
-          speed={0.13}
+          speed={0.58}
           type="4x4"
         />
       </header>

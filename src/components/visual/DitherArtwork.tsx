@@ -7,26 +7,43 @@ import {
   type ReactNode,
 } from "react";
 
+import { ORDERED_BAYER_4X4 } from "./bayer";
+
 const ARTWORK_WIDTH = 128;
 const ARTWORK_HEIGHT = 80;
-export const DITHER_FRAME_INTERVAL_MS = 100;
+/** 13.3fps keeps the pixel field lively without running a 60fps card wall. */
+export const DITHER_FRAME_INTERVAL_MS = 75;
 const NEAR_VIEWPORT_MARGIN = "180px 0px";
-
-const BAYER_4X4 = [
-  0, 8, 2, 10,
-  12, 4, 14, 6,
-  3, 11, 1, 9,
-  15, 7, 13, 5,
-] as const;
+const TAU = Math.PI * 2;
 
 const PALETTE = {
   black: [0, 0, 0, 255],
-  surface: [17, 17, 17, 255],
-  quiet: [95, 95, 95, 255],
-  muted: [138, 138, 138, 255],
+  surface: [26, 26, 26, 255],
+  quiet: [112, 112, 112, 255],
+  muted: [202, 202, 202, 255],
 } as const;
 
 type Pixel = readonly [number, number, number, number];
+
+const DITHER_LEVELS: readonly Pixel[] = [
+  PALETTE.black,
+  PALETTE.surface,
+  PALETTE.quiet,
+  PALETTE.muted,
+];
+const COLUMN_POSITIONS = Float32Array.from(
+  { length: ARTWORK_WIDTH },
+  (_, column) => column / Math.max(1, ARTWORK_WIDTH - 1),
+);
+const ROW_POSITIONS = Float32Array.from(
+  { length: ARTWORK_HEIGHT },
+  (_, row) => row / Math.max(1, ARTWORK_HEIGHT - 1),
+);
+const BAYER_THRESHOLDS = Float32Array.from(
+  ORDERED_BAYER_4X4,
+  (value) => (value + 0.5) / 16,
+);
+const imageBuffers = new WeakMap<CanvasRenderingContext2D, ImageData>();
 
 interface RuntimeEntry {
   drawable: boolean;
@@ -86,28 +103,43 @@ function fieldValue(
   x: number,
   y: number,
   phase: number,
-  seed: number,
+  originX: number,
+  originY: number,
+  skew: number,
 ) {
-  const radialX = x - (0.25 + seededUnit(seed, 2) * 0.5);
-  const radialY = y - (0.2 + seededUnit(seed, 3) * 0.6);
-  const radius = Math.sqrt(radialX * radialX + radialY * radialY);
-  const skew = 0.7 + seededUnit(seed, 4) * 1.1;
-
   switch (kind) {
     case 0:
-      return Math.sin((x * 10 + y * 4 * skew + phase) * Math.PI);
+      return (
+        Math.sin((x * 7.5 + y * 3.2 * skew + phase) * TAU) * 0.72 +
+        Math.cos((y * 5.4 - x * 1.8 - phase * 0.43) * TAU) * 0.28
+      );
     case 1:
-      return Math.cos((radius * 15 - phase * 0.72) * Math.PI);
+      return Math.cos(
+        (Math.sqrt((x - originX) ** 2 + (y - originY) ** 2) * 8.5 - phase) *
+          TAU,
+      );
     case 2:
       return (
-        Math.sin((x * 8 + phase * 0.65) * Math.PI) +
-        Math.cos((y * 11 - phase * 0.46) * Math.PI)
+        Math.sin((x * 5.7 + phase * 0.86) * TAU) +
+        Math.cos((y * 7.4 - phase * 0.64) * TAU)
       ) / 2;
     case 3:
-      return Math.sin((x * y * 28 + x * 3 - y * 2 + phase) * Math.PI);
+      return (
+        Math.sin((x * y * 13 + x * 2.7 - y * 1.9 + phase) * TAU) * 0.68 +
+        Math.cos(((x + y) * 4.2 - phase * 0.55) * TAU) * 0.32
+      );
     default:
-      return Math.cos(((x - y * skew) * 9 + radius * 6 + phase * 0.58) * Math.PI);
+      return Math.cos(
+        ((x - y * skew) * 5.6 +
+          Math.sqrt((x - originX) ** 2 + (y - originY) ** 2) * 3.8 +
+          phase) *
+          TAU,
+      );
   }
+}
+
+function clampUnit(value: number) {
+  return Math.min(1, Math.max(0, value));
 }
 
 function paintArtwork(
@@ -115,38 +147,70 @@ function paintArtwork(
   seed: number,
   seconds: number,
 ) {
-  const image = context.createImageData(ARTWORK_WIDTH, ARTWORK_HEIGHT);
-  const phase = seededUnit(seed, 0) * 12 + seconds * (0.18 + seededUnit(seed, 1) * 0.14);
+  let image = imageBuffers.get(context);
+  if (!image) {
+    image = context.createImageData(ARTWORK_WIDTH, ARTWORK_HEIGHT);
+    imageBuffers.set(context, image);
+  }
+
+  const phase =
+    seededUnit(seed, 0) * 8 + seconds * (0.72 + seededUnit(seed, 1) * 0.36);
   const kind = seed % 5;
+  const originX = 0.24 + seededUnit(seed, 2) * 0.52;
+  const originY = 0.2 + seededUnit(seed, 3) * 0.6;
+  const skew = 0.68 + seededUnit(seed, 4) * 1.16;
+  const crossOffset = seededUnit(seed, 5);
+  const signalAngle = seededUnit(seed, 8) * TAU + phase * TAU * 0.72;
+  const signalX = 0.5 + Math.sin(signalAngle) * 0.44;
+  const signalY = 0.5 + Math.cos(signalAngle * 0.73 + kind) * 0.39;
 
   for (let row = 0; row < ARTWORK_HEIGHT; row += 1) {
+    const y = ROW_POSITIONS[row] ?? 0;
     for (let column = 0; column < ARTWORK_WIDTH; column += 1) {
-      const x = column / Math.max(1, ARTWORK_WIDTH - 1);
-      const y = row / Math.max(1, ARTWORK_HEIGHT - 1);
-      const signal = (fieldValue(kind, x, y, phase, seed) + 1) / 2;
-      const threshold = (BAYER_4X4[(row % 4) * 4 + (column % 4)] + 0.5) / 16;
+      const x = COLUMN_POSITIONS[column] ?? 0;
+      const wave = fieldValue(
+        kind,
+        x,
+        y,
+        phase,
+        originX,
+        originY,
+        skew,
+      );
+      const crossWave = Math.sin(
+        (x * 2.4 - y * 1.7 + phase * 0.82 + crossOffset) * TAU,
+      );
+      const signalDistance =
+        (x - signalX) * (x - signalX) + (y - signalY) * (y - signalY);
+      const movingBloom = Math.max(0, 1 - signalDistance * 48);
+      const luminance = clampUnit(
+        0.08 + ((wave * 0.76 + crossWave * 0.24 + 1) / 2) * 0.84 +
+          movingBloom * 0.32,
+      );
+      const threshold =
+        BAYER_THRESHOLDS[(row % 4) * 4 + (column % 4)] ?? 0.5;
+      const scaledLevel = luminance * (DITHER_LEVELS.length - 1);
+      const lowerLevel = Math.floor(scaledLevel);
+      const level = Math.min(
+        DITHER_LEVELS.length - 1,
+        lowerLevel + (scaledLevel - lowerLevel > threshold ? 1 : 0),
+      );
       const offset = (row * ARTWORK_WIDTH + column) * 4;
-      let pixel: Pixel = (row + column + seed) % 11 === 0
-        ? PALETTE.surface
-        : PALETTE.black;
-
-      if (signal > threshold + 0.19) pixel = PALETTE.quiet;
-      if (signal > threshold + 0.48) pixel = PALETTE.muted;
-      writePixel(image.data, offset, pixel);
+      writePixel(image.data, offset, DITHER_LEVELS[level] ?? PALETTE.black);
     }
   }
 
   context.putImageData(image, 0, 0);
 
-  // One tiny hot signal keeps the closed palette intact without creating an
-  // orange panel or allowing color to carry meaning.
-  const accentX = seed % 2 === 0 ? 2 : ARTWORK_WIDTH - 3;
-  const accentY = 5 + Math.floor(seededUnit(seed, 8) * (ARTWORK_HEIGHT - 14));
+  // A tiny moving hot signal makes the temporal direction obvious while the
+  // Bayer field remains the primary artwork and color never carries meaning.
+  const accentX = Math.round(signalX * (ARTWORK_WIDTH - 3));
+  const accentY = Math.round(signalY * (ARTWORK_HEIGHT - 6));
   context.fillStyle = "#ff4d00";
-  context.fillRect(accentX, accentY, 1, 5);
+  context.fillRect(accentX, accentY, 2, 5);
   context.fillRect(
-    8 + Math.floor(seededUnit(seed, 9) * (ARTWORK_WIDTH - 16)),
-    4 + Math.floor(seededUnit(seed, 10) * (ARTWORK_HEIGHT - 8)),
+    Math.round((1 - signalX) * (ARTWORK_WIDTH - 2)),
+    Math.round((1 - signalY) * (ARTWORK_HEIGHT - 2)),
     1,
     1,
   );
@@ -418,7 +482,7 @@ export type DitherArtworkProps = DitherArtworkBaseProps &
 /**
  * Low-resolution, Canvas2D dither field for repeated editorial artwork.
  * All visible instances share one observer, motion query, visibility listener,
- * and 10fps scheduler; unsupported browsers retain the CSS fallback.
+ * and 13.3fps scheduler; unsupported browsers retain the CSS fallback.
  */
 export function DitherArtwork({
   children,

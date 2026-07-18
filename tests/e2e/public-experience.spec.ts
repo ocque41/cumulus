@@ -2,16 +2,19 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { publishedPosts, searchPublishedPosts } from "../../src/content/posts";
 import { WORK_PROJECTS } from "../../src/content/work";
+import {
+  mockAnonymousNotificationSession,
+  mockContributions,
+  NOTIFICATION_PROMPT_STORAGE_KEY,
+  PRIMARY_ACTIVITY_DATE,
+  PRIMARY_ACTIVITY_LABEL,
+  SECONDARY_ACTIVITY_DATE,
+  SECONDARY_ACTIVITY_LABEL,
+  seedNotificationPromptMarker,
+  SESSION_ENDPOINT,
+} from "./public-test-support";
 
-const CONTRIBUTIONS_ENDPOINT = "**/api/github/contributions";
-const SESSION_ENDPOINT = "**/api/notifications/session";
-const NOTIFICATION_PROMPT_STORAGE_KEY =
-  "cumulus.notificationPrompt.seen.v1";
-
-const PRIMARY_ACTIVITY_DATE = "2026-07-16";
-const PRIMARY_ACTIVITY_LABEL = "Thursday, July 16, 2026";
-const SECONDARY_ACTIVITY_DATE = "2025-07-13";
-const SECONDARY_ACTIVITY_LABEL = "Sunday, July 13, 2025";
+const PREFERENCES_ENDPOINT = "**/api/notifications/preferences";
 
 const PROJECT_COUNTS = new Map([
   ["requisia", 8],
@@ -19,76 +22,6 @@ const PROJECT_COUNTS = new Map([
   ["hyoka-hanesu", 3],
   ["gy", 2],
 ]);
-
-async function mockContributions(page: Page) {
-  await page.route(CONTRIBUTIONS_ENDPOINT, async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      json: {
-        username: "ocque41",
-        activityDays: [
-          {
-            commits: 2,
-            date: SECONDARY_ACTIVITY_DATE,
-            highlights: [
-              {
-                kind: "commit",
-                repository: "cumulus/cloud",
-                title: "Establish the public activity boundary",
-              },
-            ],
-            issues: 0,
-            pullRequests: 0,
-          },
-          {
-            commits: 4,
-            date: PRIMARY_ACTIVITY_DATE,
-            highlights: [
-              {
-                kind: "pull-request",
-                repository: "cumulus/cloud",
-                title: "Refine the hero activity field",
-                url: "https://github.com/cumulus/cloud/pull/12",
-              },
-            ],
-            issues: 1,
-            pullRequests: 1,
-          },
-        ],
-        activityDetailStatus: "live",
-        contributions: [
-          { count: 2, date: SECONDARY_ACTIVITY_DATE, level: 2 },
-          { count: 4, date: PRIMARY_ACTIVITY_DATE, level: 3 },
-        ],
-        totalContributions: 6,
-        fetchedAt: "2026-07-17T12:00:00.000Z",
-      },
-    });
-  });
-}
-
-async function mockAnonymousNotificationSession(page: Page) {
-  await page.route(SESSION_ENDPOINT, async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      json: { user: null },
-      status: 200,
-    });
-  });
-}
-
-async function seedNotificationPromptMarker(page: Page) {
-  await page.addInitScript(
-    ({ key, value }) => {
-      try {
-        window.localStorage.setItem(key, value);
-      } catch {
-        window.sessionStorage.setItem(key, value);
-      }
-    },
-    { key: NOTIFICATION_PROMPT_STORAGE_KEY, value: "1" },
-  );
-}
 
 async function openNotificationSettings(page: Page): Promise<Locator> {
   const trigger = page.getByRole("button", {
@@ -123,6 +56,50 @@ async function expectPopoverDoesNotCoverAnchor(
       popoverRect.top - anchorRect.bottom,
     );
   }, date)).toBeGreaterThanOrEqual(-1);
+}
+
+async function expectNoInternalScroll(renderer: Locator, label: string) {
+  await expect(renderer).toBeVisible();
+  const state = await renderer.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const bounds = element.getBoundingClientRect();
+    const childrenFit = Array.from(element.children).every((child) => {
+      const childBounds = child.getBoundingClientRect();
+      return childBounds.left >= bounds.left - 1
+        && childBounds.right <= bounds.right + 1
+        && childBounds.top >= bounds.top - 1
+        && childBounds.bottom <= bounds.bottom + 1;
+    });
+    element.scrollLeft = 100;
+    element.scrollTop = 100;
+    const attemptedScrollLeft = element.scrollLeft;
+    const attemptedScrollTop = element.scrollTop;
+    element.scrollLeft = 0;
+    element.scrollTop = 0;
+    return {
+      attemptedScrollLeft,
+      attemptedScrollTop,
+      clientHeight: element.clientHeight,
+      clientWidth: element.clientWidth,
+      childrenFit,
+      overflowX: style.overflowX,
+      overflowY: style.overflowY,
+      scrollHeight: element.scrollHeight,
+      scrollWidth: element.scrollWidth,
+    };
+  });
+
+  expect([state.overflowX, state.overflowY], `${label} overflow mode`)
+    .not.toContain("auto");
+  expect([state.overflowX, state.overflowY], `${label} overflow mode`)
+    .not.toContain("scroll");
+  expect(state.childrenFit, `${label} content fit`).toBe(true);
+  expect(state.scrollWidth, `${label} horizontal content fit`)
+    .toBeLessThanOrEqual(state.clientWidth + 1);
+  expect(state.scrollHeight, `${label} vertical content fit`)
+    .toBeLessThanOrEqual(state.clientHeight + 1);
+  expect(state.attemptedScrollLeft, `${label} horizontal scroll lock`).toBe(0);
+  expect(state.attemptedScrollTop, `${label} vertical scroll lock`).toBe(0);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -226,7 +203,7 @@ test("desktop graph previews transient details and pins a selected date above th
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop graph interaction");
-  await page.setViewportSize({ height: 900, width: 1_440 });
+  await page.setViewportSize({ height: 650, width: 1_440 });
   await seedNotificationPromptMarker(page);
   await page.goto("/");
 
@@ -285,6 +262,7 @@ test("desktop graph previews transient details and pins a selected date above th
     details.getByRole("button", { name: "Close activity details" }),
   ).toBeVisible();
   await expectPopoverDoesNotCoverAnchor(details, PRIMARY_ACTIVITY_DATE);
+  await expectNoInternalScroll(details, "Pinned GitHub contribution details");
 
   await secondaryCell.hover();
   await expect(details).toHaveAttribute("data-anchor-date", PRIMARY_ACTIVITY_DATE);
@@ -343,6 +321,7 @@ test("responsive graph picker focuses details and returns focus when closed", as
   await expect(details).not.toHaveAttribute("data-viewport-portal");
   await expect(details).toHaveAttribute("data-anchor-date", PRIMARY_ACTIVITY_DATE);
   await expect(details).toBeFocused();
+  await expectNoInternalScroll(details, "Responsive GitHub contribution details");
   await details.getByRole("button", { name: "Close activity details" }).click();
   await expect(details).toHaveCount(0);
   await expect(dayPicker).toBeFocused();
@@ -512,6 +491,56 @@ test("manual notification settings recover after a temporary session outage", as
   await expect(dialog.getByRole("textbox", { name: "Email address" }))
     .toBeFocused();
   await expect(dialog.getByRole("button", { name: "Retry" })).toHaveCount(0);
+});
+
+test("a recognized session can unsubscribe inside the top-right settings dialog", async ({
+  page,
+}) => {
+  await seedNotificationPromptMarker(page);
+  await page.unroute(SESSION_ENDPOINT);
+  await page.route(SESSION_ENDPOINT, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: { user: { email: "reader@example.com" } },
+      status: 200,
+    });
+  });
+
+  let preference: "active" | "unsubscribed" = "active";
+  const updates: string[] = [];
+  await page.route(PREFERENCES_ENDPOINT, async (route) => {
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON() as { status?: unknown };
+      if (body.status === "active" || body.status === "unsubscribed") {
+        preference = body.status;
+        updates.push(body.status);
+      }
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      json: { ok: true, status: preference },
+      status: 200,
+    });
+  });
+
+  await page.goto("/");
+  await openNotificationSettings(page);
+  const dialog = page.getByRole("dialog", { name: "New log notifications" });
+
+  await expect(dialog.getByText(/managing notifications for/i)).toContainText(
+    "reader@example.com",
+  );
+  await expect(dialog.getByText("New-post notifications are on")).toBeVisible();
+  await dialog.getByRole("button", {
+    name: "Unsubscribe from new-post emails",
+  }).click();
+
+  await expect.poll(() => updates).toEqual(["unsubscribed"]);
+  await expect(
+    dialog.getByText("New-post notifications are off", { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Turn on notifications" }))
+    .toBeEnabled();
 });
 
 test("every published journal renders lead, section, and related dither surfaces", async ({

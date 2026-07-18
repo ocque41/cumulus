@@ -13,7 +13,10 @@ export interface NotificationPreferencesProps {
   fetcher?: typeof fetch;
 }
 
-type PreferenceState = NotificationSubscriptionStatus | null;
+type PreferenceState =
+  | { kind: "error" }
+  | { kind: "loading" }
+  | { kind: "ready"; status: NotificationSubscriptionStatus };
 
 const statusCopy: Record<NotificationSubscriptionStatus, string> = {
   active: "New-post notifications are on",
@@ -27,45 +30,42 @@ export function NotificationPreferences({
 }: NotificationPreferencesProps) {
   const { available, user, loading: authLoading, unavailableReason } = useAuth();
   const headingId = useId();
-  const [status, setStatus] = useState<PreferenceState>(null);
-  const [loading, setLoading] = useState(false);
+  const [preference, setPreference] = useState<PreferenceState>({
+    kind: "loading",
+  });
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!user) {
-      setStatus(null);
-      setLoading(false);
+      setPreference({ kind: "loading" });
       return;
     }
 
     let active = true;
-    setLoading(true);
+    setPreference({ kind: "loading" });
     setMessage("");
 
     void readNotificationSubscription(fetcher)
       .then((subscription) => {
         if (active) {
-          setStatus(subscription.status);
+          setPreference({ kind: "ready", status: subscription.status });
         }
       })
       .catch(() => {
         if (active) {
+          setPreference({ kind: "error" });
           setMessage(
             "Cumulus could not load this notification preference. Please try again.",
           );
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
         }
       });
 
     return () => {
       active = false;
     };
-  }, [fetcher, user]);
+  }, [fetcher, loadAttempt, user]);
 
   const saveStatus = useCallback(
     async (nextStatus: NotificationSubscriptionStatus) => {
@@ -79,7 +79,7 @@ export function NotificationPreferences({
 
       try {
         const subscription = await upsertNotificationSubscription(nextStatus, fetcher);
-        setStatus(subscription.status);
+        setPreference({ kind: "ready", status: subscription.status });
         setMessage(statusCopy[subscription.status] + ".");
         onStatusChange?.(subscription.status);
       } catch {
@@ -127,12 +127,16 @@ export function NotificationPreferences({
     );
   }
 
-  const nextStatus: NotificationSubscriptionStatus =
-    status === "active" ? "unsubscribed" : "active";
+  const status = preference.kind === "ready" ? preference.status : null;
+  const loading = preference.kind === "loading";
   const buttonLabel =
-    status === "active"
-      ? "Turn off notifications"
-      : "Turn on notifications";
+    preference.kind === "error"
+      ? "Retry preference"
+      : status === null
+        ? "Loading preference"
+      : status === "active"
+        ? "Unsubscribe from new-post emails"
+        : "Turn on notifications";
 
   return (
     <section
@@ -159,9 +163,11 @@ export function NotificationPreferences({
         <span className="auth-preference-value">
           {loading
             ? "Loading…"
-            : status
+            : preference.kind === "error"
+              ? "Current preference unavailable"
+              : status
               ? statusCopy[status]
-              : "No notification preference is saved"}
+              : "Loading…"}
         </span>
       </p>
 
@@ -169,7 +175,15 @@ export function NotificationPreferences({
         className="button-secondary auth-preference-action"
         type="button"
         disabled={loading || saving}
-        onClick={() => void saveStatus(nextStatus)}
+        onClick={() => {
+          if (preference.kind === "error") {
+            setLoadAttempt((attempt) => attempt + 1);
+            return;
+          }
+          if (status) {
+            void saveStatus(status === "active" ? "unsubscribed" : "active");
+          }
+        }}
       >
         {saving ? "Saving…" : buttonLabel}
       </button>

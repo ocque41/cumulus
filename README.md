@@ -122,7 +122,7 @@ Reader-facing notification data boundaries and the manual correction/deletion co
 
 The visual system uses pure black, neutral gray typography, and very small touches of `#ff4d00`. Only the three bundled non-charted Jacquard fonts, the externally supplied Production-only Alcyone Medium webfont, and the approved dither/blur component vocabulary may be used. See [brand guidelines](BRAND_GUIDELINES.md).
 
-Post summaries use deterministic signal instruments instead of repeating one dither illustration. Each named visual has its own diagram and corner treatment; motion loads only when the artwork is visible and remains static when reduced motion is requested.
+Post summaries use deterministic signal instruments instead of repeating one illustration. Every surface combines a real ordered 4×4 Bayer canvas with its own masked diagram and four different corner instruments. All visible instances move independently through one bounded scheduler, offscreen work stops, and reduced-motion frames remain static.
 
 Repository code is Apache-2.0. The bundled Jacquard font files remain under SIL OFL 1.1 and retain their upstream license text. Alcyone Medium remains outside Git and the Apache-2.0 distribution under its separate commercial license. No AGPL source is included. See [licensing](docs/licensing.md), [NOTICE](NOTICE), and [trademarks](TRADEMARKS.md).
 

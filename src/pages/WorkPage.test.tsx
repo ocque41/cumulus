@@ -51,11 +51,18 @@ describe("WorkPage project journals", () => {
       const expected = publishedPosts.filter((post) => post.project === project.slug);
       const projectArticle = view.container.querySelector(`#work-${project.slug}`);
       const projectLinks = projectArticle?.querySelectorAll(".work-project__notes a");
+      const projectGrid = projectArticle?.querySelector<HTMLElement>(
+        ".work-project__notes > [data-card-count]",
+      );
       const projectPlates = projectArticle?.querySelectorAll(
         `[data-placement="work-${project.slug}"]`,
       );
 
       expect(projectLinks, project.slug).toHaveLength(expected.length);
+      expect(projectGrid, project.slug).toHaveAttribute(
+        "data-card-count",
+        String(expected.length),
+      );
       expect(projectPlates, project.slug).toHaveLength(expected.length);
     }
   });

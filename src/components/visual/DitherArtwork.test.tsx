@@ -235,9 +235,11 @@ describe("DitherArtwork", () => {
   it("defers Canvas2D work until intersection and uses one timeout per paint", () => {
     const runtime = installRuntime();
     const putImageData = vi.fn();
+    const context = canvasContext(putImageData);
+    const fillRect = context.fillRect as ReturnType<typeof vi.fn>;
     const getContext = vi
       .spyOn(HTMLCanvasElement.prototype, "getContext")
-      .mockReturnValue(canvasContext(putImageData));
+      .mockReturnValue(context);
     const { container, unmount } = render(
       <DitherArtwork decorative seed="post:one" />,
     );
@@ -264,6 +266,8 @@ describe("DitherArtwork", () => {
     expect(root).toHaveAttribute("data-motion", "active");
     expect(vi.getTimerCount()).toBe(1);
     expect(runtime.requestAnimationFrame).not.toHaveBeenCalled();
+    const initialFrame = imageDataSnapshot(putImageData);
+    const initialAccent = fillRect.mock.calls[0]?.slice(0, 2);
 
     advanceRuntime(DITHER_FRAME_INTERVAL_MS - 1);
     expect(runtime.requestAnimationFrame).not.toHaveBeenCalled();
@@ -273,6 +277,8 @@ describe("DitherArtwork", () => {
 
     runtime.runNextFrame(DITHER_FRAME_INTERVAL_MS);
     expect(putImageData).toHaveBeenCalledTimes(2);
+    expect(imageDataSnapshot(putImageData)).not.toEqual(initialFrame);
+    expect(fillRect.mock.calls[2]?.slice(0, 2)).not.toEqual(initialAccent);
     expect(vi.getTimerCount()).toBe(1);
     expect(runtime.frames.size).toBe(0);
 
@@ -330,11 +336,16 @@ describe("DitherArtwork", () => {
     expect(putImageData.map((paint) => paint.mock.calls.length)).toEqual([1, 1]);
     expect(vi.getTimerCount()).toBe(1);
 
+    advanceRuntime(DITHER_FRAME_INTERVAL_MS);
+    runtime.runNextFrame(DITHER_FRAME_INTERVAL_MS);
+    expect(putImageData.map((paint) => paint.mock.calls.length)).toEqual([2, 2]);
+    expect(vi.getTimerCount()).toBe(1);
+
     triggerIntersections([{ isIntersecting: false, target: roots[0] as Element }]);
     expect(vi.getTimerCount()).toBe(1);
     advanceRuntime(DITHER_FRAME_INTERVAL_MS);
-    runtime.runNextFrame(DITHER_FRAME_INTERVAL_MS);
-    expect(putImageData.map((paint) => paint.mock.calls.length)).toEqual([1, 2]);
+    runtime.runNextFrame(DITHER_FRAME_INTERVAL_MS * 2);
+    expect(putImageData.map((paint) => paint.mock.calls.length)).toEqual([2, 3]);
     expect(vi.getTimerCount()).toBe(1);
 
     triggerIntersections([{ isIntersecting: false, target: roots[1] as Element }]);
@@ -342,8 +353,37 @@ describe("DitherArtwork", () => {
     expect(runtime.frames.size).toBe(0);
 
     triggerIntersections([{ isIntersecting: true, target: roots[0] as Element }]);
-    expect(putImageData.map((paint) => paint.mock.calls.length)).toEqual([2, 2]);
+    expect(putImageData.map((paint) => paint.mock.calls.length)).toEqual([3, 3]);
     expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it("renders distinct Bayer fields for distinct variants", () => {
+    installRuntime({ reduced: true });
+    const putImageData = [vi.fn(), vi.fn()];
+    const contexts = putImageData.map((paint) => canvasContext(paint));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockImplementation(() => contexts.shift() ?? null);
+    const { container } = render(
+      <>
+        <DitherArtwork decorative seed="same-post" variant="orbit" />
+        <DitherArtwork decorative seed="same-post" variant="scan" />
+      </>,
+    );
+    const roots = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-slot='dither-artwork']"),
+    );
+
+    triggerIntersections(
+      roots.map((target) => ({ isIntersecting: true, target })),
+    );
+
+    expect(putImageData.map((paint) => paint.mock.calls.length)).toEqual([1, 1]);
+    expect(
+      imageDataSnapshot(putImageData[0] as ReturnType<typeof vi.fn>),
+    ).not.toEqual(
+      imageDataSnapshot(putImageData[1] as ReturnType<typeof vi.fn>),
+    );
+    expect(roots[0]?.dataset.ditherSeed).not.toBe(roots[1]?.dataset.ditherSeed);
   });
 
   it("pauses and redraws deterministically across visibility and motion changes", () => {

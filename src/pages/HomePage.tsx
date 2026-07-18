@@ -8,6 +8,7 @@ import {
 import { HeroDither } from "@/components/visual/HeroDither";
 import { featuredPost, publishedPosts } from "@/content/posts";
 import { NotificationPreferences } from "@/features/notifications";
+import { createAsymmetricGridStyles } from "@/lib/asymmetric-grid";
 import { AppLink, useDocumentMeta } from "@/lib/router";
 
 interface HomePageProps {
@@ -24,6 +25,10 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
   const stories = publishedPosts.filter((post) => post.placement === "stories");
   const research = publishedPosts.filter((post) => post.placement === "research");
   const business = publishedPosts.filter((post) => post.placement === "build-business");
+  const newestGrid = createAsymmetricGridStyles(newest.length);
+  const storiesGrid = createAsymmetricGridStyles(stories.length);
+  const researchGrid = createAsymmetricGridStyles(research.length);
+  const businessGrid = createAsymmetricGridStyles(business.length);
 
   return (
     <>
@@ -33,10 +38,11 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           fallbackClassName="home-hero__dither-fallback"
           frame={288}
           maxPixelCount={420_000}
+          priority
           scale={0.9}
           shape="warp"
           size={2.25}
-          speed={0.2}
+          speed={0.85}
           tone="muted"
           type="8x8"
         />
@@ -94,9 +100,14 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
             full reading page with evidence limits and neighboring notes.
           </p>
         </div>
-        <div className="post-grid">
+        <div className="post-grid" data-card-count={newest.length}>
           {newest.map((post, index) => (
-            <PostCard index={index} key={post.slug} post={post} />
+            <PostCard
+              index={index}
+              key={post.slug}
+              post={post}
+              style={newestGrid[index]}
+            />
           ))}
         </div>
         <AppLink className="large-index-link" href="/logs">
@@ -112,7 +123,7 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           maxPixelCount={720_000}
           shape="ripple"
           size={3}
-          speed={0.14}
+          speed={0.48}
           type="4x4"
         />
         <div className="signal-interlude__copy page-shell">
@@ -126,9 +137,14 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           <p className="eyebrow">Stories / 004</p>
           <h2 id="stories-title">Systems told from the inside.</h2>
         </div>
-        <div className="field-note-grid">
-          {stories.map((post) => (
-            <article className="field-note" data-signal-host key={post.slug}>
+        <div className="field-note-grid" data-card-count={stories.length}>
+          {stories.map((post, index) => (
+            <article
+              className="field-note"
+              data-signal-host
+              key={post.slug}
+              style={storiesGrid[index]}
+            >
               <div className="field-note__visual">
                 <DitherPlate
                   className="field-note__plate"
@@ -158,9 +174,14 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
             evidence that keeps an implementation claim honest.
           </p>
         </div>
-        <div className="post-grid">
+        <div className="post-grid" data-card-count={research.length}>
           {research.map((post, index) => (
-            <PostCard index={index + 10} key={post.slug} post={post} />
+            <PostCard
+              index={index + 10}
+              key={post.slug}
+              post={post}
+              style={researchGrid[index]}
+            />
           ))}
         </div>
       </section>
@@ -170,9 +191,14 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
           <p className="eyebrow">Business / 006</p>
           <h2 id="business-title">Authority, identity, and durable operations.</h2>
         </div>
-        <div className="field-note-grid">
-          {business.map((post) => (
-            <article className="field-note" data-signal-host key={post.slug}>
+        <div className="field-note-grid" data-card-count={business.length}>
+          {business.map((post, index) => (
+            <article
+              className="field-note"
+              data-signal-host
+              key={post.slug}
+              style={businessGrid[index]}
+            >
               <div className="field-note__visual">
                 <DitherPlate
                   className="field-note__plate"
