@@ -1,6 +1,6 @@
 # Cumulus
 
-Cumulus 0.0.8 is a public log-style blog built from scratch with React and Vite. It presents high-contrast Jacquard titles with GFS Neohellenic across every non-title text role, and lets readers opt in to email when a new post is published. Notification signup is the complete reader identity scope; there are no public profiles, social accounts, or content-management credentials in the browser app.
+Cumulus 0.0.8 is a public log-style blog built from scratch with React and Vite. It presents high-contrast Jacquard `h1`–`h6` headings with GFS Neohellenic across every non-heading text role, and lets readers opt in to email when a new post is published. Notification signup is the complete reader identity scope; there are no public profiles, social accounts, or content-management credentials in the browser app.
 
 The selected production design lives on `request/cumulus-original` and is published through `main`. The literal source-layout study remains available on `request/jacquard-reference`; shared product, content, accessibility, and security behavior belongs on both branches.
 
@@ -24,7 +24,7 @@ The public execution record lives in the [planning index](planning/README.md). A
 - Resend for notification contacts, preferences, suppression, and new-post delivery
 - Vercel for the anticipated web and server-function deployment
 - Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9, supplied under SIL OFL 1.1
-- GFS Neohellenic Regular, Italic, Bold, and Bold Italic for all non-title typography, supplied under SIL OFL 1.1
+- GFS Neohellenic Regular, Italic, Bold, and Bold Italic for all non-heading typography, supplied under SIL OFL 1.1
 
 This is not a Next.js application. The `NEXT_PUBLIC_*` environment names are compatibility names intentionally exposed through Vite's configured `envPrefix`.
 
@@ -92,7 +92,7 @@ The production workflow is:
 1. Install exactly from the lockfile with `npm ci`.
 2. Run lint, type checking, unit tests, security scanning, license checks, and the production build.
 3. Configure a dedicated Resend Segment and opt-out-by-default Topic, then set their IDs and all secrets directly in Vercel; never store values in Git.
-4. Publish a candidate branch, inspect GFS Neohellenic across body, navigation, controls, labels, and metadata while confirming Jacquard titles remain unchanged, and run end-to-end tests with approved synthetic recipients.
+4. Publish a candidate branch, inspect GFS Neohellenic across every non-heading element while confirming Jacquard `h1`–`h6` headings remain unchanged, and run end-to-end tests with approved synthetic recipients.
 5. Merge the selected `request/cumulus-original` commit into `main` only with explicit publication approval.
 6. Verify the exact production deployment, bundled font delivery, direct-route refreshes, static metadata, sitemap, 404 behavior, and domain alias.
 7. Verify sign-in and one controlled Resend lifecycle only after the truthful postal address and webhook signing secret are present.

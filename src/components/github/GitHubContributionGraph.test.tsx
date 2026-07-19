@@ -613,9 +613,13 @@ describe("GitHubContributionGraph", { timeout: 15_000 }, () => {
         '.contribution-grid .contribution-cell[data-texture="dither"]',
       ),
     ).toHaveLength(371);
-    expect(screen.getByRole("link", { name: /^GitHub/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
       "href",
       "https://github.com/ocque41",
+    );
+    expect(screen.getByRole("link", { name: "Repositories" })).toHaveAttribute(
+      "href",
+      "https://github.com/ocque41?tab=repositories",
     );
   });
 

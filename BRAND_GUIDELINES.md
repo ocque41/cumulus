@@ -27,11 +27,11 @@ Never communicate success, warning, error, or selection with color alone. Pair t
 
 ## Typography
 
-The typography system separates titles from every other text role:
+The typography system separates semantic HTML headings from every other text role:
 
-- **Jacquard 24** — display titles and hero statements;
-- **Jacquard 12** — secondary titles from `h3` through `h6`;
-- **GFS Neohellenic** — all non-title text, including paragraphs, navigation, controls, dates, metadata, labels, and supporting copy. Regular, Italic, Bold, and Bold Italic are bundled so the browser never synthesizes those styles.
+- **Jacquard 24** — `h1`, `h2`, and the CUMULUS wordmark;
+- **Jacquard 12** — headings from `h3` through `h6`;
+- **GFS Neohellenic** — every non-heading element, including paragraphs, navigation, controls, dates, metadata, labels, large index links, interlude copy, project names, footer statements, and supporting copy. Regular, Italic, Bold, and Bold Italic are bundled so the browser never synthesizes those styles.
 - **Jacquarda Bastarda 9** — retained as a bundled historical display asset, but not assigned to body/interface roles.
 
 The charted versions of all three families are intentionally omitted. Do not add them to the repository, preload them, or use them in generated artwork.
@@ -46,7 +46,7 @@ Recommended scale:
 | Body | GFS Neohellenic | `clamp(1.05rem, 1.4vw, 1.3rem)` | `1.45–1.65` |
 | Label / metadata | GFS Neohellenic | `0.85–1rem` | `1.2–1.4` |
 
-Do not synthesize weights or italics the files do not provide. Use size, spacing, tone, and the title/body split for hierarchy. GFS Neohellenic falls back only to Jacquard 12 if a bundled file cannot load; no generic, system, remote, or icon-font fallback is added.
+Do not synthesize weights or italics the files do not provide. Use size, spacing, tone, and the heading/body split for hierarchy. GFS Neohellenic falls back only to Jacquard 12 if a bundled file cannot load; no generic, system, remote, or icon-font fallback is added.
 
 Keep long lines around 55–72 characters. Test the smallest body and metadata roles on real mobile widths before release.
 

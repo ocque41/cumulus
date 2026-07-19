@@ -874,8 +874,8 @@ export function GitHubContributionGraph() {
                   {loadState === "fallback" && "Live contribution data is unavailable; this empty grid contains no inferred counts."}
                 </p>
                 <div className="contribution-links">
-                  <a href={`https://github.com/${USERNAME}`} rel="noreferrer" target="_blank">GitHub ↗</a>
-                  <a href={`https://github.com/${USERNAME}?tab=repositories`} rel="noreferrer" target="_blank">Repositories ↗</a>
+                  <a href={`https://github.com/${USERNAME}`} rel="noreferrer" target="_blank">GitHub</a>
+                  <a href={`https://github.com/${USERNAME}?tab=repositories`} rel="noreferrer" target="_blank">Repositories</a>
                 </div>
               </div>
             </div>

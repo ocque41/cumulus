@@ -33,7 +33,7 @@ All `NEXT_PUBLIC_*` values are deliberately browser-visible. The compatibility p
 - Use `#000000` as the canvas and structural black.
 - Use neutral gray tones for all text and dividers.
 - Use `#ff4d00` only for small, high-contrast accents and focus/status details.
-- Use the bundled OFL-licensed GFS Neohellenic family for every non-title typography role, including body copy, navigation, controls, labels, and metadata. Preserve the supplied Jacquard 24 and Jacquard 12 title treatment for `h1`–`h6` and editorial title links. Jacquarda Bastarda 9 remains bundled for historical title artwork only; the charted Jacquard variants are intentionally excluded.
+- Use the bundled OFL-licensed GFS Neohellenic family for every element that is not an actual `h1`–`h6` heading, including body copy, navigation, controls, labels, metadata, large index links, interlude copy, project names, and footer statements. Preserve the supplied Jacquard 24 and Jacquard 12 treatment only for `h1`–`h6` and the CUMULUS wordmark. Jacquarda Bastarda 9 remains bundled for historical title artwork only; the charted Jacquard variants are intentionally excluded.
 - Do not add another UI kit. The allowed component vocabulary is Tripwire Dither Kit, Dither Image, Edge Blur, Hero Dithering, and faithful locally authored derivatives.
 - Native semantic HTML is allowed and preferred. It is not a second component system.
 - A pasted Next.js component is a visual reference only. Port behavior to React/Vite; do not introduce Next.js or `next/image`.

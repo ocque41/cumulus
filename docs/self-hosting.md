@@ -6,7 +6,7 @@ Cumulus is a React/Vite application with small server-side notification endpoint
 
 The browser bundle receives only `NEXT_PUBLIC_SITE_URL`. All Resend credentials and resource IDs, sender configuration, postal address, GitHub token, publish secret, and notification signing secret are server-only. Do not expose them through `import.meta.env` or commit them.
 
-The public repository includes GFS Neohellenic under SIL OFL 1.1 for every non-title typography role. It requires no private font configuration or runtime font endpoint.
+The public repository includes GFS Neohellenic under SIL OFL 1.1 for every non-heading typography role. It requires no private font configuration or runtime font endpoint.
 
 ## Setup
 

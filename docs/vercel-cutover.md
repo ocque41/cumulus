@@ -8,7 +8,7 @@ Retain the existing Vercel project, Git integration, production branch, and `cum
 2. Confirm the Resend Cumulus Segment exists and the new-log Topic defaults to `opt_out`.
 3. Set Preview values directly in Vercel: `NEXT_PUBLIC_SITE_URL`, the Resend key/webhook secret/resource IDs, verified sender, truthful postal address, optional fixed-profile GitHub token, and independent publish/session signing secrets.
 4. Publish the selected `request/cumulus-original` candidate only after push approval. Do not create another Vercel project, change the domain, or place provider identifiers in Git.
-5. Verify direct routes, bundled GFS Neohellenic non-title typography, preserved Jacquard titles, responsive layout, consent, magic-link exchange, preference activation/deactivation, publish authorization, exact-once Broadcast behavior, unsubscribe, and signed suppression handling with approved synthetic recipients.
+5. Verify direct routes, bundled GFS Neohellenic non-heading typography, preserved Jacquard `h1`–`h6` headings, responsive layout, consent, magic-link exchange, preference activation/deactivation, publish authorization, exact-once Broadcast behavior, unsubscribe, and signed suppression handling with approved synthetic recipients.
 
 ## Production gate
 

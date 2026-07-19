@@ -193,7 +193,7 @@ test("count-aware home and work grids fill every row at each responsive width", 
   }
 });
 
-test("GFS Neohellenic styles every non-title typography role", async ({
+test("GFS Neohellenic styles every non-heading typography role", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Typography contract is viewport-independent");
@@ -221,6 +221,20 @@ test("GFS Neohellenic styles every non-title typography role", async ({
       postTitle: fontFamily(".featured-post h3"),
       metadata: fontFamily(".featured-post .post-meta"),
       navigation: fontFamily(".primary-navigation a"),
+      nonHeadingFontFailures: Array.from(
+        document.querySelectorAll<HTMLElement>("body *"),
+      ).flatMap((element) => {
+        if (element.closest("h1, h2, h3, h4, h5, h6, .wordmark, svg")) return [];
+        const hasDirectText = Array.from(element.childNodes).some(
+          (node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()),
+        );
+        if (!hasDirectText) return [];
+        const style = getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden") return [];
+        return style.fontFamily.includes("GFS Neohellenic")
+          ? []
+          : [`${element.tagName.toLowerCase()}.${element.className}: ${style.fontFamily}`];
+      }),
       readingCopy: [
         ".home-hero__footer p",
         ".opening-statement__copy > p",
@@ -233,6 +247,7 @@ test("GFS Neohellenic styles every non-title typography role", async ({
 
   expect(typography.body).toContain("GFS Neohellenic");
   expect(typography.bodyFontLoaded).toBe(true);
+  expect(typography.nonHeadingFontFailures).toEqual([]);
   for (const family of [
     ...typography.readingCopy,
     typography.eyebrow,
