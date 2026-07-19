@@ -1,28 +1,11 @@
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
-
-import { createLocalFontBoundaryMiddleware } from "./vite-alcyone-font-boundary.js";
-
-function localFontBoundary(): Plugin {
-  const middleware = createLocalFontBoundaryMiddleware();
-  return {
-    apply: "serve",
-    configurePreviewServer(server) {
-      server.middlewares.use(middleware);
-    },
-    configureServer(server) {
-      server.middlewares.use(middleware);
-    },
-    name: "cumulus-local-font-boundary",
-  };
-}
 
 export default defineConfig({
   envPrefix: "NEXT_PUBLIC_",
-  plugins: [localFontBoundary(), react(), tailwindcss()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

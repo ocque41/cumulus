@@ -1,6 +1,6 @@
 # Cumulus rebuild implementation plan
 
-> Current amendment — 2026-07-17: the local frontend/content candidate replaces the earlier 24-post public-source corpus with exactly twenty maintainer-authored first-party journals across Requisia, Insuja, Hyoka Hanesu, and gy. It adds Alcyone Medium for narrative body copy through a Production-only licensed-font boundary, keeps the Jacquard heading/interface families, replaces large cloud artwork with dither fields, and adds first-eligible-visit notification prompting. Earlier branch and production records below are historical evidence; they do not prove this uncommitted candidate or authorize deployment.
+> Current amendment — 2026-07-19: the local frontend/content candidate replaces the earlier 24-post public-source corpus with exactly twenty maintainer-authored first-party journals across Requisia, Insuja, Hyoka Hanesu, and gy. It bundles OFL-licensed GFS Neohellenic for every non-title typography role, keeps the Jacquard title families, replaces large cloud artwork with animated dither fields, and adds first-eligible-visit notification prompting. Earlier branch and production records below are historical evidence; they do not prove this uncommitted candidate or authorize deployment.
 
 ## Objective
 
@@ -34,7 +34,7 @@ Required evidence: Git branch and commit graph, clean-scope review, dependency m
 Status: **complete on both design branches**.
 
 1. Define pure black surfaces, neutral gray text roles, and one minimal high-contrast orange accent.
-2. Bundle only the supplied non-charted Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 files. Preserve them for headings, interface, and labels. Deliver the separately supplied Alcyone Medium only from the licensed Production environment and scope it to narrative body copy; never add its bytes or license archive to public Git or Preview.
+2. Bundle the supplied non-charted Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 files plus the four supplied GFS Neohellenic styles. Preserve Jacquard for titles and apply GFS Neohellenic to body, navigation, controls, labels, and metadata.
 3. Implement the approved visual vocabulary: Dither Image, Edge Blur, Hero Dithering, Tripwire-style dither utilities where licensed, and faithful local derivatives.
 4. Provide static and reduced-motion fallbacks for shader effects.
 5. Build semantic routing for home, log index, post, auth callback, preferences, unsubscribe, and not-found states.

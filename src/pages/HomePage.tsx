@@ -6,6 +6,7 @@ import {
   PostCard,
 } from "@/components/content/PostComponents";
 import { HeroDither } from "@/components/visual/HeroDither";
+import { HomeHeroDither } from "@/components/visual/HomeHeroDither";
 import { featuredPost, publishedPosts } from "@/content/posts";
 import { NotificationPreferences } from "@/features/notifications";
 import { createAsymmetricGridStyles } from "@/lib/asymmetric-grid";
@@ -33,19 +34,7 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
   return (
     <>
       <section aria-labelledby="home-title" className="home-hero">
-        <HeroDither
-          className="home-hero__dither"
-          fallbackClassName="home-hero__dither-fallback"
-          frame={288}
-          maxPixelCount={420_000}
-          priority
-          scale={0.9}
-          shape="warp"
-          size={2.25}
-          speed={0.85}
-          tone="muted"
-          type="8x8"
-        />
+        <HomeHeroDither />
         <div className="home-hero__veil" aria-hidden="true" />
         <div className="home-hero__content">
           <div className="home-hero__type page-shell">

@@ -6,7 +6,7 @@
 
 - [x] Home and Public Work render the same wave-dither hero preset with no oversized cloud, at matching desktop and mobile states.
 - [x] All twenty focused journals appear on Home, Public Work, and the log index with deterministic dither illustrations; every direct article has a lead, per-section, and related-journal dither surface.
-- [x] Jacquard heading/interface/label families are unchanged; Alcyone Medium is scoped only to narrative body copy and its licensed bytes remain outside Git, Local runtime, and static build output. Live Vercel Preview and Production configuration remain separate external gates.
+- [x] Jacquard title families remain unchanged; bundled OFL-licensed GFS Neohellenic covers every non-title role, including body, navigation, controls, labels, and metadata. Live Vercel Preview and Production configuration remain separate external gates.
 - [x] GitHub hover details remain unobstructed after the cell transition; click pins, outside/Escape returns to transient mode, the responsive picker returns focus, unavailable grids are inert, and a notification modal removes any body portal.
 - [x] The first eligible visit opens one optional notification invitation, records only the versioned non-identifying marker, does not repeat, remains manually available, and excludes privacy/callback/unknown routes.
 - [x] The complete Node 24 release set and desktop/mobile browser suite pass after all remediation, with no horizontal overflow or unexpected console error.
@@ -29,7 +29,7 @@ Current Cumulus 0.0.8 sign-off is recorded in [design verification evidence](des
 - [x] Text roles use intentional neutral-gray variants with readable contrast.
 - [x] Orange is confined to small, high-contrast accents, focus, or status details.
 - [x] Only the supplied Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9 files are bundled in public browser assets.
-- [x] The historical baseline introduced no other typography family. The current Alcyone narrative role is governed by the candidate delta and commercial-font boundary above.
+- [x] The historical baseline introduced no other typography family. The current GFS Neohellenic non-title role is governed by the candidate delta and OFL boundary above.
 - [x] Headings, labels, body copy, metadata, links, and controls form a coherent type scale at every viewport.
 
 ## Approved visual vocabulary

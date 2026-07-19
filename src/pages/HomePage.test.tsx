@@ -18,6 +18,12 @@ vi.mock("@/components/visual/HeroDither", () => ({
   },
 }));
 
+vi.mock("@/components/visual/HomeHeroDither", () => ({
+  HomeHeroDither: () => (
+    <div data-slot="home-hero-dither-composition" data-testid="home-hero-dither" />
+  ),
+}));
+
 vi.mock("@/features/notifications", () => ({
   NotificationPreferences: () => <div data-testid="notification-preferences" />,
 }));
@@ -42,16 +48,12 @@ afterEach(() => {
 });
 
 describe("HomePage field notes", () => {
-  it("drives the primary and interlude dither fields with visible motion", () => {
+  it("renders the merged homepage field and drives the interlude with visible motion", () => {
     render(<HomePage onOpenAuth={vi.fn()} />);
 
-    expect(heroDitherProps).toHaveLength(2);
+    expect(within(document.body).getByTestId("home-hero-dither")).toBeVisible();
+    expect(heroDitherProps).toHaveLength(1);
     expect(heroDitherProps[0]).toEqual(expect.objectContaining({
-      priority: true,
-      shape: "warp",
-      speed: 0.85,
-    }));
-    expect(heroDitherProps[1]).toEqual(expect.objectContaining({
       shape: "ripple",
       speed: 0.48,
     }));

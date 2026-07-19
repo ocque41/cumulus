@@ -96,7 +96,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("GitHubContributionGraph", () => {
+// This DOM-heavy suite renders 371 interactive cells per case. Give it a
+// focused budget that remains stable when Vitest runs every UI suite in
+// parallel on a busy development machine.
+describe("GitHubContributionGraph", { timeout: 15_000 }, () => {
   it("uses the same-origin contribution boundary and announces validated data", async () => {
     const fetcher = vi.fn().mockResolvedValue(liveResponse());
     vi.stubGlobal("fetch", fetcher);

@@ -203,6 +203,9 @@ test("desktop graph previews transient details and pins a selected date above th
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop graph interaction");
+  // This scenario deliberately exercises the full 371-cell graph interaction
+  // lifecycle. Keep its budget stable when shader-heavy visual tests run beside it.
+  test.setTimeout(120_000);
   await page.setViewportSize({ height: 650, width: 1_440 });
   await seedNotificationPromptMarker(page);
   await page.goto("/");

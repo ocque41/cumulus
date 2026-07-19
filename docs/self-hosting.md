@@ -4,9 +4,9 @@ Cumulus is a React/Vite application with small server-side notification endpoint
 
 ## Trust boundary
 
-The browser bundle receives only `NEXT_PUBLIC_SITE_URL`. All Resend credentials and resource IDs, sender configuration, postal address, GitHub token, publish secret, notification signing secret, and licensed font configuration are server-only. Do not expose them through `import.meta.env` or commit them.
+The browser bundle receives only `NEXT_PUBLIC_SITE_URL`. All Resend credentials and resource IDs, sender configuration, postal address, GitHub token, publish secret, and notification signing secret are server-only. Do not expose them through `import.meta.env` or commit them.
 
-The public repository does not include Alcyone Medium. Without private configuration, body copy uses the bundled Jacquard 12 fallback. A self-hoster may supply `ALCYONE_MEDIUM_WOFF2_BASE64` only after obtaining a suitable license for their own single Production website; the same-origin route necessarily delivers those font bytes to the browser, so the value is a licensing boundary rather than a secret. Keep it unset in Local and Preview and never copy the font, archive, license PDF, or encoded value into Git or static build assets.
+The public repository includes GFS Neohellenic under SIL OFL 1.1 for every non-title typography role. It requires no private font configuration or runtime font endpoint.
 
 ## Setup
 
@@ -14,11 +14,10 @@ The public repository does not include Alcyone Medium. Without private configura
 2. Copy `.env.example` to the untracked `.env.local` for local work.
 3. In Resend, create a dedicated Cumulus Segment and a dedicated new-log Topic whose default subscription is `opt_out`.
 4. Configure the Segment and Topic IDs, API key, verified sender, webhook secret, truthful postal address, and independent random signing/publish secrets directly in Vercel.
-5. If independently licensed, configure `ALCYONE_MEDIUM_WOFF2_BASE64` in Production scope only after confirming the covered domain; otherwise retain the Jacquard fallback.
-6. Configure a Resend webhook for `email.bounced`, `email.complained`, and `email.suppressed` at `/api/notifications/resend-webhook`.
-7. Run `npm run verify` and `npm run test:e2e` before using real recipients.
+5. Configure a Resend webhook for `email.bounced`, `email.complained`, and `email.suppressed` at `/api/notifications/resend-webhook`.
+6. Run `npm run verify` and `npm run test:e2e` before using real recipients.
 
-The placeholder environment serves the public site with Jacquard fallback typography, while notification functions fail closed. Outlook is neither required nor modified. Keep provider identifiers, licensed font material, and lifecycle evidence in a private operational record.
+The placeholder environment serves the public site with bundled GFS Neohellenic body and interface typography, while notification functions fail closed. Outlook is neither required nor modified. Keep provider identifiers and lifecycle evidence in a private operational record.
 
 ## Publication
 

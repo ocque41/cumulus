@@ -1,6 +1,6 @@
 # Cumulus
 
-Cumulus 0.0.8 is a public log-style blog built from scratch with React and Vite. It presents a high-contrast Jacquard editorial interface with Alcyone Medium reading copy on the licensed Production website, and lets readers opt in to email when a new post is published. Notification signup is the complete reader identity scope; there are no public profiles, social accounts, or content-management credentials in the browser app.
+Cumulus 0.0.8 is a public log-style blog built from scratch with React and Vite. It presents high-contrast Jacquard titles with GFS Neohellenic across every non-title text role, and lets readers opt in to email when a new post is published. Notification signup is the complete reader identity scope; there are no public profiles, social accounts, or content-management credentials in the browser app.
 
 The selected production design lives on `request/cumulus-original` and is published through `main`. The literal source-layout study remains available on `request/jacquard-reference`; shared product, content, accessibility, and security behavior belongs on both branches.
 
@@ -24,7 +24,7 @@ The public execution record lives in the [planning index](planning/README.md). A
 - Resend for notification contacts, preferences, suppression, and new-post delivery
 - Vercel for the anticipated web and server-function deployment
 - Jacquard 12, Jacquard 24, and Jacquarda Bastarda 9, supplied under SIL OFL 1.1
-- Alcyone Medium for Production reading copy, supplied under a separate commercial one-website webfont license and never bundled in this repository
+- GFS Neohellenic Regular, Italic, Bold, and Bold Italic for all non-title typography, supplied under SIL OFL 1.1
 
 This is not a Next.js application. The `NEXT_PUBLIC_*` environment names are compatibility names intentionally exposed through Vite's configured `envPrefix`.
 
@@ -49,7 +49,6 @@ Replace only the local placeholders you need. Never commit `.env.local`. Browser
 
 The following values are server-only and must never be referenced through `import.meta.env` in client code:
 
-- `ALCYONE_MEDIUM_WOFF2_BASE64`
 - `RESEND_API_KEY`
 - `RESEND_WEBHOOK_SECRET`
 - `RESEND_NOTIFICATION_SEGMENT_ID`
@@ -59,10 +58,6 @@ The following values are server-only and must never be referenced through `impor
 - `NOTIFICATION_POSTAL_ADDRESS`
 - `NOTIFICATION_PUBLISH_SECRET`
 - `NOTIFICATION_UNSUBSCRIBE_SECRET`
-
-`ALCYONE_MEDIUM_WOFF2_BASE64` is a licensing boundary rather than a browser secret: the configured WOFF2 is necessarily delivered to readers through the same-origin font route. Leave the value empty for Local and Preview. The authorized operator sets it only in the Production environment for the single licensed website; other operators must obtain their own suitable license. A missing value fails closed at the route and the interface uses its bundled Jacquard fallback.
-
-The browser enables the Alcyone body-family variable only after a bodyless same-origin `HEAD` probe confirms a valid `font/woff2` response. Local and Preview answer that capability probe without loading or decoding font bytes, so their intentional Jacquard fallback stays quiet and deterministic.
 
 `NOTIFICATION_PUBLISH_SECRET` is the admin/publishing boundary for triggering a new-post send. `NOTIFICATION_UNSUBSCRIBE_SECRET` is retained as a compatibility name and signs notification-only magic links and HttpOnly sessions. Deployment credentials are operator credentials rather than app runtime settings; keep them in the provider, an approved secret manager, or an authenticated CLI session, never in this repository.
 
@@ -97,11 +92,10 @@ The production workflow is:
 1. Install exactly from the lockfile with `npm ci`.
 2. Run lint, type checking, unit tests, security scanning, license checks, and the production build.
 3. Configure a dedicated Resend Segment and opt-out-by-default Topic, then set their IDs and all secrets directly in Vercel; never store values in Git.
-4. Publish a candidate branch without the commercial font value, inspect its Jacquard fallback, and run end-to-end tests with approved synthetic recipients.
+4. Publish a candidate branch, inspect GFS Neohellenic across body, navigation, controls, labels, and metadata while confirming Jacquard titles remain unchanged, and run end-to-end tests with approved synthetic recipients.
 5. Merge the selected `request/cumulus-original` commit into `main` only with explicit publication approval.
-6. After confirming the licensed production domain, set the Alcyone WOFF2 value in Production scope only and promote with the separate production approval.
-7. Verify the exact production deployment, same-origin font delivery, direct-route refreshes, static metadata, sitemap, 404 behavior, and domain alias.
-8. Verify sign-in and one controlled Resend lifecycle only after the truthful postal address and webhook signing secret are present.
+6. Verify the exact production deployment, bundled font delivery, direct-route refreshes, static metadata, sitemap, 404 behavior, and domain alias.
+7. Verify sign-in and one controlled Resend lifecycle only after the truthful postal address and webhook signing secret are present.
 
 Do not create a replacement Vercel project merely to deploy this branch. Retaining the same external Vercel project and Git integration is what preserves its project-level settings and domain association. Re-verify the existing project and domain immediately before cutover because a repository commit cannot prove current provider state.
 
@@ -120,11 +114,11 @@ Reader-facing notification data boundaries and the manual correction/deletion co
 
 ## Design and licensing
 
-The visual system uses pure black, neutral gray typography, and very small touches of `#ff4d00`. Only the three bundled non-charted Jacquard fonts, the externally supplied Production-only Alcyone Medium webfont, and the approved dither/blur component vocabulary may be used. See [brand guidelines](BRAND_GUIDELINES.md).
+The visual system uses pure black, neutral gray typography, and very small touches of `#ff4d00`. Only the three bundled non-charted Jacquard fonts, the bundled GFS Neohellenic family, and the approved dither/blur component vocabulary may be used. See [brand guidelines](BRAND_GUIDELINES.md).
 
 Post summaries use deterministic signal instruments instead of repeating one illustration. Every surface combines a real ordered 4×4 Bayer canvas with its own masked diagram and four different corner instruments. All visible instances move independently through one bounded scheduler, offscreen work stops, and reduced-motion frames remain static.
 
-Repository code is Apache-2.0. The bundled Jacquard font files remain under SIL OFL 1.1 and retain their upstream license text. Alcyone Medium remains outside Git and the Apache-2.0 distribution under its separate commercial license. No AGPL source is included. See [licensing](docs/licensing.md), [NOTICE](NOTICE), and [trademarks](TRADEMARKS.md).
+Repository code is Apache-2.0. The bundled Jacquard and GFS Neohellenic font files remain under SIL OFL 1.1 and retain their upstream license text. No AGPL source is included. See [licensing](docs/licensing.md), [NOTICE](NOTICE), and [trademarks](TRADEMARKS.md).
 
 ## Security
 

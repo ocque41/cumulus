@@ -27,12 +27,12 @@ Never communicate success, warning, error, or selection with color alone. Pair t
 
 ## Typography
 
-The typography system uses the three supplied Jacquard display/interface families plus the operator-licensed Alcyone webfont for body copy only:
+The typography system separates titles from every other text role:
 
 - **Jacquard 24** — display titles and hero statements;
-- **Jacquard 12** — fallback reading text, navigation, and interface copy;
-- **Jacquarda Bastarda 9** — dates, issue marks, compact labels, and expressive editorial details.
-- **Alcyone Medium** — paragraphs and long-form reading copy only on the single licensed Production website; never titles, navigation, controls, metadata, or labels. The commercial font file remains outside the public repository and browser build.
+- **Jacquard 12** — secondary titles from `h3` through `h6`;
+- **GFS Neohellenic** — all non-title text, including paragraphs, navigation, controls, dates, metadata, labels, and supporting copy. Regular, Italic, Bold, and Bold Italic are bundled so the browser never synthesizes those styles.
+- **Jacquarda Bastarda 9** — retained as a bundled historical display asset, but not assigned to body/interface roles.
 
 The charted versions of all three families are intentionally omitted. Do not add them to the repository, preload them, or use them in generated artwork.
 
@@ -43,10 +43,10 @@ Recommended scale:
 | Hero / H1 | Jacquard 24 | `clamp(3.5rem, 12vw, 10rem)` | `0.82–0.92` |
 | H2 | Jacquard 24 | `clamp(2.25rem, 6vw, 5.5rem)` | `0.9–1` |
 | H3 | Jacquard 12 | `clamp(1.5rem, 3vw, 2.5rem)` | `1–1.1` |
-| Body | Alcyone Medium | `clamp(1.05rem, 1.4vw, 1.3rem)` | `1.45–1.65` |
-| Label / metadata | Jacquarda Bastarda 9 | `0.85–1rem` | `1.2–1.4` |
+| Body | GFS Neohellenic | `clamp(1.05rem, 1.4vw, 1.3rem)` | `1.45–1.65` |
+| Label / metadata | GFS Neohellenic | `0.85–1rem` | `1.2–1.4` |
 
-Do not synthesize weights or italics the files do not provide. Use size, spacing, tone, and family changes for hierarchy. Alcyone has one allowed role and falls back to Jacquard 12 when the externally configured same-origin webfont is unavailable; no generic, system, remote, or icon-font fallback is added. Local and Preview deliberately exercise that fallback because the commercial font value is Production-scoped only.
+Do not synthesize weights or italics the files do not provide. Use size, spacing, tone, and the title/body split for hierarchy. GFS Neohellenic falls back only to Jacquard 12 if a bundled file cannot load; no generic, system, remote, or icon-font fallback is added.
 
 Keep long lines around 55–72 characters. Test the smallest body and metadata roles on real mobile widths before release.
 
@@ -104,4 +104,4 @@ Before copying third-party source, verify its redistribution terms and record th
 
 ## Assumptions
 
-The three bundled Jacquard regular files are the authoritative public font assets and retain their SIL OFL 1.1 notices. Alcyone Medium is an operator-supplied commercial webfont for one Production website and is never part of this repository or its Apache-2.0 distribution. The live production domain, its environment scope, and any historical visual assets are external and unverified. If any of those assumptions changes, update this file and the licensing/release records before publishing.
+The three bundled Jacquard regular files and four supplied GFS Neohellenic files are the authoritative public font assets and retain their SIL OFL 1.1 notices. The live production domain, its environment scope, and any historical visual assets are external and unverified. If any of those assumptions changes, update this file and the licensing/release records before publishing.

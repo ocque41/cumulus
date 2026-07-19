@@ -102,7 +102,7 @@ Two visible differences are intentional rather than defects: the header action n
 
 - Home exposes twenty unique journal routes with nineteen Canvas2D artwork surfaces plus the featured hero illustration; Public Work exposes four projects, all twenty journal routes, and twenty-four deterministic artwork surfaces; the Log index renders twenty illustrated articles.
 - Every direct journal route has a lead illustration, one dither surface per body section, and three illustrated related journals. The route crawl covers all twenty articles.
-- Selected and literal production previews have no horizontal overflow at either target viewport. Computed roles keep H1/H2 in Jacquard 24, ordinary headings in Jacquard 12, and only narrative copy in the `Alcyone Medium, Jacquard 12` stack.
+- Selected and literal production previews have no horizontal overflow at either target viewport. Computed roles keep H1/H2 in Jacquard 24 and ordinary headings in Jacquard 12, while body, navigation, controls, labels, and metadata use the `GFS Neohellenic, Jacquard 12` stack.
 - The notification dialog isolates the page with `inert` and `aria-hidden`, locks scroll, traps/restores focus, and cleans up on close. Responsive navigation returns focus to its Menu control.
 - The selected local preview emitted only the expected Vercel Analytics and Speed Insights local-unavailability messages; the literal preview emitted no console warning or error. Neither preview produced an application exception, framework overlay, or unhandled rejection.
 - Node 24.5.0 passes lint, dual TypeScript compilation, 151 tests across 26 files, the commercial-font/license boundary, a 99-module production build with 24 public routes, the 141-file/31-browser-asset safety scan, a zero-vulnerability dependency audit, and `git diff --check`.
@@ -111,6 +111,6 @@ Two visible differences are intentional rather than defects: the header action n
 ### Candidate limits
 
 - This proof is local and candidate-specific. Production still serves the earlier 24-journal build; Vercel Preview, `main` publication, Production promotion, domain behavior, and provider configuration were not changed or inferred.
-- Alcyone is a licensed external Production webfont. Its tested same-origin route uses a server-only value and fails closed when absent; Git, local runtime artifacts, and the static build contain no Alcyone bytes. The local previews therefore render the declared Jacquard fallback, and live licensed-font activation remains an external gate.
+- GFS Neohellenic is bundled under SIL OFL 1.1. Its four supplied styles load consistently in Local, Preview, and Production without a server-side font route or private environment value.
 - Browser automation uses deterministic anonymous/public API fixtures. It proves first-visit prompt behavior and graph interaction, not live GitHub availability, notification receipt, unsubscribe delivery, suppression, or provider-account state.
 - Journal dates are editorial candidate ordering. The 8 Requisia, 7 Insuja, 3 Hyoka Hanesu, and 2 gy entries are maintainer-authored public summaries, not proof of deployment, customer use, or private-project release status.

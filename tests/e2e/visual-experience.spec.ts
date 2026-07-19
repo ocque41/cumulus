@@ -193,7 +193,7 @@ test("count-aware home and work grids fill every row at each responsive width", 
   }
 });
 
-test("Alcyone activation changes reading copy without changing interface typography", async ({
+test("GFS Neohellenic styles every non-title typography role", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Typography contract is viewport-independent");
@@ -202,10 +202,7 @@ test("Alcyone activation changes reading copy without changing interface typogra
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "CUMULUS" }))
     .toBeVisible();
-
-  await page.evaluate(() => {
-    document.documentElement.setAttribute("data-body-font", "alcyone");
-  });
+  await page.evaluate(() => document.fonts.ready);
 
   const typography = await page.evaluate(() => {
     const fontFamily = (selector: string) => {
@@ -215,12 +212,17 @@ test("Alcyone activation changes reading copy without changing interface typogra
     };
 
     return {
+      body: fontFamily("body"),
+      bodyFontLoaded: document.fonts.check("400 20px 'GFS Neohellenic'"),
       controls: fontFamily(".nav-action"),
       eyebrow: fontFamily(".home-hero .eyebrow"),
+      graphTitle: fontFamily(".contribution-heading strong"),
       heading: fontFamily(".home-hero h1"),
+      postTitle: fontFamily(".featured-post h3"),
       metadata: fontFamily(".featured-post .post-meta"),
       navigation: fontFamily(".primary-navigation a"),
       readingCopy: [
+        ".home-hero__footer p",
         ".opening-statement__copy > p",
         ".section-intro--split > p",
         ".featured-post__copy > p:not(.eyebrow)",
@@ -229,25 +231,23 @@ test("Alcyone activation changes reading copy without changing interface typogra
     };
   });
 
-  expect(typography.readingCopy).not.toHaveLength(0);
-  for (const family of typography.readingCopy) {
-    expect(family).toContain("Alcyone Medium");
-  }
-
-  expect(typography.heading).toContain("Jacquard 24");
-  expect(typography.eyebrow).toContain("Jacquarda Bastarda 9");
-  expect(typography.metadata).toContain("Jacquarda Bastarda 9");
-  expect(typography.navigation).toContain("Jacquard 12");
-  expect(typography.controls).toContain("Jacquard 12");
+  expect(typography.body).toContain("GFS Neohellenic");
+  expect(typography.bodyFontLoaded).toBe(true);
   for (const family of [
-    typography.heading,
+    ...typography.readingCopy,
     typography.eyebrow,
+    typography.graphTitle,
     typography.metadata,
     typography.navigation,
     typography.controls,
   ]) {
-    expect(family).not.toContain("Alcyone Medium");
+    expect(family).toContain("GFS Neohellenic");
   }
+
+  expect(typography.heading).toContain("Jacquard 24");
+  expect(typography.heading).not.toContain("GFS Neohellenic");
+  expect(typography.postTitle).toContain("Jacquard 24");
+  expect(typography.postTitle).not.toContain("GFS Neohellenic");
 });
 
 test("normal motion visibly animates the hero and independent post dither fields", async ({
@@ -261,8 +261,9 @@ test("normal motion visibly animates the hero and independent post dither fields
   await expect(page.getByRole("heading", { level: 1, name: "CUMULUS" }))
     .toBeVisible();
 
-  const hero = page.locator(".home-hero > [data-slot='hero-dither']");
+  const hero = page.locator(".home-hero > [data-slot='home-hero-dither-composition']");
   await expect(hero).toHaveAttribute("data-motion", "active");
+  await expect(hero.locator("[data-slot='hero-dither']")).toHaveCount(2);
   await expectRendererIsVisuallyAnimated(page, hero, "Homepage hero dither");
 
   const postSignals = page.locator(
@@ -300,11 +301,16 @@ test("reduced motion freezes every dither renderer and its visible frames", asyn
   await expect(page.getByRole("heading", { level: 1, name: "CUMULUS" }))
     .toBeVisible();
 
-  const hero = page.locator(".home-hero > [data-slot='hero-dither']");
+  const hero = page.locator(".home-hero > [data-slot='home-hero-dither-composition']");
   await expect(hero).toHaveAttribute("data-motion", "static");
-  await expect(hero).toHaveAttribute("data-renderer", "css");
+  const heroFields = hero.locator("[data-slot='hero-dither']");
+  await expect(heroFields).toHaveCount(2);
+  for (const field of [heroFields.nth(0), heroFields.nth(1)]) {
+    await expect(field).toHaveAttribute("data-motion", "static");
+    await expect(field).toHaveAttribute("data-renderer", "css");
+  }
   await expect(hero.locator("canvas")).toHaveCount(0);
-  const fallback = hero.locator(":scope > [data-slot='hero-dither-fallback']");
+  const fallback = heroFields.nth(0).locator(":scope > [data-slot='hero-dither-fallback']");
   const fallbackVisualState = () => fallback.evaluate((element) =>
     [null, "::before", "::after"].map((pseudoElement) => {
       const style = getComputedStyle(element, pseudoElement);
