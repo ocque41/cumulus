@@ -2768,7 +2768,7 @@ canvas {
 .site-footer__signal {
   bottom: -0.1em;
   color: var(--text);
-  font-family: var(--font-display);
+  font-family: var(--font-title);
   font-size: clamp(6rem, 22vw, 23rem);
   left: -0.045em;
   letter-spacing: -0.08em;
@@ -2817,9 +2817,10 @@ canvas {
 
 .site-footer__statement {
   color: var(--text);
-  font-family: var(--font-display);
+  font-family: var(--font-title);
   font-size: clamp(2.8rem, 5vw, 6rem);
   line-height: 0.9;
+  margin: 0;
   max-width: 11ch;
 }
 

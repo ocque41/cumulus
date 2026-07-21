@@ -22,9 +22,9 @@ export function SiteFooter() {
       <div className="site-footer__grid page-shell">
         <div>
           <p className="eyebrow">Field notes from the build</p>
-          <p className="site-footer__statement">
+          <h2 className="site-footer__statement">
             Systems, interfaces, and the evidence between them.
-          </p>
+          </h2>
         </div>
         <nav aria-label="Footer navigation" className="site-footer__links">
           <AppLink href="/">Home</AppLink>

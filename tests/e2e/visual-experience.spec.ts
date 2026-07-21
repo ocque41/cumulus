@@ -221,10 +221,12 @@ test("GFS Neohellenic styles every non-heading typography role", async ({
       postTitle: fontFamily(".featured-post h3"),
       metadata: fontFamily(".featured-post .post-meta"),
       navigation: fontFamily(".primary-navigation a"),
+      footerLogo: fontFamily(".site-footer__signal"),
+      footerStatement: fontFamily(".site-footer__statement"),
       nonHeadingFontFailures: Array.from(
         document.querySelectorAll<HTMLElement>("body *"),
       ).flatMap((element) => {
-        if (element.closest("h1, h2, h3, h4, h5, h6, .wordmark, svg")) return [];
+        if (element.closest("h1, h2, h3, h4, h5, h6, .wordmark, .site-footer__signal, svg")) return [];
         const hasDirectText = Array.from(element.childNodes).some(
           (node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()),
         );
@@ -263,6 +265,61 @@ test("GFS Neohellenic styles every non-heading typography role", async ({
   expect(typography.heading).not.toContain("GFS Neohellenic");
   expect(typography.postTitle).toContain("Jacquard 24");
   expect(typography.postTitle).not.toContain("GFS Neohellenic");
+  expect(typography.footerLogo).toContain("Jacquard 24");
+  expect(typography.footerLogo).not.toContain("GFS Neohellenic");
+  expect(typography.footerStatement).toContain("Jacquard 24");
+  expect(typography.footerStatement).not.toContain("GFS Neohellenic");
+});
+
+test("every shader surface keeps the mobile height-anchored composition", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Controlled responsive viewports");
+  await seedNotificationPromptMarker(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+
+  const viewports = [
+    { height: 844, width: 390 },
+    { height: 900, width: 1_440 },
+  ];
+  const routes = ["/", "/logs", "/work", "/unknown"];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+
+    for (const route of routes) {
+      await page.goto(route);
+      const renderers = page.locator("[data-slot='hero-dither']");
+      expect(await renderers.count(), `${route} should expose shader artwork`)
+        .toBeGreaterThan(0);
+      const snapshots = await renderers.evaluateAll((elements) => elements.map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          actual: element.getAttribute("data-composition-fit"),
+          expected: bounds.width > bounds.height ? "contain" : "cover",
+        };
+      }));
+      expect(snapshots, `${route} should anchor every shader to its height`)
+        .toEqual(snapshots.map(({ expected }) => ({ actual: expected, expected })));
+    }
+
+    await page.goto("/logs");
+    const articleHref = await page.locator('a[href^="/logs/"]').first().getAttribute("href");
+    expect(articleHref).toBeTruthy();
+    await page.goto(articleHref ?? "/logs");
+    const articleRenderers = page.locator("[data-slot='hero-dither']");
+    expect(await articleRenderers.count(), "article should expose shader artwork")
+      .toBeGreaterThan(0);
+    const articleSnapshots = await articleRenderers.evaluateAll((elements) => elements.map((element) => {
+      const bounds = element.getBoundingClientRect();
+      return {
+        actual: element.getAttribute("data-composition-fit"),
+        expected: bounds.width > bounds.height ? "contain" : "cover",
+      };
+    }));
+    expect(articleSnapshots, "article shaders should stay height-anchored")
+      .toEqual(articleSnapshots.map(({ expected }) => ({ actual: expected, expected })));
+  }
 });
 
 test("normal motion visibly animates the hero and independent post dither fields", async ({

@@ -89,6 +89,7 @@ Before copying third-party source, verify its redistribution terms and record th
 - Edge Blur must not intercept pointer input and must stay outside the scrolling element it decorates.
 - Keep shader movement calm and stop or simplify it for `prefers-reduced-motion`.
 - Give each named post visual a true ordered 4×4 Bayer field, its own deterministic dither-masked signal diagram, and four nonrepeating corner instruments. Animate every visible artwork independently, release offscreen renderers, and keep every reduced-motion frame static.
+- Treat the portrait mobile dither composition as authoritative. Wider shader surfaces must preserve its height-based scale and extend the field across the available width rather than reshape it into a different illustration.
 - Preserve a static readable frame if WebGL, canvas, or an image fails.
 - Avoid dither density that produces flicker, moiré, or unreadable edges on small screens.
 

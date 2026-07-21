@@ -17,13 +17,22 @@ import {
   type DitheringShape,
   type DitheringType,
   type DitheringUniforms,
+  type ShaderFit,
   type ShaderMountUniforms,
 } from "@paper-design/shaders";
+
+export type HeroDitherFit = ShaderFit | "height";
 
 export interface HeroDitherProps
   extends Omit<React.ComponentPropsWithoutRef<"div">, "children"> {
   /** Apply the fallback's radial fade to the whole visual, including WebGL. */
   fade?: boolean;
+  /**
+   * Keep the pattern anchored to the canvas height by default. Portrait
+   * canvases preserve Paper's cover composition; landscape canvases contain
+   * that same composition and extend it across the additional width.
+   */
+  fit?: HeroDitherFit;
   shape?: DitheringShape;
   type?: DitheringType;
   size?: number;
@@ -72,6 +81,7 @@ class ShaderBoundary extends React.Component<
 }
 
 interface SafeDitheringProps {
+  fit: ShaderFit;
   frame: number;
   maxPixelCount: number;
   minPixelRatio: number;
@@ -105,6 +115,7 @@ function safeScale(value: number) {
 }
 
 function createDitheringUniforms(
+  fit: ShaderFit,
   scale: number,
   shape: DitheringShape,
   size: number,
@@ -114,7 +125,7 @@ function createDitheringUniforms(
   const uniforms = {
     u_colorBack: DITHER_COLOR_BACK,
     u_colorFront: DITHER_COLOR_FRONTS[tone],
-    u_fit: ShaderFitOptions.cover,
+    u_fit: ShaderFitOptions[fit],
     u_offsetX: defaultPatternSizing.offsetX,
     u_offsetY: defaultPatternSizing.offsetY,
     u_originX: defaultPatternSizing.originX,
@@ -170,6 +181,7 @@ function releaseShaderElement(
  * vanilla constructor inside this effect makes that failure locally catchable.
  */
 function SafeDithering({
+  fit,
   frame,
   maxPixelCount,
   minPixelRatio,
@@ -185,8 +197,8 @@ function SafeDithering({
   const shaderRef = React.useRef<ShaderMount | null>(null);
   const failedRef = React.useRef(false);
   const uniforms = React.useMemo(
-    () => createDitheringUniforms(scale, shape, size, tone, type),
-    [scale, shape, size, tone, type],
+    () => createDitheringUniforms(fit, scale, shape, size, tone, type),
+    [fit, scale, shape, size, tone, type],
   );
   const [initialSettings] = React.useState(() => ({
     frame,
@@ -472,6 +484,7 @@ export function HeroDither({
   className,
   fade = false,
   fallbackClassName,
+  fit = "height",
   frame = 0,
   maxPixelCount = DEFAULT_MAX_PIXEL_COUNT,
   maxPixelRatio = DEFAULT_MAX_PIXEL_RATIO,
@@ -487,6 +500,11 @@ export function HeroDither({
 }: HeroDitherProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const dimensions = useDimensions(containerRef);
+  const resolvedFit: ShaderFit = fit === "height"
+    ? dimensions.width > dimensions.height
+      ? "contain"
+      : "cover"
+    : fit;
   const viewportStatus = useNearViewport(containerRef);
   // Priority removes the first-observer delay for an above-the-fold visual.
   // Once the observer reports, every instance resumes normal offscreen cleanup.
@@ -611,6 +629,7 @@ export function HeroDither({
       )}
       data-motion={motionActive ? "active" : "static"}
       data-near-viewport={isNearViewport ? "true" : "false"}
+      data-composition-fit={resolvedFit}
       data-renderer={canMountShader ? "webgl" : "css"}
       data-slot="hero-dither"
       ref={containerRef}
@@ -620,6 +639,7 @@ export function HeroDither({
       {canMountShader ? (
         <ShaderBoundary fallback={null} onError={handleShaderFailure}>
           <MemoizedDithering
+            fit={resolvedFit}
             frame={frame}
             maxPixelCount={pixelBudget}
             minPixelRatio={renderRatio}

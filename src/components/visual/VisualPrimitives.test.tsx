@@ -287,6 +287,18 @@ describe("DitherImage", () => {
 });
 
 describe("HeroDither", () => {
+  it("anchors the default composition to height across responsive aspect ratios", () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+
+    const { container } = render(<HeroDither />);
+    const root = container.querySelector("[data-slot='hero-dither']");
+
+    expect(root).toHaveAttribute("data-composition-fit", "contain");
+
+    act(() => resizeObservers[0]?.trigger(320, 640));
+    expect(root).toHaveAttribute("data-composition-fit", "cover");
+  });
+
   it("uses only the animated CSS renderer without IntersectionObserver", () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
@@ -489,7 +501,7 @@ describe("HeroDither", () => {
     expect(uniforms).toEqual({
       u_colorBack: [0, 0, 0, 1],
       u_colorFront: [138 / 255, 138 / 255, 138 / 255, 1],
-      u_fit: 2,
+      u_fit: 1,
       u_offsetX: 0,
       u_offsetY: 0,
       u_originX: 0.5,
@@ -535,7 +547,12 @@ describe("HeroDither", () => {
     await waitFor(() => {
       expect(shaderMountMock.setMaxPixelCount).toHaveBeenCalledWith(40_000);
       expect(shaderMountMock.setMinPixelRatio).toHaveBeenCalledWith(2);
+      expect(shaderMountMock.setUniforms).toHaveBeenCalledWith(
+        expect.objectContaining({ u_fit: 2 }),
+      );
     });
+    expect(container.querySelector("[data-slot='hero-dither']"))
+      .toHaveAttribute("data-composition-fit", "cover");
     expect(shaderMountMock.construct).toHaveBeenCalledTimes(2);
 
     rerender(
