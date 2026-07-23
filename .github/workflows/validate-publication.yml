@@ -1,0 +1,84 @@
+name: Validate Cumulus publication
+
+run-name: Validate ${{ inputs.slug }} · ${{ inputs.correlation_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+      correlation_id:
+        required: true
+        type: string
+      head_sha:
+        required: true
+        type: string
+      pr_number:
+        required: true
+        type: string
+      slug:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-publication-${{ inputs.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  publisher-verify:
+    name: publisher-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact reviewed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head_sha }}
+
+      - name: Confirm exact commit
+        env:
+          EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+
+      - name: Use the repository Node version
+        uses: actions/setup-node@v4
+        with:
+          cache: npm
+          node-version: 24
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install browser runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build and generate static routes
+        run: npm run build
+
+      - name: Security scan
+        run: npm run security:scan
+
+      - name: License check
+        run: npm run license:check
+
+      - name: Dependency audit
+        run: npm run audit:deps
+
+      - name: Desktop and mobile browser tests
+        run: npm run test:e2e

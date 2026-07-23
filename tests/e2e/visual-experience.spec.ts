@@ -163,7 +163,7 @@ test("count-aware home and work grids fill every row at each responsive width", 
     {
       heading: "CUMULUS",
       route: "/",
-      selector: ".post-grid[data-card-count], .field-note-grid[data-card-count]",
+      selector: ".compact-post-chain[data-card-count]",
     },
     {
       heading: "Public work",
@@ -242,7 +242,7 @@ test("GFS Neohellenic styles every non-heading typography role", async ({
         ".opening-statement__copy > p",
         ".section-intro--split > p",
         ".featured-post__copy > p:not(.eyebrow)",
-        ".post-card__body > p",
+        ".compact-post-row__body > p",
       ].map(fontFamily),
     };
   });
@@ -322,7 +322,7 @@ test("every shader surface keeps the mobile height-anchored composition", async 
   }
 });
 
-test("normal motion visibly animates the hero and independent post dither fields", async ({
+test("normal motion animates the hero and latest log while compact rows stay lightweight", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "One browser proves normal motion");
@@ -338,28 +338,17 @@ test("normal motion visibly animates the hero and independent post dither fields
   await expect(hero.locator("[data-slot='hero-dither']")).toHaveCount(2);
   await expectRendererIsVisuallyAnimated(page, hero, "Homepage hero dither");
 
-  const postSignals = page.locator(
-    ".post-card [data-slot='post-signal-artwork']",
-  );
-  expect(await postSignals.count()).toBeGreaterThanOrEqual(2);
-  const firstSignal = postSignals.nth(0);
-  const secondSignal = postSignals.nth(1);
-  await firstSignal.scrollIntoViewIfNeeded();
+  const latestSignal = page.locator(".featured-post [data-slot='hero-dither']");
+  await latestSignal.scrollIntoViewIfNeeded();
+  await expect(latestSignal).toHaveAttribute("data-motion", "active");
+  await expectRendererIsVisuallyAnimated(page, latestSignal, "Latest log dither");
 
-  for (const signal of [firstSignal, secondSignal]) {
-    await expect(signal).toHaveAttribute("data-motion", "active");
-    await expect(
-      signal.locator(":scope > [data-slot='dither-artwork']"),
-    ).toHaveAttribute("data-motion", "active");
-  }
-
-  const activeSeeds = await postSignals.evaluateAll((signals) => signals
-    .filter((signal) => signal.getAttribute("data-motion") === "active")
-    .map((signal) => signal.getAttribute("data-dither-seed")));
-  expect(activeSeeds.length).toBeGreaterThanOrEqual(2);
-  expect(new Set(activeSeeds).size).toBe(activeSeeds.length);
-  await expectRendererIsVisuallyAnimated(page, firstSignal, "First post dither");
-  await expectRendererIsVisuallyAnimated(page, secondSignal, "Second post dither");
+  const compactSignals = page.locator(".compact-post-row__signal");
+  await expect(compactSignals).toHaveCount(4);
+  await expect(page.locator(".compact-post-row canvas")).toHaveCount(0);
+  await expect(
+    page.locator(".compact-post-row [data-slot='hero-dither'], .compact-post-row [data-slot='post-signal-artwork']"),
+  ).toHaveCount(0);
 });
 
 test("reduced motion freezes every dither renderer and its visible frames", async ({
@@ -400,52 +389,19 @@ test("reduced motion freezes every dither renderer and its visible frames", asyn
     .getAnimations({ subtree: true })
     .filter((animation) => animation.playState === "running").length)).toBe(0);
 
-  const postSignal = page.locator(
-    ".post-card [data-slot='post-signal-artwork']",
-  ).first();
-  await postSignal.scrollIntoViewIfNeeded();
-  await expect(postSignal).toHaveAttribute("data-motion", "static");
-  await expect(
-    postSignal.locator(":scope > [data-slot='dither-artwork']"),
-  ).toHaveAttribute("data-motion", "static");
-  const ditherCoverage = await postSignal.evaluate((root) => {
-    const field = root.querySelector<HTMLElement>(
-      ":scope > [data-slot='dither-artwork']",
-    );
-    const canvas = field?.querySelector<HTMLCanvasElement>(
-      ":scope > .dither-artwork__canvas",
-    );
-    if (!field || !canvas) {
-      throw new Error("Post signal is missing its nested dither renderer");
-    }
+  const latestSignal = page.locator(".featured-post [data-slot='hero-dither']");
+  await latestSignal.scrollIntoViewIfNeeded();
+  await expect(latestSignal).toHaveAttribute("data-motion", "static");
+  await expect(latestSignal).toHaveAttribute("data-renderer", "css");
+  await expectRendererIsVisuallyStatic(page, latestSignal, "Latest log dither");
 
-    const rootBounds = root.getBoundingClientRect();
-    const fieldBounds = field.getBoundingClientRect();
-    const canvasBounds = canvas.getBoundingClientRect();
-    return {
-      canvasHeightRatio: canvasBounds.height / rootBounds.height,
-      canvasWidthRatio: canvasBounds.width / rootBounds.width,
-      fieldHeightRatio: fieldBounds.height / rootBounds.height,
-      fieldWidthRatio: fieldBounds.width / rootBounds.width,
-      hasSize: rootBounds.height > 0
-        && rootBounds.width > 0
-        && fieldBounds.height > 0
-        && fieldBounds.width > 0
-        && canvasBounds.height > 0
-        && canvasBounds.width > 0,
-    };
-  });
-  expect(ditherCoverage.hasSize).toBe(true);
-  expect(ditherCoverage.fieldHeightRatio).toBeGreaterThanOrEqual(0.95);
-  expect(ditherCoverage.fieldWidthRatio).toBeGreaterThanOrEqual(0.95);
-  expect(ditherCoverage.canvasHeightRatio).toBeGreaterThanOrEqual(0.95);
-  expect(ditherCoverage.canvasWidthRatio).toBeGreaterThanOrEqual(0.95);
-  await expectRendererIsVisuallyStatic(page, postSignal, "Post signal dither");
+  const compactSignals = page.locator(".compact-post-row__signal");
+  await expect(compactSignals).toHaveCount(4);
+  await expect(page.locator(".compact-post-row canvas")).toHaveCount(0);
 
   const diagnostics = await page.locator([
     "[data-slot='hero-dither']",
-    "[data-slot='post-signal-artwork']",
-    "[data-slot='dither-artwork']",
+    ".featured-post [data-slot='hero-dither']",
   ].join(", ")).evaluateAll((renderers) => ({
     active: renderers.filter((renderer) => renderer.getAttribute("data-motion") !== "static")
       .length,

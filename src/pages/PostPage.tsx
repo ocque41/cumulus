@@ -5,7 +5,12 @@ import {
   getRelatedSlugs,
 } from "@/components/content/PostComponents";
 import { FIRST_PARTY_JOURNAL_NOTICE } from "@/content/focused-posts";
-import { publishedPosts, type Post } from "@/content/posts";
+import {
+  getAdjacentPublishedPosts,
+  publishedPosts,
+  type Post,
+} from "@/content/posts";
+import { getAreaByCategory, areaHref } from "@/content/areas";
 import { NotificationPreferences } from "@/features/notifications";
 import { AppLink, useDocumentMeta } from "@/lib/router";
 
@@ -26,8 +31,13 @@ function relatedPosts(post: Post): readonly Post[] {
 }
 
 export function PostPage({ post }: { post: Post }) {
-  useDocumentMeta(`${post.title} — Cumulus lab`, post.excerpt);
+  useDocumentMeta(`${post.title} — Cumulus lab`, post.excerpt, {
+    canonicalPath: articleHref(post),
+    type: "article",
+  });
   const related = relatedPosts(post);
+  const adjacent = getAdjacentPublishedPosts(post);
+  const area = getAreaByCategory(post.category);
 
   return (
     <article className="article-page">
@@ -35,7 +45,11 @@ export function PostPage({ post }: { post: Post }) {
         <div className="article-hero__breadcrumbs">
           <AppLink href="/logs">Log index</AppLink>
           <span aria-hidden="true">/</span>
-          <span>{post.category}</span>
+          {area ? (
+            <AppLink href={areaHref(area)}>{post.category}</AppLink>
+          ) : (
+            <span>{post.category}</span>
+          )}
         </div>
         <PostMeta post={post} />
         {post.category === "Editorial" ? (
@@ -124,6 +138,41 @@ export function PostPage({ post }: { post: Post }) {
           ) : null}
         </div>
       </div>
+
+      <nav aria-label="Chronological log navigation" className="article-chain page-shell">
+        {adjacent.newer ? (
+          <AppLink
+            aria-label={`Newer log: ${adjacent.newer.title}`}
+            className="article-chain__newer"
+            href={articleHref(adjacent.newer)}
+            rel="prev"
+          >
+            <span>Newer log</span>
+            <strong>{adjacent.newer.title}</strong>
+          </AppLink>
+        ) : (
+          <span className="article-chain__boundary">
+            <span>Newer log</span>
+            <strong>This is the latest log</strong>
+          </span>
+        )}
+        {adjacent.older ? (
+          <AppLink
+            aria-label={`Older log: ${adjacent.older.title}`}
+            className="article-chain__older"
+            href={articleHref(adjacent.older)}
+            rel="next"
+          >
+            <span>Older log</span>
+            <strong>{adjacent.older.title}</strong>
+          </AppLink>
+        ) : (
+          <AppLink className="article-chain__older" href="/logs">
+            <span>Older log</span>
+            <strong>Continue in the archive</strong>
+          </AppLink>
+        )}
+      </nav>
 
       <section aria-labelledby="related-title" className="related-logs page-shell">
         <div className="section-heading">

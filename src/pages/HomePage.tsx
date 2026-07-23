@@ -1,15 +1,14 @@
 import { GitHubContributionGraph } from "@/components/github/GitHubContributionGraph";
 import {
+  CompactPostRow,
   articleHref,
-  DitherPlate,
   FeaturedPost,
-  PostCard,
 } from "@/components/content/PostComponents";
 import { HeroDither } from "@/components/visual/HeroDither";
 import { HomeHeroDither } from "@/components/visual/HomeHeroDither";
-import { featuredPost, publishedPosts } from "@/content/posts";
+import { CONTENT_AREAS, areaHref, postsForArea } from "@/content/areas";
+import { homePreviousPosts, latestPost, publishedPosts } from "@/content/posts";
 import { NotificationPreferences } from "@/features/notifications";
-import { createAsymmetricGridStyles } from "@/lib/asymmetric-grid";
 import { AppLink, useDocumentMeta } from "@/lib/router";
 
 interface HomePageProps {
@@ -21,15 +20,6 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
     "Cumulus lab — Field notes from the build",
     "Cumulus is a public laboratory for large-form field notes on systems, interfaces, operations, and the evidence between them.",
   );
-
-  const newest = publishedPosts.filter((post) => post.placement === "recent");
-  const stories = publishedPosts.filter((post) => post.placement === "stories");
-  const research = publishedPosts.filter((post) => post.placement === "research");
-  const business = publishedPosts.filter((post) => post.placement === "build-business");
-  const newestGrid = createAsymmetricGridStyles(newest.length);
-  const storiesGrid = createAsymmetricGridStyles(stories.length);
-  const researchGrid = createAsymmetricGridStyles(research.length);
-  const businessGrid = createAsymmetricGridStyles(business.length);
 
   return (
     <>
@@ -70,39 +60,67 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
         </div>
       </section>
 
-      <section aria-labelledby="featured-title" className="home-section page-shell">
+      <section aria-labelledby="latest-log-title" className="home-section page-shell">
         <div className="section-heading">
-          <p className="eyebrow">Current signal / 002</p>
-          <h2 id="featured-title">One log, opened wide</h2>
+          <p className="eyebrow">Latest log / 002</p>
+          <h2 id="latest-log-title">The newest public record</h2>
         </div>
-        <FeaturedPost post={featuredPost} />
+        <FeaturedPost post={latestPost} />
       </section>
 
-      <section aria-labelledby="latest-title" className="home-section page-shell">
+      <section aria-labelledby="previous-title" className="home-section page-shell">
         <div className="section-intro section-intro--split">
           <div>
-            <p className="eyebrow">Recent entries / 003</p>
-            <h2 id="latest-title">Notes from active builds</h2>
+            <p className="eyebrow">Previous logs / 003</p>
+            <h2 id="previous-title">The chronological chain</h2>
           </div>
           <p>
-            Focused project journals, ordered by publication. Each entry opens into a
-            full reading page with evidence limits and neighboring notes.
+            The four entries immediately before the latest record. Older work remains
+            available in the complete archive and its project area.
           </p>
         </div>
-        <div className="post-grid" data-card-count={newest.length}>
-          {newest.map((post, index) => (
-            <PostCard
-              index={index}
-              key={post.slug}
-              post={post}
-              style={newestGrid[index]}
-            />
+        <div className="compact-post-chain" data-card-count={homePreviousPosts.length}>
+          {homePreviousPosts.map((post, index) => (
+            <CompactPostRow index={index} key={post.slug} post={post} />
           ))}
         </div>
         <AppLink className="large-index-link" href="/logs">
           <span>Browse the complete log index</span>
           <span aria-hidden="true">{String(publishedPosts.length).padStart(2, "0")}</span>
         </AppLink>
+      </section>
+
+      <section aria-labelledby="areas-title" className="home-section page-shell">
+        <div className="section-intro section-intro--split">
+          <div>
+            <p className="eyebrow">Explore by area / 004</p>
+            <h2 id="areas-title">Five durable streams of work</h2>
+          </div>
+          <AppLink href="/areas">Open the area index</AppLink>
+        </div>
+        <div className="area-overview-grid">
+          {CONTENT_AREAS.map((area, index) => {
+            const areaPosts = postsForArea(publishedPosts, area);
+            const newest = areaPosts[0];
+            return (
+              <article className="area-overview-card" key={area.slug}>
+                <div className="area-overview-card__signal" aria-hidden="true">
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                </div>
+                <p className="eyebrow">{areaPosts.length} public logs</p>
+                <h3>
+                  <AppLink href={areaHref(area)}>{area.category}</AppLink>
+                </h3>
+                <p>{area.description}</p>
+                {newest ? (
+                  <AppLink className="area-overview-card__latest" href={articleHref(newest)}>
+                    Latest: {newest.title}
+                  </AppLink>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
       </section>
 
       <section className="signal-interlude" aria-label="Cumulus signal field">
@@ -121,94 +139,9 @@ export function HomePage({ onOpenAuth }: HomePageProps) {
         </div>
       </section>
 
-      <section aria-labelledby="stories-title" className="home-section page-shell">
-        <div className="section-heading section-heading--wide">
-          <p className="eyebrow">Stories / 004</p>
-          <h2 id="stories-title">Systems told from the inside.</h2>
-        </div>
-        <div className="field-note-grid" data-card-count={stories.length}>
-          {stories.map((post, index) => (
-            <article
-              className="field-note"
-              data-signal-host
-              key={post.slug}
-              style={storiesGrid[index]}
-            >
-              <div className="field-note__visual">
-                <DitherPlate
-                  className="field-note__plate"
-                  decorative
-                  placement="home-story"
-                  post={post}
-                />
-              </div>
-              <p className="eyebrow">{post.category}</p>
-              <h3>
-                <AppLink href={articleHref(post)}>{post.title}</AppLink>
-              </h3>
-              <p>{post.excerpt}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section aria-labelledby="research-title" className="home-section page-shell">
-        <div className="section-intro section-intro--split">
-          <div>
-            <p className="eyebrow">Latest research / 005</p>
-            <h2 id="research-title">Engineering boundaries, inspected closely.</h2>
-          </div>
-          <p>
-            First-party readings of runtime behavior, tool boundaries, and the
-            evidence that keeps an implementation claim honest.
-          </p>
-        </div>
-        <div className="post-grid" data-card-count={research.length}>
-          {research.map((post, index) => (
-            <PostCard
-              index={index + 10}
-              key={post.slug}
-              post={post}
-              style={researchGrid[index]}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section aria-labelledby="business-title" className="home-section page-shell">
-        <div className="section-heading section-heading--wide">
-          <p className="eyebrow">Business / 006</p>
-          <h2 id="business-title">Authority, identity, and durable operations.</h2>
-        </div>
-        <div className="field-note-grid" data-card-count={business.length}>
-          {business.map((post, index) => (
-            <article
-              className="field-note"
-              data-signal-host
-              key={post.slug}
-              style={businessGrid[index]}
-            >
-              <div className="field-note__visual">
-                <DitherPlate
-                  className="field-note__plate"
-                  decorative
-                  placement="home-business"
-                  post={post}
-                />
-              </div>
-              <p className="eyebrow">{post.category}</p>
-              <h3>
-                <AppLink href={articleHref(post)}>{post.title}</AppLink>
-              </h3>
-              <p>{post.excerpt}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <section aria-labelledby="notify-title" className="notify-section page-shell" id="notify">
         <div className="notify-section__intro">
-          <p className="eyebrow">Optional dispatch / 007</p>
+          <p className="eyebrow">Optional dispatch / 005</p>
           <h2 id="notify-title">One email when a new log lands.</h2>
           <p>
             No reading wall, no digest machinery, no access tier. Confirm an email

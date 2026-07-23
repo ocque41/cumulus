@@ -17,6 +17,18 @@ afterEach(() => {
 });
 
 describe("LogsPage filters", () => {
+  it("renders ten unfiltered logs per crawlable archive page", () => {
+    const { container } = render(<LogsPage page={1} />);
+    const rows = container.querySelectorAll(".post-index-row");
+
+    expect(rows).toHaveLength(10);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      `${publishedPosts.length} entries · page 1 of 2`,
+    );
+    expect(screen.getByRole("link", { name: "Next" }))
+      .toHaveAttribute("href", "/logs/page/2");
+  });
+
   it("applies a category without jumping away from the controls or losing focus", async () => {
     render(<LogsPage />);
     const expected = searchPublishedPosts("", "Requisia").length;

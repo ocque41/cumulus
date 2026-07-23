@@ -14,10 +14,16 @@ import {
   useAuth,
 } from "@/components/auth";
 import { SiteLayout } from "@/components/layout/SiteLayout";
-import { getPublishedPostBySlug } from "@/content/posts";
+import {
+  pageCount,
+  postsForArea,
+  getAreaBySlug,
+} from "@/content/areas";
+import { getPublishedPostBySlug, publishedPosts } from "@/content/posts";
 import { notificationPromptStorage } from "@/features/notifications/prompt-storage";
 import { navigate, usePathname } from "@/lib/router";
 import { HomePage } from "@/pages/HomePage";
+import { AreaArchivePage, AreasPage } from "@/pages/AreasPage";
 import { LogsPage } from "@/pages/LogsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PostPage } from "@/pages/PostPage";
@@ -40,10 +46,23 @@ function decodeSlug(value: string): string | undefined {
   }
 }
 
+function parsePositivePage(value: string): number | undefined {
+  if (!/^[1-9]\d*$/.test(value)) return undefined;
+  const page = Number(value);
+  return Number.isSafeInteger(page) ? page : undefined;
+}
+
 type NotificationDialogMode = "automatic" | "manual";
 
 function allowsAutomaticNotificationPrompt(path: string): boolean {
-  if (path === "/" || path === "/logs" || path === "/work") return true;
+  if (
+    path === "/"
+    || path === "/logs"
+    || path.startsWith("/logs/page/")
+    || path === "/areas"
+    || path.startsWith("/areas/")
+    || path === "/work"
+  ) return true;
   if (!path.startsWith("/logs/")) return false;
 
   const slug = decodeSlug(path.slice("/logs/".length));
@@ -129,7 +148,30 @@ function PublicRoutes() {
   if (path === "/") {
     page = <HomePage onOpenAuth={openNotificationSettings} />;
   } else if (path === "/logs") {
-    page = <LogsPage />;
+    page = <LogsPage page={1} />;
+  } else if (path.startsWith("/logs/page/")) {
+    const pageNumber = parsePositivePage(path.slice("/logs/page/".length));
+    const totalPages = pageCount(publishedPosts.length);
+    page = pageNumber && pageNumber <= totalPages
+      ? <LogsPage page={pageNumber} />
+      : <NotFoundPage />;
+  } else if (path === "/areas") {
+    page = <AreasPage />;
+  } else if (path.startsWith("/areas/")) {
+    const segments = path.slice("/areas/".length).split("/");
+    const area = getAreaBySlug(segments[0]);
+    const pageNumber = segments.length === 1
+      ? 1
+      : segments.length === 3 && segments[1] === "page"
+        ? (() => {
+            const parsed = parsePositivePage(segments[2]);
+            return parsed && parsed > 1 ? parsed : undefined;
+          })()
+        : undefined;
+    const totalPages = area ? pageCount(postsForArea(publishedPosts, area).length) : 0;
+    page = area && pageNumber && pageNumber <= totalPages
+      ? <AreaArchivePage area={area} page={pageNumber} />
+      : <NotFoundPage />;
   } else if (path.startsWith("/logs/")) {
     const slug = decodeSlug(path.slice("/logs/".length));
     const post = slug ? getPublishedPostBySlug(slug) : undefined;

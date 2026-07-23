@@ -1,6 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { publishedPosts, searchPublishedPosts } from "../../src/content/posts";
+import {
+  ARCHIVE_PAGE_SIZE,
+  CONTENT_AREAS,
+  postsForArea,
+} from "../../src/content/areas";
 import { WORK_PROJECTS } from "../../src/content/work";
 import {
   mockAnonymousNotificationSession,
@@ -121,19 +126,13 @@ test("the archive reflects the validated post catalog", async ({
     page.getByRole("heading", { level: 1, name: "Log index" }),
   ).toBeVisible();
   await expect(page.getByRole("status")).toHaveText(
-    `${publishedPosts.length} entries`,
+    `${publishedPosts.length} entries · page 1 of ${Math.ceil(publishedPosts.length / ARCHIVE_PAGE_SIZE)}`,
   );
   await expect(page.locator(".post-index-row")).toHaveCount(
-    publishedPosts.length,
+    ARCHIVE_PAGE_SIZE,
   );
-
-  for (const [project, expectedCount] of PROJECT_COUNTS) {
-    await expect(
-      page
-        .locator(".post-index-row .post-meta > span:nth-of-type(2)")
-        .filter({ hasText: new RegExp(`^${project}$`, "i") }),
-    ).toHaveCount(expectedCount);
-  }
+  await expect(page.getByRole("link", { name: "Next" }))
+    .toHaveAttribute("href", "/logs/page/2");
 
   await expect(page.locator("body")).not.toContainText("platform-new");
 
@@ -155,9 +154,50 @@ test("the archive reflects the validated post catalog", async ({
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).toHaveURL(/\/logs$/);
   await expect(page.getByRole("status")).toHaveText(
-    `${publishedPosts.length} entries`,
+    `${publishedPosts.length} entries · page 1 of ${Math.ceil(publishedPosts.length / ARCHIVE_PAGE_SIZE)}`,
   );
   await expect(search).toHaveValue("");
+});
+
+test("the homepage stays capped and every area has a crawlable archive", async ({
+  page,
+}) => {
+  await seedNotificationPromptMarker(page);
+  await page.goto("/");
+
+  await expect(page.locator(".featured-post")).toHaveCount(1);
+  await expect(page.locator(".compact-post-row")).toHaveCount(
+    Math.min(4, publishedPosts.length - 1),
+  );
+  await expect(page.locator(".area-overview-card")).toHaveCount(CONTENT_AREAS.length);
+
+  for (const area of CONTENT_AREAS) {
+    await page.goto(`/areas/${area.slug}`);
+    await expect(page.getByRole("heading", { level: 1, name: area.category }))
+      .toBeVisible();
+    await expect(page.locator(".post-index-row")).toHaveCount(
+      Math.min(ARCHIVE_PAGE_SIZE, postsForArea(publishedPosts, area).length),
+    );
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      `https://cumulush.com/areas/${area.slug}`,
+    );
+  }
+
+  await page.goto("/logs/page/2");
+  await expect(page.getByRole("status")).toContainText("page 2 of");
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    "https://cumulush.com/logs/page/2",
+  );
+
+  await page.goto("/logs/page/999");
+  await expect(page.getByRole("heading", { name: "This log is not in the field." }))
+    .toBeVisible();
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    "content",
+    "noindex, follow",
+  );
 });
 
 test("Public Work presents four internal project records without source links", async ({

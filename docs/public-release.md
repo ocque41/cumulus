@@ -50,6 +50,11 @@ npm run test:e2e
 - [ ] Keyboard, visible focus, screen-reader status, and reduced-motion paths were checked.
 - [ ] The JSON post catalog accepts variable post totals, short Editorial posts, and valid approved dither variants while rejecting duplicate slugs and unsafe source links.
 - [ ] Routes, archive search, homepage sections, metadata, canonical URLs, sitemap, table of contents, and related-post fallback include a synthetic new post.
+- [ ] The homepage renders exactly one latest log and at most four previous logs, independent of catalog size.
+- [ ] Archive and area pages paginate at ten logs, use crawlable anchors, and reject invalid or out-of-range pages.
+- [ ] Search and filter combinations are `noindex` and canonicalize to their unfiltered collection path.
+- [ ] `deployment-manifest.json` matches the candidate Git SHA, content digest, post count, newest slug, and generated route count.
+- [ ] Publication payload tests reject oversized, malformed, future-dated, unsafe-link, duplicate-slug, unsupported-field, and cross-file mutation attempts.
 
 ## 5. Notification behavior
 
@@ -78,6 +83,8 @@ npm run test:e2e
 - [ ] If the private remote publisher is used, its reviewed commit matches the successful preview commit and `main` has not changed since preview creation.
 - [ ] The matching Production deployment and `/logs/{slug}` were verified before a notification dry run.
 - [ ] Live publisher notifications remain disabled until a synthetic preview and controlled subscriber lifecycle pass.
+- [ ] The publisher and all publication workflows make no request to `/api/notifications/publish`; a successful publication ends in `deployed`.
+- [ ] `publisher-verify` and the Vercel preview status belong to the exact pull-request head SHA before merge dispatch.
 
 ## 7. Public handoff
 

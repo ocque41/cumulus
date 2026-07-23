@@ -60,9 +60,17 @@ vi.mock("@/components/layout/SiteLayout", () => ({
 
 vi.mock("@/content/posts", () => ({
   getPublishedPostBySlug: () => undefined,
+  publishedPosts: Array.from({ length: 21 }, (_, index) => ({
+    category: "Editorial",
+    slug: `post-${index + 1}`,
+  })),
 }));
 
 vi.mock("@/pages/HomePage", () => ({ HomePage: () => <p>Home</p> }));
+vi.mock("@/pages/AreasPage", () => ({
+  AreaArchivePage: () => <p>Area archive</p>,
+  AreasPage: () => <p>Areas</p>,
+}));
 vi.mock("@/pages/LogsPage", () => ({ LogsPage: () => <p>Logs</p> }));
 vi.mock("@/pages/NotFoundPage", () => ({ NotFoundPage: () => <p>Not found</p> }));
 vi.mock("@/pages/PostPage", () => ({ PostPage: () => <p>Post</p> }));

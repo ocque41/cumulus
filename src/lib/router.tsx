@@ -145,7 +145,17 @@ export function AppLink({ children, href, onClick, target, ...props }: AppLinkPr
   );
 }
 
-export function useDocumentMeta(title: string, description?: string) {
+interface DocumentMetaOptions {
+  canonicalPath?: string;
+  noIndex?: boolean;
+  type?: "article" | "website";
+}
+
+export function useDocumentMeta(
+  title: string,
+  description?: string,
+  options: DocumentMetaOptions = {},
+) {
   const pathname = usePathname();
 
   useEffect(() => {
@@ -164,7 +174,8 @@ export function useDocumentMeta(title: string, description?: string) {
       meta.content = description;
     }
 
-    const canonicalUrl = new URL(pathname, "https://cumulush.com").toString();
+    const canonicalPath = options.canonicalPath ?? pathname;
+    const canonicalUrl = new URL(canonicalPath, "https://cumulush.com").toString();
     let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (!canonical) {
       canonical = document.createElement("link");
@@ -184,13 +195,18 @@ export function useDocumentMeta(title: string, description?: string) {
     };
     setMeta('meta[property="og:title"]', "property", "og:title", title);
     setMeta('meta[property="og:url"]', "property", "og:url", canonicalUrl);
-    setMeta(
-      'meta[property="og:type"]',
-      "property",
-      "og:type",
-      pathname.startsWith("/logs/") ? "article" : "website",
-    );
+    setMeta('meta[property="og:type"]', "property", "og:type", options.type ?? (
+      pathname.startsWith("/logs/") && !pathname.startsWith("/logs/page/")
+        ? "article"
+        : "website"
+    ));
     setMeta('meta[name="twitter:title"]', "name", "twitter:title", title);
+    setMeta(
+      'meta[name="robots"]',
+      "name",
+      "robots",
+      options.noIndex ? "noindex, follow" : "index, follow",
+    );
     if (description) {
       setMeta('meta[property="og:description"]', "property", "og:description", description);
       setMeta('meta[name="twitter:description"]', "name", "twitter:description", description);
@@ -202,5 +218,5 @@ export function useDocumentMeta(title: string, description?: string) {
         meta.content = previousDescription;
       }
     };
-  }, [description, pathname, title]);
+  }, [description, options.canonicalPath, options.noIndex, options.type, pathname, title]);
 }

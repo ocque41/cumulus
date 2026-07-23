@@ -1,0 +1,153 @@
+name: Prepare Cumulus publication
+
+run-name: Prepare publication · ${{ github.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      payload:
+        description: Base64-encoded versioned publication payload
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    name: publisher-prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PUBLISHER_PAYLOAD_BASE64: ${{ inputs.payload }}
+      PUBLISHER_RESULT_PATH: publisher-result.json
+    steps:
+      - name: Check out current main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Use the repository Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate the publication contract
+        id: contract
+        run: node scripts/publisher-contract.mjs
+
+      - name: Create or reuse the deterministic content branch
+        id: branch
+        env:
+          BRANCH: ${{ steps.contract.outputs.branch }}
+        run: |
+          git fetch origin main
+          echo "base_sha=$(git rev-parse origin/main)" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --heads origin "refs/heads/$BRANCH" >/dev/null 2>&1; then
+            git fetch origin "refs/heads/$BRANCH"
+            git switch --force-create "$BRANCH" FETCH_HEAD
+            echo "branch_reused=true" >> "$GITHUB_OUTPUT"
+          else
+            git switch --create "$BRANCH" origin/main
+            echo "branch_reused=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update only the validated content catalog
+        id: content
+        run: node scripts/publisher-contract.mjs --write
+
+      - name: Commit and push the exact catalog change
+        id: commit
+        env:
+          BRANCH: ${{ steps.contract.outputs.branch }}
+          SLUG: ${{ steps.contract.outputs.slug }}
+        run: |
+          if ! git diff --quiet -- src/content/posts.json; then
+            git config user.name "cumulus-publisher[bot]"
+            git config user.email "cumulus-publisher[bot]@users.noreply.github.com"
+            git add -- src/content/posts.json
+            if test "$(git diff --cached --name-only)" != "src/content/posts.json"; then
+              echo "Publication attempted to modify an unsupported file." >&2
+              exit 1
+            fi
+            git commit -m "Publish log: $SLUG"
+            git push origin "HEAD:refs/heads/$BRANCH"
+          fi
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create or reuse one pull request
+        id: pull_request
+        env:
+          BRANCH: ${{ steps.contract.outputs.branch }}
+          SLUG: ${{ steps.contract.outputs.slug }}
+        run: |
+          pr_number="$(gh pr list --state open --base main --head "$BRANCH" --json number --jq '.[0].number // empty')"
+          if test -z "$pr_number"; then
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "Publish log: $SLUG" \
+              --body "Repository-native Cumulus publication. The exact commit must pass publisher-verify and its matching Vercel preview before merge."
+            pr_number="$(gh pr list --state open --base main --head "$BRANCH" --json number --jq '.[0].number')"
+          fi
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+
+      - name: Record safe orchestration identifiers
+        env:
+          ATTEMPT_NUMBER: ${{ steps.contract.outputs.attempt_number }}
+          BASE_SHA: ${{ steps.branch.outputs.base_sha }}
+          BRANCH: ${{ steps.contract.outputs.branch }}
+          CONTENT_DIGEST: ${{ steps.contract.outputs.content_digest }}
+          CORRELATION_ID: ${{ steps.contract.outputs.correlation_id }}
+          DRAFT_ID: ${{ steps.contract.outputs.draft_id }}
+          HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
+          PR_NUMBER: ${{ steps.pull_request.outputs.pr_number }}
+          SLUG: ${{ steps.contract.outputs.slug }}
+        run: |
+          node --input-type=module -e '
+            import { writeFile } from "node:fs/promises";
+            const keys = ["ATTEMPT_NUMBER", "BASE_SHA", "BRANCH", "CONTENT_DIGEST", "CORRELATION_ID", "DRAFT_ID", "HEAD_SHA", "PR_NUMBER", "SLUG"];
+            const result = Object.fromEntries(keys.map((key) => [key.toLowerCase(), process.env[key]]));
+            await writeFile("publisher-result.json", JSON.stringify(result, null, 2) + "\n");
+          '
+
+      - name: Dispatch validation for the exact branch
+        env:
+          BASE_SHA: ${{ steps.branch.outputs.base_sha }}
+          BRANCH: ${{ steps.contract.outputs.branch }}
+          CORRELATION_ID: ${{ steps.contract.outputs.correlation_id }}
+          HEAD_SHA: ${{ steps.commit.outputs.head_sha }}
+          PR_NUMBER: ${{ steps.pull_request.outputs.pr_number }}
+          SLUG: ${{ steps.contract.outputs.slug }}
+        run: |
+          gh workflow run validate-publication.yml \
+            --ref "$BRANCH" \
+            -f "base_sha=$BASE_SHA" \
+            -f "branch=$BRANCH" \
+            -f "correlation_id=$CORRELATION_ID" \
+            -f "head_sha=$HEAD_SHA" \
+            -f "pr_number=$PR_NUMBER" \
+            -f "slug=$SLUG"
+
+      - name: Upload safe preparation result
+        if: always() && hashFiles('publisher-result.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: publisher-prepare-result
+          path: publisher-result.json
+          retention-days: 30
+
+      - name: Remove an orphan branch after preparation failure
+        if: failure() && steps.contract.outputs.branch != ''
+        env:
+          BRANCH: ${{ steps.contract.outputs.branch }}
+        run: |
+          pr_number="$(gh pr list --state open --base main --head "$BRANCH" --json number --jq '.[0].number // empty')"
+          if test -z "$pr_number"; then
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${BRANCH}" || true
+          fi
