@@ -45,14 +45,28 @@ function collectionPageCount(count) {
 function collectionRoutes({
   basePath,
   description,
-  itemCount,
+  items,
   title,
 }) {
-  return Array.from({ length: collectionPageCount(itemCount) }, (_, index) => {
+  return Array.from({ length: collectionPageCount(items.length) }, (_, index) => {
     const page = index + 1;
+    const visibleItems = items.slice(
+      index * ARCHIVE_PAGE_SIZE,
+      (index + 1) * ARCHIVE_PAGE_SIZE,
+    );
     return {
       canonicalPath: page === 1 ? basePath : `${basePath}/page/${page}`,
       description,
+      structuredData: {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        itemListElement: visibleItems.map((post, itemIndex) => ({
+          "@type": "ListItem",
+          position: index * ARCHIVE_PAGE_SIZE + itemIndex + 1,
+          name: post.title,
+          url: `${ORIGIN}/logs/${post.slug}`,
+        })),
+      },
       title: `${title}${page > 1 ? `, page ${page}` : ""} — Cumulus lab`,
     };
   });
@@ -66,7 +80,14 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;");
 }
 
-function renderDocument({ canonicalPath, description, noIndex = false, title, type = "website" }) {
+function renderDocument({
+  canonicalPath,
+  description,
+  noIndex = false,
+  structuredData,
+  title,
+  type = "website",
+}) {
   const canonical = `${ORIGIN}${canonicalPath}`;
   const safeTitle = escapeHtml(title);
   const safeDescription = escapeHtml(description);
@@ -83,7 +104,7 @@ function renderDocument({ canonicalPath, description, noIndex = false, title, ty
     noIndex ? `<meta name="robots" content="noindex, nofollow" />` : "",
   ].filter(Boolean).join("\n    ");
 
-  return template
+  const document = template
     .replace(/<title>[^<]*<\/title>/, `<title>${safeTitle}</title>`)
     .replace(
       /<meta\s+name="description"\s+content="[^"]*"\s*\/>/,
@@ -93,6 +114,12 @@ function renderDocument({ canonicalPath, description, noIndex = false, title, ty
       /<!-- route-meta:start -->[\s\S]*?<!-- route-meta:end -->/,
       `<!-- route-meta:start -->\n    ${social}\n    <!-- route-meta:end -->`,
     );
+  if (!structuredData) return document;
+  const serialized = JSON.stringify(structuredData).replaceAll("<", "\\u003c");
+  return document.replace(
+    "</head>",
+    `    <script type="application/ld+json">${serialized}</script>\n  </head>`,
+  );
 }
 
 async function writeRoute(pathname, document) {
@@ -111,7 +138,7 @@ const publicRoutes = [
   ...collectionRoutes({
     basePath: "/logs",
     description: "Browse every public Cumulus field note, with project filters, first-party evidence limits, and related reading.",
-    itemCount: publishedPosts.length,
+    items: publishedPosts,
     title: "Log index",
   }),
   {
@@ -122,7 +149,7 @@ const publicRoutes = [
   ...AREAS.flatMap((area) => collectionRoutes({
     basePath: `/areas/${area.slug}`,
     description: `${area.description} Browse ${area.category} public logs in chronological order.`,
-    itemCount: publishedPosts.filter((post) => post.category === area.category).length,
+    items: publishedPosts.filter((post) => post.category === area.category),
     title: `${area.category} logs`,
   })),
   {
