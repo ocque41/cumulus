@@ -19,15 +19,21 @@ function relatedPosts(post: Post): readonly Post[] {
     .map((slug) => publishedPosts.find((candidate) => candidate.slug === slug))
     .filter((candidate): candidate is Post => Boolean(candidate));
 
-  if (explicit.length > 0) return explicit.slice(0, 3);
-
-  const sameCategory = publishedPosts.filter(
-    (candidate) => candidate.slug !== post.slug && candidate.category === post.category,
+  const selected = new Map(
+    explicit
+      .filter((candidate) => candidate.slug !== post.slug)
+      .map((candidate) => [candidate.slug, candidate]),
   );
-  const other = publishedPosts.filter(
-    (candidate) => candidate.slug !== post.slug && candidate.category !== post.category,
-  );
-  return [...sameCategory, ...other].slice(0, 3);
+  const fallback = [
+    ...publishedPosts.filter((candidate) => candidate.category === post.category),
+    ...publishedPosts.filter((candidate) => candidate.category !== post.category),
+  ];
+  for (const candidate of fallback) {
+    if (candidate.slug !== post.slug && selected.size < 3) {
+      selected.set(candidate.slug, candidate);
+    }
+  }
+  return [...selected.values()].slice(0, 3);
 }
 
 export function PostPage({ post }: { post: Post }) {

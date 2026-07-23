@@ -42,6 +42,7 @@ describe("PostPage evidence mode", () => {
       ...publishedPosts[0],
       category: "Editorial",
       project: undefined,
+      relatedSlugs: [publishedPosts[1].slug],
       sourceLinks: [{
         label: "Supporting source",
         href: "https://example.com/source",
@@ -59,5 +60,6 @@ describe("PostPage evidence mode", () => {
       "href",
       "#sources",
     );
+    expect(document.querySelectorAll(".related-logs__grid > a")).toHaveLength(3);
   });
 });
