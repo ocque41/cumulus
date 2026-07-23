@@ -1,5 +1,34 @@
 [
   {
+    "slug": "publisher-workflow-synthetic-validation",
+    "title": "Publisher workflow synthetic validation",
+    "excerpt": "A temporary unpublished review artifact used to confirm the repository-owned Cumulus publishing workflow.",
+    "status": "published",
+    "date": "2026-07-23",
+    "category": "Editorial",
+    "tags": [
+      "publisher",
+      "validation"
+    ],
+    "placement": "recent",
+    "visual": {
+      "alt": "Static validation lattice for the Cumulus publication workflow.",
+      "variant": "record-lattice"
+    },
+    "body": [
+      {
+        "heading": "Validation only",
+        "paragraphs": [
+          "This temporary review record verifies branch creation, catalog validation, pull-request creation, exact-commit checks, and preview delivery. It remains a controlled review artifact and will not be merged into production. The record contains enough original detail to exercise short-post support without asking the publisher to pad the author supplied facts."
+        ]
+      }
+    ],
+    "relatedSlugs": [
+      "requisia-organization-scoped-registers"
+    ],
+    "verifiedAt": "2026-07-23"
+  },
+  {
     "title": "Organization-Scoped Registers Without Spreadsheet Amnesia",
     "slug": "requisia-organization-scoped-registers",
     "excerpt": "Requisia treats the familiar workbook as an exchange surface around an organization-scoped register, preserving identity, field meaning, and revision history when the table changes shape.",
