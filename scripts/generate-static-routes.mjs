@@ -2,11 +2,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { URL } from "node:url";
 
-import { FOCUSED_POSTS as publishedPosts } from "../src/content/focused-posts.ts";
+import posts from "../src/content/posts.json" with { type: "json" };
 
 const DIST = new URL("../dist/", import.meta.url);
 const ORIGIN = "https://cumulush.com";
 const template = await readFile(new URL("index.html", DIST), "utf8");
+const publishedPosts = posts.filter((post) => post.status === "published");
 
 function escapeHtml(value) {
   return value

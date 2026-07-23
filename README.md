@@ -12,6 +12,7 @@ This repository defines the public application and its public-safe integration c
 - `main` is the authorized production branch. The pre-redesign Git state remains preserved on an archive branch, and the two design branches remain reviewable.
 - Resend Contacts, a dedicated Segment, and an opt-out-by-default Topic are the notification preference store and delivery boundary. Keys and provider-account identifiers stay in the deployment control plane, not this repository.
 - Production notification publishing intentionally fails closed until `NOTIFICATION_POSTAL_ADDRESS` and `RESEND_WEBHOOK_SECRET` are configured and a controlled sign-in, receipt, unsubscribe, and suppression lifecycle is verified.
+- Post content lives in the validated `src/content/posts.json` catalog. A private remote publisher may update that single public-safe file through a reviewed GitHub pull request; publisher credentials and draft state never belong in this repository.
 
 See [Vercel cutover](docs/vercel-cutover.md) for the gate sequence and [private overlay](docs/private-overlay.md) for the public/private split.
 
@@ -97,6 +98,8 @@ The production workflow is:
 6. Verify the exact production deployment, bundled font delivery, direct-route refreshes, static metadata, sitemap, 404 behavior, and domain alias.
 7. Verify sign-in and one controlled Resend lifecycle only after the truthful postal address and webhook signing secret are present.
 
+The optional private remote publisher keeps daily publishing off the operator's computer. It shows a live deterministic preview while the owner types; one Publish action then turns the supplied text into the existing JSON schema, creates a review branch, waits for checks and the exact Vercel preview commit, merges only that reviewed commit, verifies the matching production deployment and public route, and calls the notification endpoint in dry-run mode before any live send. Author-supplied HTTPS links are preserved and validated; automation cannot invent a source URL. Its Sites source, D1 publication history, owner identity, and GitHub/Vercel credentials are private operational material. The publisher does not send the post text to an AI service.
+
 Do not create a replacement Vercel project merely to deploy this branch. Retaining the same external Vercel project and Git integration is what preserves its project-level settings and domain association. Re-verify the existing project and domain immediately before cutover because a repository commit cannot prove current provider state.
 
 ## Product behavior
@@ -108,6 +111,8 @@ The public experience is intentionally narrow:
 - a reader-controlled email opt-in for new posts;
 - a preference/unsubscribe path that does not require a content account;
 - a privileged, server-side publication notification trigger.
+
+Published and draft entries are loaded from `src/content/posts.json`. The application validates slugs, dates, approved project/category pairs, Editorial entries, tags, dither variants, related links, body structure, and exactly one featured post. Reading time remains calculated in application code. New entries use `recent`; content automation cannot replace the featured post.
 
 Consent, idempotency, unsubscribe behavior, and operational delivery rules are specified in [notifications](docs/notifications.md).
 Reader-facing notification data boundaries and the manual correction/deletion contact are published at `/privacy`.

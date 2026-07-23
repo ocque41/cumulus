@@ -1,7 +1,7 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { publishedPosts } from "@/content/posts";
+import { publishedPosts, type Post } from "@/content/posts";
 
 vi.mock("@/components/content/PostComponents", async () => {
   const actual = await vi.importActual<typeof import("@/components/content/PostComponents")>(
@@ -35,5 +35,29 @@ describe("PostPage evidence mode", () => {
       );
       view.unmount();
     }
+  });
+
+  it("renders an Editorial boundary and author-supplied links", () => {
+    const editorial: Post = {
+      ...publishedPosts[0],
+      category: "Editorial",
+      project: undefined,
+      sourceLinks: [{
+        label: "Supporting source",
+        href: "https://example.com/source",
+      }],
+    };
+
+    render(<PostPage post={editorial} />);
+
+    expect(screen.getByText("Author-supplied editorial.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Supporting source" })).toHaveAttribute(
+      "href",
+      "https://example.com/source",
+    );
+    expect(screen.getByRole("link", { name: "Links and sources" })).toHaveAttribute(
+      "href",
+      "#sources",
+    );
   });
 });

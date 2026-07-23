@@ -18,6 +18,7 @@ Use this checklist for Cumulus 0.0.8 before pushing either design branch, publis
 - [ ] `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, Resend Segment/Topic IDs, optional `GITHUB_ACCESS_TOKEN`, `NOTIFICATION_POSTAL_ADDRESS`, `NOTIFICATION_PUBLISH_SECRET`, and `NOTIFICATION_UNSUBSCRIBE_SECRET` remain outside public files and browser bundles.
 - [ ] If configured, `GITHUB_ACCESS_TOKEN` belongs to a separate least-privilege viewer identity with no private-repository access; otherwise the endpoint uses only the fixed public profile. In both cases, the endpoint matches the public profile.
 - [ ] Test fixtures use synthetic identities.
+- [ ] No private publisher source, draft, owner email, Sites URL, or publisher provider credential is tracked.
 
 ## 3. Brand and third-party material
 
@@ -47,6 +48,8 @@ npm run test:e2e
 - [ ] Any skipped or environment-dependent test is named in the handoff and is not reported as passed.
 - [ ] Responsive behavior was checked at 320 px, 390 px, tablet, desktop, and wide desktop widths.
 - [ ] Keyboard, visible focus, screen-reader status, and reduced-motion paths were checked.
+- [ ] The JSON post catalog accepts variable post totals, short Editorial posts, and valid approved dither variants while rejecting duplicate slugs and unsafe source links.
+- [ ] Routes, archive search, homepage sections, metadata, canonical URLs, sitemap, table of contents, and related-post fallback include a synthetic new post.
 
 ## 5. Notification behavior
 
@@ -72,6 +75,9 @@ npm run test:e2e
 - [ ] Main replacement or merge has separate explicit approval.
 - [ ] Production promotion and live domain cutover have separate explicit approval.
 - [ ] The prior production deployment remains available for rollback until post-cutover checks pass.
+- [ ] If the private remote publisher is used, its reviewed commit matches the successful preview commit and `main` has not changed since preview creation.
+- [ ] The matching Production deployment and `/logs/{slug}` were verified before a notification dry run.
+- [ ] Live publisher notifications remain disabled until a synthetic preview and controlled subscriber lifecycle pass.
 
 ## 7. Public handoff
 
