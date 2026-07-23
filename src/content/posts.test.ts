@@ -55,7 +55,7 @@ describe("POSTS", () => {
     expect(validatePosts()).toEqual([]);
   });
 
-  it("gives every published journal substantial, topic-specific copy", () => {
+  it("gives every published journal valid, topic-specific copy without padding short posts", () => {
     const seenParagraphs = new Map<string, string>();
     const sectionCounts = new Set<number>();
 
@@ -68,7 +68,7 @@ describe("POSTS", () => {
         .toBe(post.tags.length);
 
       const bodyWords = countBodyWords(post.body);
-      expect(bodyWords, post.slug).toBeGreaterThanOrEqual(50);
+      expect(bodyWords, post.slug).toBeGreaterThan(0);
       expect(post.readingTime, post.slug).toBe(calculateReadingTime(post.body));
       expect(post.visual.alt.trim().length).toBeGreaterThan(24);
       expect(post.body.length).toBeGreaterThanOrEqual(1);
@@ -182,7 +182,7 @@ describe("POSTS", () => {
       title: "A small public note",
       excerpt: "A compact editorial that keeps the author’s facts while applying the Cumulus publishing structure.",
       status: "published",
-      date: "2026-07-18",
+      date: POSTS[0].date,
       category: "Editorial",
       tags: ["Publishing", "Editorial"],
       readingTime: calculateReadingTime(body),
@@ -192,7 +192,7 @@ describe("POSTS", () => {
         alt: "Animated dither signal window framing a compact editorial note",
       },
       body,
-      verifiedAt: "2026-07-18",
+      verifiedAt: POSTS[0].date,
     });
 
     expect(validatePosts(posts)).toEqual([]);

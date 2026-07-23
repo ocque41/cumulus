@@ -34,6 +34,7 @@ afterEach(() => cleanup());
 describe("WorkPage project journals", () => {
   it("renders every focused journal under its project with a dither plate", () => {
     const view = render(<WorkPage />);
+    const projectPosts = publishedPosts.filter((post) => post.project);
     const journalLinks = Array.from(
       view.container.querySelectorAll<HTMLAnchorElement>(".work-project__notes a"),
     );
@@ -41,10 +42,10 @@ describe("WorkPage project journals", () => {
       view.container.querySelectorAll<HTMLElement>("[data-post-slug]"),
     );
 
-    expect(journalLinks).toHaveLength(publishedPosts.length);
-    expect(plates).toHaveLength(publishedPosts.length);
+    expect(journalLinks).toHaveLength(projectPosts.length);
+    expect(plates).toHaveLength(projectPosts.length);
     expect(new Set(journalLinks.map((link) => link.getAttribute("href"))).size).toBe(
-      publishedPosts.length,
+      projectPosts.length,
     );
 
     for (const project of WORK_PROJECTS) {
