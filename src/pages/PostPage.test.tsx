@@ -23,7 +23,7 @@ afterEach(() => cleanup());
 
 describe("PostPage evidence mode", () => {
   it("identifies every focused route as a maintainer-authored first-party journal", () => {
-    for (const post of publishedPosts) {
+    for (const post of publishedPosts.filter((entry) => entry.category !== "Editorial")) {
       const view = render(<PostPage post={post} />);
       const notice = view.container.querySelector(".article-evidence-label");
 

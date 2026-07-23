@@ -20,10 +20,11 @@ describe("LogsPage filters", () => {
   it("renders ten unfiltered logs per crawlable archive page", () => {
     const { container } = render(<LogsPage page={1} />);
     const rows = container.querySelectorAll(".post-index-row");
+    const totalPages = Math.ceil(publishedPosts.length / 10);
 
     expect(rows).toHaveLength(10);
     expect(screen.getByRole("status")).toHaveTextContent(
-      `${publishedPosts.length} entries · page 1 of 2`,
+      `${publishedPosts.length} entries · page 1 of ${totalPages}`,
     );
     expect(screen.getByRole("link", { name: "Next" }))
       .toHaveAttribute("href", "/logs/page/2");
