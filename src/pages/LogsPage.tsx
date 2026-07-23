@@ -1,7 +1,11 @@
 import { useMemo, useState, type FormEvent } from "react";
 
-import { PostIndexRow } from "@/components/content/PostComponents";
+import {
+  PaginationNav,
+  PostIndexRow,
+} from "@/components/content/PostComponents";
 import { HeroDither } from "@/components/visual/HeroDither";
+import { ARCHIVE_PAGE_SIZE, pageCount, pageItems } from "@/content/areas";
 import { publishedPosts, searchPublishedPosts } from "@/content/posts";
 import { navigate, useDocumentMeta, useSearchParams } from "@/lib/router";
 
@@ -13,24 +17,34 @@ function searchHref(query: string, category: string): string {
   return search ? `/logs?${search}` : "/logs";
 }
 
-export function LogsPage() {
+function archiveHref(page: number): string {
+  return page > 1 ? `/logs/page/${page}` : "/logs";
+}
+
+export function LogsPage({ page = 1 }: { page?: number }) {
   const params = useSearchParams();
   const routeQuery = params.get("q") ?? "";
   const routeCategory = params.get("category") ?? "all";
+  const filtersActive = Boolean(routeQuery || routeCategory !== "all");
+  const canonicalPath = archiveHref(page);
+  const pageSuffix = page > 1 ? `, page ${page}` : "";
 
   useDocumentMeta(
-    "Log index — Cumulus lab",
+    `Log index${pageSuffix} — Cumulus lab`,
     "Search and filter the complete public Cumulus log archive.",
+    { canonicalPath, noIndex: filtersActive, type: "website" },
   );
 
-  return <LogsArchive category={routeCategory} query={routeQuery} />;
+  return <LogsArchive category={routeCategory} page={page} query={routeQuery} />;
 }
 
 function LogsArchive({
   category: initialCategory,
+  page,
   query: initialQuery,
 }: {
   category: string;
+  page: number;
   query: string;
 }) {
   const routeQuery = initialQuery;
@@ -48,10 +62,16 @@ function LogsArchive({
     () => ["all", ...Array.from(new Set(publishedPosts.map((post) => post.category))).sort()],
     [],
   );
-  const results = useMemo(
+  const filteredResults = useMemo(
     () => searchPublishedPosts(routeQuery, routeCategory),
     [routeCategory, routeQuery],
   );
+  const filtersActive = Boolean(routeQuery || routeCategory !== "all");
+  const effectivePage = filtersActive ? 1 : page;
+  const totalPages = pageCount(filteredResults.length);
+  const results = filtersActive
+    ? filteredResults
+    : pageItems(filteredResults, effectivePage);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -120,8 +140,9 @@ function LogsArchive({
 
         <div className="archive-results-heading">
           <p aria-live="polite" role="status">
-            {results.length} {results.length === 1 ? "entry" : "entries"}
+            {filteredResults.length} {filteredResults.length === 1 ? "entry" : "entries"}
             {routeQuery ? ` matching “${routeQuery}”` : ""}
+            {!filtersActive ? ` · page ${effectivePage} of ${totalPages}` : ""}
           </p>
           {(routeQuery || routeCategory !== "all") && (
             <button
@@ -139,7 +160,11 @@ function LogsArchive({
         {results.length > 0 ? (
           <div className="post-index">
             {results.map((post, index) => (
-              <PostIndexRow index={index} key={post.slug} post={post} />
+              <PostIndexRow
+                index={(effectivePage - 1) * ARCHIVE_PAGE_SIZE + index}
+                key={post.slug}
+                post={post}
+              />
             ))}
           </div>
         ) : (
@@ -157,6 +182,14 @@ function LogsArchive({
             </button>
           </div>
         )}
+        {!filtersActive && results.length > 0 ? (
+          <PaginationNav
+            currentPage={effectivePage}
+            hrefForPage={archiveHref}
+            label="Log archive pages"
+            totalPages={totalPages}
+          />
+        ) : null}
       </section>
     </>
   );

@@ -30,16 +30,16 @@ vi.mock("@/features/notifications", () => ({
 
 vi.mock("@/components/content/PostComponents", () => ({
   articleHref: (post: Pick<Post, "slug">) => `/logs/${post.slug}`,
-  DitherPlate: ({ className = "" }: { className?: string }) => (
-    <div aria-hidden="true" className={`dither-plate ${className}`} />
-  ),
-  FeaturedPost: () => <article data-testid="featured-post" />,
-  PostCard: ({ post }: { post: Post }) => (
+  CompactPostRow: ({ post }: { post: Post }) => (
     <article><a href={`/logs/${post.slug}`}>{post.title}</a></article>
+  ),
+  FeaturedPost: ({ post }: { post: Post }) => (
+    <article data-slug={post.slug} data-testid="featured-post" />
   ),
 }));
 
-import { publishedPosts } from "@/content/posts";
+import { CONTENT_AREAS } from "@/content/areas";
+import { homePreviousPosts, latestPost, publishedPosts } from "@/content/posts";
 import { HomePage } from "./HomePage";
 
 afterEach(() => {
@@ -59,47 +59,31 @@ describe("HomePage field notes", () => {
     }));
   });
 
-  it("renders every post in complete count-aware grids", () => {
+  it("caps the homepage at one latest log and four previous logs", () => {
     const { container } = render(<HomePage onOpenAuth={vi.fn()} />);
-    const placements = [
-      ["recent", ".post-grid"],
-      ["stories", ".field-note-grid"],
-      ["research", ".post-grid"],
-      ["build-business", ".field-note-grid"],
-    ] as const;
-    const grids = Array.from(
-      container.querySelectorAll<HTMLElement>("[data-card-count]"),
-    );
+    const latest = within(document.body).getByTestId("featured-post");
+    const chain = container.querySelector(".compact-post-chain");
 
-    expect(grids).toHaveLength(placements.length);
-    placements.forEach(([placement, selector], index) => {
-      const expectedCount = publishedPosts.filter(
-        (post) => post.placement === placement,
-      ).length;
-      const grid = grids[index];
-      expect(grid?.matches(selector)).toBe(true);
-      expect(grid).toHaveAttribute("data-card-count", String(expectedCount));
-      expect(grid?.children).toHaveLength(expectedCount);
+    expect(latest).toHaveAttribute("data-slug", latestPost.slug);
+    expect(chain).toHaveAttribute(
+      "data-card-count",
+      String(Math.min(4, publishedPosts.length - 1)),
+    );
+    expect(chain?.children).toHaveLength(homePreviousPosts.length);
+    homePreviousPosts.forEach((post) => {
+      expect(within(chain as HTMLElement).getByRole("link", { name: post.title }))
+        .toHaveAttribute("href", `/logs/${post.slug}`);
     });
   });
 
-  it("uses one descriptive stretched link per story and business card", () => {
+  it("renders all approved areas without rendering their full post lists", () => {
     const { container } = render(<HomePage onOpenAuth={vi.fn()} />);
-    const expected = [
-      ...publishedPosts.filter((post) => post.placement === "stories"),
-      ...publishedPosts.filter((post) => post.placement === "build-business"),
-    ];
-    const cards = container.querySelectorAll<HTMLElement>(".field-note");
+    const cards = container.querySelectorAll(".area-overview-card");
 
-    expect(cards).toHaveLength(expected.length);
-    cards.forEach((card, index) => {
-      const post = expected[index];
-      if (!post) throw new Error("Expected a matching field-note post");
-      const links = within(card).getAllByRole("link");
-      expect(links).toHaveLength(1);
-      expect(links[0]).toHaveAccessibleName(post.title);
-      expect(links[0]).toHaveAttribute("href", `/logs/${post.slug}`);
-      expect(card.querySelector(".field-note__visual")?.tagName).toBe("DIV");
+    expect(cards).toHaveLength(CONTENT_AREAS.length);
+    CONTENT_AREAS.forEach((area) => {
+      expect(within(document.body).getByRole("link", { name: area.category }))
+        .toHaveAttribute("href", `/areas/${area.slug}`);
     });
   });
 });

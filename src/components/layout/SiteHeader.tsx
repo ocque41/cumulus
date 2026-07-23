@@ -11,6 +11,7 @@ export function SiteHeader({ onOpenAuth }: SiteHeaderProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const logsCurrent = pathname === "/logs" || pathname.startsWith("/logs/");
+  const areasCurrent = pathname === "/areas" || pathname.startsWith("/areas/");
 
   return (
     <header className="site-header" data-open={menuOpen || undefined}>
@@ -47,6 +48,13 @@ export function SiteHeader({ onOpenAuth }: SiteHeaderProps) {
             onClick={() => setMenuOpen(false)}
           >
             Log index
+          </AppLink>
+          <AppLink
+            aria-current={areasCurrent ? "page" : undefined}
+            href="/areas"
+            onClick={() => setMenuOpen(false)}
+          >
+            Areas
           </AppLink>
           <AppLink href="/#github" onClick={() => setMenuOpen(false)}>
             Activity

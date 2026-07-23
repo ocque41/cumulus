@@ -5,6 +5,9 @@ import {
   calculateReadingTime,
   countBodyWords,
   featuredPost,
+  getAdjacentPublishedPosts,
+  homePreviousPosts,
+  latestPost,
   getPublishedPostBySlug,
   publishedPosts,
   searchPublishedPosts,
@@ -134,10 +137,11 @@ describe("POSTS", () => {
     );
   });
 
-  it("has one featured journal and only home-rendered placements", () => {
-    expect(publishedPosts.filter((post) => post.placement === "featured"))
-      .toEqual([featuredPost]);
-    expect(featuredPost.status).toBe("published");
+  it("selects the newest five homepage logs without using placement", () => {
+    expect(latestPost).toBe(publishedPosts[0]);
+    expect(featuredPost).toBe(latestPost);
+    expect(homePreviousPosts).toEqual(publishedPosts.slice(1, 5));
+    expect([latestPost, ...homePreviousPosts]).toHaveLength(5);
 
     const placements = new Set(publishedPosts.map((post) => post.placement));
     expect(placements).toEqual(
@@ -205,11 +209,24 @@ describe("published post selectors", () => {
     expect(searchPublishedPosts(draft!.title)).toEqual([]);
   });
 
-  it("selects the feature and resolves a normalized slug", () => {
-    expect(featuredPost.placement).toBe("featured");
+  it("selects the latest log and resolves a normalized slug", () => {
+    expect(featuredPost).toBe(publishedPosts[0]);
     expect(getPublishedPostBySlug(`  ${featuredPost.slug.toUpperCase()}  `)).toBe(
       featuredPost,
     );
+  });
+
+  it("resolves newer and older chronological neighbors", () => {
+    expect(getAdjacentPublishedPosts(publishedPosts[0])).toEqual({
+      older: publishedPosts[1],
+    });
+    expect(getAdjacentPublishedPosts(publishedPosts[1])).toEqual({
+      newer: publishedPosts[0],
+      older: publishedPosts[2],
+    });
+    expect(getAdjacentPublishedPosts(publishedPosts.at(-1)!)).toEqual({
+      newer: publishedPosts.at(-2),
+    });
   });
 });
 

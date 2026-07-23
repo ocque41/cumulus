@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { URL } from "node:url";
 
@@ -8,6 +9,54 @@ const DIST = new URL("../dist/", import.meta.url);
 const ORIGIN = "https://cumulush.com";
 const template = await readFile(new URL("index.html", DIST), "utf8");
 const publishedPosts = posts.filter((post) => post.status === "published");
+const ARCHIVE_PAGE_SIZE = 10;
+const AREAS = [
+  {
+    category: "Requisia",
+    description: "Procurement operations, controls, evidence, and decision support.",
+    slug: "requisia",
+  },
+  {
+    category: "Insuja",
+    description: "Controlled acquisition infrastructure and durable operating systems.",
+    slug: "insuja",
+  },
+  {
+    category: "Hyoka Hanesu",
+    description: "Local repository assistance, review boundaries, and implementation practice.",
+    slug: "hyoka-hanesu",
+  },
+  {
+    category: "gy",
+    description: "Git, forge, collaboration, and developer-workflow research.",
+    slug: "gy",
+  },
+  {
+    category: "Editorial",
+    description: "Cumulus publishing notes, product decisions, and studio updates.",
+    slug: "editorial",
+  },
+];
+
+function collectionPageCount(count) {
+  return Math.max(1, Math.ceil(count / ARCHIVE_PAGE_SIZE));
+}
+
+function collectionRoutes({
+  basePath,
+  description,
+  itemCount,
+  title,
+}) {
+  return Array.from({ length: collectionPageCount(itemCount) }, (_, index) => {
+    const page = index + 1;
+    return {
+      canonicalPath: page === 1 ? basePath : `${basePath}/page/${page}`,
+      description,
+      title: `${title}${page > 1 ? `, page ${page}` : ""} — Cumulus lab`,
+    };
+  });
+}
 
 function escapeHtml(value) {
   return value
@@ -59,11 +108,23 @@ const publicRoutes = [
     description: "Cumulus is a public laboratory for evidence-backed field notes on systems, interfaces, operations, and software design.",
     title: "Cumulus lab — Field notes from the build",
   },
-  {
-    canonicalPath: "/logs",
+  ...collectionRoutes({
+    basePath: "/logs",
     description: "Browse every public Cumulus field note, with project filters, first-party evidence limits, and related reading.",
-    title: "Log index — Cumulus lab",
+    itemCount: publishedPosts.length,
+    title: "Log index",
+  }),
+  {
+    canonicalPath: "/areas",
+    description: "Explore Cumulus public logs across Requisia, Insuja, Hyoka Hanesu, gy, and Editorial.",
+    title: "Areas — Cumulus lab",
   },
+  ...AREAS.flatMap((area) => collectionRoutes({
+    basePath: `/areas/${area.slug}`,
+    description: `${area.description} Browse ${area.category} public logs in chronological order.`,
+    itemCount: publishedPosts.filter((post) => post.category === area.category).length,
+    title: `${area.category} logs`,
+  })),
   {
     canonicalPath: "/work",
     description: "Explore current Cumulus lab projects, their reviewed public summaries, stated status, and source boundaries.",
@@ -118,4 +179,23 @@ ${publicRoutes.map(({ canonicalPath }) => `  <url><loc>${ORIGIN}${canonicalPath}
 `;
 await writeFile(new URL("sitemap.xml", DIST), sitemap);
 
-console.log(`STATIC_ROUTES_OK ${publicRoutes.length} public routes`);
+const contentDigest = createHash("sha256")
+  .update(JSON.stringify(posts))
+  .digest("hex");
+const deploymentManifest = {
+  contentDigest,
+  generatedAt: new Date().toISOString(),
+  gitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA ?? "local",
+  newestSlug: publishedPosts[0]?.slug ?? null,
+  postCount: publishedPosts.length,
+  routeCount: publicRoutes.length,
+  schemaVersion: 1,
+};
+await writeFile(
+  new URL("deployment-manifest.json", DIST),
+  `${JSON.stringify(deploymentManifest, null, 2)}\n`,
+);
+
+console.log(
+  `STATIC_ROUTES_OK ${publicRoutes.length} public routes ${publishedPosts.length} posts`,
+);

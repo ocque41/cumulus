@@ -2,7 +2,11 @@ import { HeroDither } from "@/components/visual/HeroDither";
 import { AppLink, useDocumentMeta } from "@/lib/router";
 
 export function NotFoundPage() {
-  useDocumentMeta("Log not found — Cumulus lab");
+  useDocumentMeta(
+    "Log not found — Cumulus lab",
+    "The requested Cumulus route could not be found.",
+    { canonicalPath: "/404", noIndex: true, type: "website" },
+  );
 
   return (
     <section className="not-found page-shell">

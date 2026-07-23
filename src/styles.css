@@ -3312,6 +3312,214 @@ canvas {
   }
 }
 
+.compact-post-chain {
+  border-top: 1px solid var(--divider);
+}
+
+.compact-post-row {
+  align-items: start;
+  border-bottom: 1px solid var(--divider);
+  display: grid;
+  gap: clamp(0.9rem, 2vw, 1.75rem);
+  grid-template-columns: 2.5rem 0.75rem minmax(0, 1fr) auto;
+  padding: clamp(1.25rem, 3vw, 2rem) 0;
+}
+
+.compact-post-row__index,
+.compact-post-row__action {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.compact-post-row__signal {
+  align-self: stretch;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      var(--signal) 0 2px,
+      transparent 2px 5px
+    );
+  min-height: 4rem;
+  opacity: 0.75;
+}
+
+.compact-post-row__body h3 {
+  font-size: clamp(1.7rem, 3.5vw, 3.5rem);
+  margin: 0.45rem 0 0.6rem;
+}
+
+.compact-post-row__body > p {
+  color: var(--muted);
+  margin: 0;
+  max-width: 62rem;
+}
+
+.area-overview-grid,
+.area-index-grid {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: var(--divider);
+  border: 1px solid var(--divider);
+}
+
+.area-overview-card,
+.area-index-card {
+  background: var(--canvas);
+  min-height: 19rem;
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+}
+
+.area-overview-card:last-child {
+  grid-column: 1 / -1;
+}
+
+.area-overview-card h3,
+.area-index-card h2 {
+  font-size: clamp(2rem, 4vw, 4.5rem);
+  margin: 1rem 0;
+}
+
+.area-overview-card__signal {
+  border-bottom: 1px solid var(--divider);
+  color: var(--signal);
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+}
+
+.area-overview-card__latest {
+  display: inline-block;
+  margin-top: 1.5rem;
+}
+
+.collection-hero {
+  border-bottom: 1px solid var(--divider);
+  padding-bottom: clamp(3rem, 8vw, 7rem);
+  padding-top: clamp(4rem, 10vw, 9rem);
+}
+
+.collection-hero h1 {
+  font-size: clamp(4rem, 12vw, 10rem);
+  margin: 1rem 0;
+}
+
+.collection-hero > p {
+  color: var(--muted);
+  max-width: 52rem;
+}
+
+.archive-page-status {
+  color: var(--muted);
+  margin: 0 0 1.5rem;
+}
+
+.pagination {
+  align-items: center;
+  border-top: 1px solid var(--divider);
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+}
+
+.pagination ol {
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pagination a,
+.pagination span {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0.4rem;
+}
+
+.pagination [aria-current="page"] {
+  background: var(--signal);
+  color: var(--canvas);
+}
+
+.pagination [aria-disabled="true"] {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.article-chain {
+  border-bottom: 1px solid var(--divider);
+  border-top: 1px solid var(--divider);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: clamp(3rem, 8vw, 7rem);
+}
+
+.article-chain > * {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 9rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.article-chain > * + * {
+  border-left: 1px solid var(--divider);
+}
+
+.article-chain span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.article-chain__older {
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .compact-post-row {
+    grid-template-columns: 2rem 0.5rem minmax(0, 1fr);
+  }
+
+  .compact-post-row__action {
+    display: none;
+  }
+
+  .area-overview-grid,
+  .area-index-grid,
+  .article-chain {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .area-overview-card:last-child {
+    grid-column: auto;
+  }
+
+  .article-chain > * + * {
+    border-left: 0;
+    border-top: 1px solid var(--divider);
+  }
+
+  .pagination {
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .pagination ol {
+    order: 3;
+    overflow-x: auto;
+    width: 100%;
+  }
+}
+
 @media (forced-colors: active) {
   .contribution-cell:focus-visible {
     filter: none;

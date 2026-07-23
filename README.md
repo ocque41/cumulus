@@ -84,7 +84,7 @@ npm run license:check
 npm run test:e2e
 ```
 
-`npm run build` creates the browser bundle plus route-specific static HTML for the home page, public-work directory, notification-privacy page, archive, every published log, auth callback, and 404 response. It also emits `robots.txt` and `sitemap.xml`. `npm run test:e2e` may require a local server or an explicitly selected preview URL, depending on the test configuration. Do not point end-to-end tests that create contacts or send mail at production without approval and test-recipient safeguards.
+`npm run build` creates the browser bundle plus route-specific static HTML for the home page, public-work directory, notification-privacy page, every paginated archive page, the area index and area archives, every published log, auth callback, and 404 response. It also emits `robots.txt`, `sitemap.xml`, and a public `deployment-manifest.json` containing the Git SHA, content digest, published-post count, newest slug, and generated-route count. `npm run test:e2e` may require a local server or an explicitly selected preview URL, depending on the test configuration. Do not point end-to-end tests that create contacts or send mail at production without approval and test-recipient safeguards.
 
 ## Production path
 
@@ -98,7 +98,9 @@ The production workflow is:
 6. Verify the exact production deployment, bundled font delivery, direct-route refreshes, static metadata, sitemap, 404 behavior, and domain alias.
 7. Verify sign-in and one controlled Resend lifecycle only after the truthful postal address and webhook signing secret are present.
 
-The optional private remote publisher keeps daily publishing off the operator's computer. It shows a live deterministic preview while the owner types; one Publish action then turns the supplied text into the existing JSON schema, creates a review branch, waits for checks and the exact Vercel preview commit, merges only that reviewed commit, verifies the matching production deployment and public route, and calls the notification endpoint in dry-run mode before any live send. Author-supplied HTTPS links are preserved and validated; automation cannot invent a source URL. Its Sites source, D1 publication history, owner identity, and GitHub/Vercel credentials are private operational material. The publisher does not send the post text to an AI service.
+The optional private remote publisher keeps daily publishing off the operator's computer. It shows a live deterministic preview while the owner types; one Publish action turns the supplied text into the existing JSON schema and dispatches the repository-owned preparation workflow. GitHub Actions validates the payload, creates or reuses one content branch and pull request, runs the exact `publisher-verify` check, and merges only after the private publisher confirms the matching Vercel preview. The private publisher then verifies the production deployment and public manifest. Author-supplied HTTPS links are preserved and validated; automation cannot invent a source URL. Its Sites source, D1 publication history, owner identity, GitHub App credentials, and Vercel monitoring credentials are private operational material. The publisher does not send the post text to an AI service.
+
+Subscriber broadcasting is intentionally outside this publishing pipeline. A successful article ends in `deployed`; repository workflows and the private publisher do not contact `/api/notifications/publish`. The existing notification safety boundary remains available for a separate, compliance-reviewed release.
 
 Do not create a replacement Vercel project merely to deploy this branch. Retaining the same external Vercel project and Git integration is what preserves its project-level settings and domain association. Re-verify the existing project and domain immediately before cutover because a repository commit cannot prove current provider state.
 
@@ -106,13 +108,17 @@ Do not create a replacement Vercel project merely to deploy this branch. Retaini
 
 The public experience is intentionally narrow:
 
-- a hero and chronological public logs;
+- a hero, one latest log, and at most four previous logs on the homepage;
+- a complete archive paginated at ten logs per page;
+- five automatic area archives for Requisia, Insuja, Hyoka Hanesu, gy, and Editorial;
 - a first-party public-work directory with reviewed dates, public-source snapshots where available, and explicit private-source boundaries;
 - a reader-controlled email opt-in for new posts;
 - a preference/unsubscribe path that does not require a content account;
 - a privileged, server-side publication notification trigger.
 
-Published and draft entries are loaded from `src/content/posts.json`. The application validates slugs, dates, approved project/category pairs, Editorial entries, tags, dither variants, related links, body structure, and exactly one featured post. Reading time remains calculated in application code. New entries use `recent`; content automation cannot replace the featured post.
+Published and draft entries are loaded from `src/content/posts.json`. The application validates slugs, dates, approved project/category pairs, Editorial entries, tags, dither variants, related links, and body structure. Reading time remains calculated in application code. Homepage selection follows validated newest-first catalog order and ignores the legacy `placement` field. A same-day publication inserted first in the catalog becomes the latest log. The previous four form a lightweight chain; older entries remain in the archive and their area.
+
+The repository-native workflow contract is documented in [publishing workflows](docs/publishing-workflows.md).
 
 Consent, idempotency, unsubscribe behavior, and operational delivery rules are specified in [notifications](docs/notifications.md).
 Reader-facing notification data boundaries and the manual correction/deletion contact are published at `/privacy`.

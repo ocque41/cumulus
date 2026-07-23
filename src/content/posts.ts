@@ -4,6 +4,7 @@ import {
   type Post,
   type PostBodySection,
 } from "./post-types.js";
+import { CONTENT_AREAS, HOME_POST_LIMIT } from "./areas.js";
 
 export type {
   DitherVariant,
@@ -17,12 +18,12 @@ export type {
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DITHER_VARIANT_SET = new Set<string>(DITHER_VARIANTS);
-const PROJECT_CATEGORIES = new Map([
-  ["requisia", "Requisia"],
-  ["insuja", "Insuja"],
-  ["hyoka-hanesu", "Hyoka Hanesu"],
-  ["gy", "gy"],
-]);
+const PROJECT_CATEGORIES = new Map<string, string>(
+  CONTENT_AREAS.filter((area) => area.category !== "Editorial").map((area) => [
+    area.slug,
+    area.category,
+  ]),
+);
 
 function normalized(value: string): string {
   return value.trim().toLocaleLowerCase("en-US");
@@ -78,13 +79,6 @@ export function validatePosts(posts: readonly Post[] = POSTS): string[] {
   const publishedSlugs = new Set(
     posts.filter((post) => post.status === "published").map((post) => post.slug),
   );
-
-  const featuredCount = posts.filter(
-    (post) => post.status === "published" && post.placement === "featured",
-  ).length;
-  if (featuredCount !== 1) {
-    issues.push(`Expected exactly one featured published post, received ${featuredCount}.`);
-  }
 
   posts.forEach((post, index) => {
     const label = post.slug || `post at index ${index}`;
@@ -173,13 +167,34 @@ export const publishedPosts: readonly Post[] = POSTS.filter(
   (post) => post.status === "published",
 );
 
-export const featuredPost: Post = publishedPosts.find(
-  (post) => post.placement === "featured",
-)!;
+export const latestPost: Post = publishedPosts[0];
+export const homePreviousPosts: readonly Post[] = publishedPosts.slice(1, HOME_POST_LIMIT);
+
+/**
+ * Kept as a public compatibility alias for downstream imports. Homepage selection
+ * is chronological and no longer reads the legacy placement field.
+ */
+export const featuredPost: Post = latestPost;
 
 export function getPublishedPostBySlug(slug: string): Post | undefined {
   const normalizedSlug = normalized(slug);
   return publishedPosts.find((post) => post.slug === normalizedSlug);
+}
+
+export function getPublishedPostsByCategory(category: string): readonly Post[] {
+  return publishedPosts.filter((post) => post.category === category);
+}
+
+export function getAdjacentPublishedPosts(post: Pick<Post, "slug">): {
+  newer?: Post;
+  older?: Post;
+} {
+  const index = publishedPosts.findIndex((candidate) => candidate.slug === post.slug);
+  if (index < 0) return {};
+  return {
+    newer: index > 0 ? publishedPosts[index - 1] : undefined,
+    older: index + 1 < publishedPosts.length ? publishedPosts[index + 1] : undefined,
+  };
 }
 
 export function searchPublishedPosts(query = "", category?: string): readonly Post[] {

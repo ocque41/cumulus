@@ -165,7 +165,7 @@ export function FeaturedPost({ post }: { post: Post }) {
         />
       </div>
       <div className="featured-post__copy">
-        <p className="eyebrow">Featured log</p>
+        <p className="eyebrow">Latest log</p>
         <PostMeta post={post} />
         <h3>
           <AppLink href={articleHref(post)}>{post.title}</AppLink>
@@ -176,6 +176,77 @@ export function FeaturedPost({ post }: { post: Post }) {
         </span>
       </div>
     </article>
+  );
+}
+
+export function CompactPostRow({
+  index,
+  post,
+}: {
+  index: number;
+  post: Post;
+}) {
+  return (
+    <article className="compact-post-row">
+      <span aria-hidden="true" className="compact-post-row__index">
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      <div className="compact-post-row__signal" data-variant={post.visual.variant} aria-hidden="true" />
+      <div className="compact-post-row__body">
+        <PostMeta post={post} />
+        <h3>
+          <AppLink href={articleHref(post)}>{post.title}</AppLink>
+        </h3>
+        <p>{post.excerpt}</p>
+      </div>
+      <span aria-hidden="true" className="compact-post-row__action">
+        Open
+      </span>
+    </article>
+  );
+}
+
+export function PaginationNav({
+  currentPage,
+  hrefForPage,
+  label,
+  totalPages,
+}: {
+  currentPage: number;
+  hrefForPage: (page: number) => string;
+  label: string;
+  totalPages: number;
+}) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <nav aria-label={label} className="pagination">
+      {currentPage > 1 ? (
+        <AppLink href={hrefForPage(currentPage - 1)} rel="prev">
+          Previous
+        </AppLink>
+      ) : (
+        <span aria-disabled="true">Previous</span>
+      )}
+      <ol>
+        {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+          <li key={page}>
+            {page === currentPage ? (
+              <span aria-current="page">{page}</span>
+            ) : (
+              <AppLink href={hrefForPage(page)}>{page}</AppLink>
+            )}
+          </li>
+        ))}
+      </ol>
+      {currentPage < totalPages ? (
+        <AppLink href={hrefForPage(currentPage + 1)} rel="next">
+          Next
+        </AppLink>
+      ) : (
+        <span aria-disabled="true">Next</span>
+      )}
+    </nav>
   );
 }
 

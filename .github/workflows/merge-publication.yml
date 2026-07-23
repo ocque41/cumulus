@@ -1,0 +1,137 @@
+name: Merge Cumulus publication
+
+run-name: Merge ${{ inputs.slug }} · ${{ inputs.correlation_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+      correlation_id:
+        required: true
+        type: string
+      head_sha:
+        required: true
+        type: string
+      pr_number:
+        required: true
+        type: string
+      slug:
+        required: true
+        type: string
+
+permissions:
+  checks: read
+  contents: write
+  pull-requests: write
+  statuses: read
+
+concurrency:
+  group: merge-publication-${{ inputs.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    name: publisher-merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Revalidate reviewed GitHub and Vercel boundaries
+        id: verify
+        uses: actions/github-script@v7
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+          BRANCH: ${{ inputs.branch }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          SLUG: ${{ inputs.slug }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = Number(process.env.PR_NUMBER);
+            if (!Number.isInteger(pull_number) || pull_number < 1) {
+              core.setFailed("Invalid pull request number.");
+              return;
+            }
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+            if (
+              pr.state !== "open"
+              || pr.base.ref !== "main"
+              || pr.base.sha !== process.env.BASE_SHA
+              || pr.head.ref !== process.env.BRANCH
+              || pr.head.sha !== process.env.HEAD_SHA
+            ) {
+              core.setFailed("STALE_PUBLICATION: pull request boundaries changed.");
+              return;
+            }
+            const { data: main } = await github.rest.repos.getBranch({
+              owner,
+              repo,
+              branch: "main",
+            });
+            if (main.commit.sha !== process.env.BASE_SHA) {
+              core.setFailed("STALE_PUBLICATION: main changed after preview preparation.");
+              return;
+            }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number,
+              per_page: 100,
+            });
+            if (
+              files.length !== 1
+              || files[0].filename !== "src/content/posts.json"
+              || files[0].status === "removed"
+            ) {
+              core.setFailed("Publication pull request changed unsupported files.");
+              return;
+            }
+            const checks = await github.paginate(github.rest.checks.listForRef, {
+              owner,
+              repo,
+              ref: process.env.HEAD_SHA,
+              per_page: 100,
+            });
+            const publisherCheck = checks.find((check) =>
+              check.name === "publisher-verify" && check.conclusion === "success"
+            );
+            if (!publisherCheck) {
+              core.setFailed("publisher-verify has not succeeded for the exact commit.");
+              return;
+            }
+            const { data: statuses } = await github.rest.repos.listCommitStatusesForRef({
+              owner,
+              repo,
+              ref: process.env.HEAD_SHA,
+              per_page: 100,
+            });
+            const vercel = statuses.find((status) =>
+              status.state === "success" && /vercel/i.test(status.context)
+            );
+            if (!vercel) {
+              core.setFailed("Vercel preview has not succeeded for the exact commit.");
+              return;
+            }
+            core.setOutput("verified", "true");
+
+      - name: Squash-merge the exact reviewed head
+        if: steps.verify.outputs.verified == 'true'
+        env:
+          HEAD_SHA: ${{ inputs.head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          SLUG: ${{ inputs.slug }}
+        run: |
+          gh api \
+            --method PUT \
+            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/merge" \
+            -f "commit_title=Publish log: ${SLUG}" \
+            -f "merge_method=squash" \
+            -f "sha=${HEAD_SHA}"
