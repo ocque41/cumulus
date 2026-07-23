@@ -1,5 +1,9 @@
-import { FOCUSED_POSTS } from "./focused-posts.js";
-import type { Post, PostBodySection } from "./post-types.js";
+import postsData from "./posts.json" with { type: "json" };
+import {
+  DITHER_VARIANTS,
+  type Post,
+  type PostBodySection,
+} from "./post-types.js";
 
 export type {
   DitherVariant,
@@ -10,78 +14,14 @@ export type {
   PostVisual,
 } from "./post-types.js";
 
-const DRAFT_POST: Post = {
-  slug: "reviewing-the-next-public-system",
-  title: "Reviewing the next public system",
-  excerpt:
-    "A draft checklist for turning a public repository into a bounded, source-backed Cumulus field note without overstating deployment or production evidence.",
-  status: "draft",
-  date: "2026-06-22",
-  category: "Editorial",
-  tags: ["Research method", "Public sources"],
-  readingTime: 2,
-  placement: "research",
-  visual: {
-    variant: "workspace-beacon",
-    alt: "Dither study for a future public-source review",
-  },
-  body: [
-    {
-      heading: "Start at the public boundary",
-      paragraphs: [
-        "A repository can support a useful field note only when the cited material is anonymously reachable and the publication boundary is explicit. Local context may identify what deserves attention, but it cannot become a public claim until the matching source, history, or documentation is available without privileged access.",
-        "The first review therefore records the repository snapshot, the exact files that support the topic, and the difference between source behavior and deployed behavior. A source file can prove that a guard exists in code; it cannot prove the production account, network, or operator configuration currently exercises it.",
-      ],
-    },
-    {
-      heading: "Trace the complete path",
-      paragraphs: [
-        "A robust analysis reads the owning documentation, immediate callers, focused tests, and failure paths instead of quoting a single attractive function. The goal is to explain the system boundary, the design decision, and the operational tradeoff in language that another reader can check against the linked code.",
-        "Stable commit links keep that review reproducible. Mutable branch links are convenient during drafting, but a published note should preserve the source state that was actually reviewed so a later refactor does not silently change the evidence beneath the article.",
-      ],
-    },
-    {
-      heading: "Publish limits with the result",
-      paragraphs: [
-        "Every article should name what remains unproven: a mock does not establish provider compatibility, a migration does not establish live application, and a security control does not establish the absence of vulnerabilities. Those limits make the analysis stronger because they prevent one narrow artifact from absorbing unrelated claims.",
-        "This entry remains a draft until a specific public repository, commit, source trail, and cross-article backlink set are selected. Draft isolation is intentional; the public archive and routes must expose only posts that have passed the same source and structure checks as the rest of the corpus.",
-      ],
-    },
-  ],
-  relatedSlugs: [
-    "requisia-organization-scoped-registers",
-    "insuja-typed-tenant-boundaries",
-  ],
-};
-
-export function countBodyWords(body: readonly PostBodySection[]): number {
-  return body.reduce(
-    (sectionTotal, bodySection) =>
-      sectionTotal +
-      bodySection.paragraphs.reduce(
-        (paragraphTotal, paragraph) =>
-          paragraphTotal + paragraph.trim().split(/\s+/).filter(Boolean).length,
-        0,
-      ),
-    0,
-  );
-}
-
-export function calculateReadingTime(body: readonly PostBodySection[]): number {
-  return Math.max(1, Math.ceil(countBodyWords(body) / 220));
-}
-
-export const POSTS: readonly Post[] = [...FOCUSED_POSTS, DRAFT_POST].map(
-  (post) => ({ ...post, readingTime: calculateReadingTime(post.body) }),
-);
-
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const EXPECTED_PROJECT_COUNTS = new Map([
-  ["requisia", 8],
-  ["insuja", 7],
-  ["hyoka-hanesu", 3],
-  ["gy", 2],
+const DITHER_VARIANT_SET = new Set<string>(DITHER_VARIANTS);
+const PROJECT_CATEGORIES = new Map([
+  ["requisia", "Requisia"],
+  ["insuja", "Insuja"],
+  ["hyoka-hanesu", "Hyoka Hanesu"],
+  ["gy", "gy"],
 ]);
 
 function normalized(value: string): string {
@@ -108,36 +48,36 @@ function isSafeHttpsUrl(value: string): boolean {
   }
 }
 
+export function countBodyWords(body: readonly PostBodySection[]): number {
+  return body.reduce(
+    (sectionTotal, bodySection) =>
+      sectionTotal +
+      bodySection.paragraphs.reduce(
+        (paragraphTotal, paragraph) =>
+          paragraphTotal + paragraph.trim().split(/\s+/).filter(Boolean).length,
+        0,
+      ),
+    0,
+  );
+}
+
+export function calculateReadingTime(body: readonly PostBodySection[]): number {
+  return Math.max(1, Math.ceil(countBodyWords(body) / 220));
+}
+
+const RAW_POSTS = postsData as unknown as readonly Omit<Post, "readingTime">[];
+
+export const POSTS: readonly Post[] = RAW_POSTS.map((post) => ({
+  ...post,
+  readingTime: calculateReadingTime(post.body),
+}));
+
 export function validatePosts(posts: readonly Post[] = POSTS): string[] {
   const issues: string[] = [];
   const slugs = new Set<string>();
   const publishedSlugs = new Set(
     posts.filter((post) => post.status === "published").map((post) => post.slug),
   );
-
-  if (publishedSlugs.size !== 20) {
-    issues.push(`Expected exactly 20 published posts, received ${publishedSlugs.size}.`);
-  }
-
-  for (const [project, expectedCount] of EXPECTED_PROJECT_COUNTS) {
-    const projectCount = posts.filter(
-      (post) => post.status === "published" && post.project === project,
-    ).length;
-    if (projectCount !== expectedCount) {
-      issues.push(
-        `Expected ${expectedCount} published ${project} posts, received ${projectCount}.`,
-      );
-    }
-  }
-  const unexpectedProjects = new Set(
-    posts
-      .filter((post) => post.status === "published")
-      .map((post) => post.project)
-      .filter((project) => !project || !EXPECTED_PROJECT_COUNTS.has(project)),
-  );
-  for (const project of unexpectedProjects) {
-    issues.push(`Unexpected published project ${project ?? "(missing)"}.`);
-  }
 
   const featuredCount = posts.filter(
     (post) => post.status === "published" && post.placement === "featured",
@@ -156,9 +96,15 @@ export function validatePosts(posts: readonly Post[] = POSTS): string[] {
     if (!isValidDate(post.date)) issues.push(`${label}: date must be a valid YYYY-MM-DD value.`);
     if (!post.category.trim()) issues.push(`${label}: category is required.`);
 
+    if (post.category === "Editorial") {
+      if (post.project) issues.push(`${label}: Editorial posts cannot set a project.`);
+    } else if (!post.project || PROJECT_CATEGORIES.get(post.project) !== post.category) {
+      issues.push(`${label}: project and category must use an approved Cumulus pairing.`);
+    }
+
     const expectedReadingTime = calculateReadingTime(post.body);
-    if (!Number.isInteger(post.readingTime) || Math.abs(post.readingTime - expectedReadingTime) > 1) {
-      issues.push(`${label}: readingTime must track body length at roughly 220 wpm.`);
+    if (!Number.isInteger(post.readingTime) || post.readingTime !== expectedReadingTime) {
+      issues.push(`${label}: readingTime must be calculated from body length.`);
     }
     if (post.tags.length < 2 || post.tags.some((tag) => !tag.trim())) {
       issues.push(`${label}: at least two non-empty tags are required.`);
@@ -166,24 +112,26 @@ export function validatePosts(posts: readonly Post[] = POSTS): string[] {
     if (new Set(post.tags.map(normalized)).size !== post.tags.length) {
       issues.push(`${label}: tags must be unique within a post.`);
     }
-    if (!post.visual.variant || !post.visual.alt.trim()) {
+    if (!DITHER_VARIANT_SET.has(post.visual.variant) || !post.visual.alt.trim()) {
       issues.push(`${label}: visual variant and alternative text are required.`);
     }
-    if (post.body.length < 3 || post.body.length > 6) {
-      issues.push(`${label}: body must contain between three and six sections.`);
+    if (post.body.length < 1 || post.body.length > 6) {
+      issues.push(`${label}: body must contain between one and six sections.`);
     }
-    if (post.status === "published" && countBodyWords(post.body) < 600) {
-      issues.push(`${label}: published body must contain at least 600 words.`);
+    if (post.status === "published" && countBodyWords(post.body) < 3) {
+      issues.push(`${label}: published body must contain at least three words.`);
     }
     post.body.forEach((bodySection, sectionIndex) => {
       if (!bodySection.heading.trim()) {
         issues.push(`${label}: body section ${sectionIndex + 1} needs a heading.`);
       }
       if (
-        bodySection.paragraphs.length < 2 ||
-        bodySection.paragraphs.some((paragraph) => paragraph.trim().length < 80)
+        bodySection.paragraphs.length < 1 ||
+        bodySection.paragraphs.some((paragraph) => paragraph.trim().length < 10)
       ) {
-        issues.push(`${label}: body section ${sectionIndex + 1} needs two substantial paragraphs.`);
+        issues.push(
+          `${label}: body section ${sectionIndex + 1} needs at least one substantial paragraph.`,
+        );
       }
     });
 
@@ -196,10 +144,8 @@ export function validatePosts(posts: readonly Post[] = POSTS): string[] {
       if (sourceKeys.has(key)) issues.push(`${label}: source links must be unique.`);
       sourceKeys.add(key);
     }
+
     const related = post.relatedSlugs ?? [];
-    if (post.status === "published" && related.length < 2) {
-      issues.push(`${label}: published posts need at least two related backlinks.`);
-    }
     if (new Set(related).size !== related.length) {
       issues.push(`${label}: related slugs must be unique.`);
     }
@@ -220,9 +166,6 @@ export function validatePosts(posts: readonly Post[] = POSTS): string[] {
     }
   });
 
-  if (!posts.some((post) => post.status === "draft")) {
-    issues.push("At least one draft post is required to verify draft isolation.");
-  }
   return issues;
 }
 

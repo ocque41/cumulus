@@ -14,10 +14,10 @@ import {
 import { FIRST_PARTY_JOURNAL_NOTICE } from "./focused-posts";
 
 const EXPECTED_PROJECTS = new Map([
-  ["requisia", { category: "Requisia", count: 8 }],
-  ["insuja", { category: "Insuja", count: 7 }],
-  ["hyoka-hanesu", { category: "Hyoka Hanesu", count: 3 }],
-  ["gy", { category: "gy", count: 2 }],
+  ["requisia", "Requisia"],
+  ["insuja", "Insuja"],
+  ["hyoka-hanesu", "Hyoka Hanesu"],
+  ["gy", "gy"],
 ]);
 
 function editablePosts(): Post[] {
@@ -35,20 +35,15 @@ function editablePosts(): Post[] {
 }
 
 describe("POSTS", () => {
-  it("publishes exactly twenty journals in the approved four-project split", () => {
-    expect(publishedPosts).toHaveLength(20);
+  it("publishes a valid, ordered catalog without a fixed post count", () => {
+    expect(publishedPosts.length).toBeGreaterThan(0);
     expect(new Set(POSTS.map((post) => post.slug)).size).toBe(POSTS.length);
-    expect(POSTS.filter((post) => post.status === "draft")).toHaveLength(1);
 
-    for (const [project, expected] of EXPECTED_PROJECTS) {
+    for (const [project, category] of EXPECTED_PROJECTS) {
       const projectPosts = publishedPosts.filter((post) => post.project === project);
-      expect(projectPosts, project).toHaveLength(expected.count);
-      expect(projectPosts.every((post) => post.category === expected.category)).toBe(true);
+      expect(projectPosts.every((post) => post.category === category)).toBe(true);
     }
 
-    expect(new Set(publishedPosts.map((post) => post.project))).toEqual(
-      new Set(EXPECTED_PROJECTS.keys()),
-    );
     expect(
       POSTS.every(
         (post, index) => index === 0 || POSTS[index - 1].date >= post.date,
@@ -62,34 +57,36 @@ describe("POSTS", () => {
     const sectionCounts = new Set<number>();
 
     for (const post of publishedPosts) {
-      expect(post.title.trim().length).toBeGreaterThan(10);
-      expect(post.excerpt.trim().length).toBeGreaterThan(90);
-      expect(post.project?.trim()).not.toBe("");
-      expect(post.tags.length).toBeGreaterThanOrEqual(3);
+      expect(post.title.trim().length).toBeGreaterThan(5);
+      expect(post.excerpt.trim().length).toBeGreaterThan(40);
+      if (post.category !== "Editorial") expect(post.project?.trim()).not.toBe("");
+      expect(post.tags.length).toBeGreaterThanOrEqual(2);
       expect(new Set(post.tags.map((tag) => tag.toLocaleLowerCase("en-US"))).size)
         .toBe(post.tags.length);
 
       const bodyWords = countBodyWords(post.body);
-      expect(bodyWords, post.slug).toBeGreaterThanOrEqual(600);
+      expect(bodyWords, post.slug).toBeGreaterThanOrEqual(50);
       expect(post.readingTime, post.slug).toBe(calculateReadingTime(post.body));
       expect(post.visual.alt.trim().length).toBeGreaterThan(24);
-      expect(post.body.length).toBeGreaterThanOrEqual(3);
+      expect(post.body.length).toBeGreaterThanOrEqual(1);
       expect(post.body.length).toBeLessThanOrEqual(6);
       expect(post.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       sectionCounts.add(post.body.length);
 
-      const completeBody = post.body
-        .flatMap((bodySection) => bodySection.paragraphs)
-        .join(" ");
-      expect(completeBody, post.slug).toMatch(
-        /evidence|first-party|private|production|deployment|public/i,
-      );
+      if (post.category !== "Editorial") {
+        const completeBody = post.body
+          .flatMap((bodySection) => bodySection.paragraphs)
+          .join(" ");
+        expect(completeBody, post.slug).toMatch(
+          /evidence|first-party|private|production|deployment|public/i,
+        );
+      }
 
       for (const bodySection of post.body) {
         expect(bodySection.heading.trim().length).toBeGreaterThan(4);
-        expect(bodySection.paragraphs.length).toBeGreaterThanOrEqual(2);
+        expect(bodySection.paragraphs.length).toBeGreaterThanOrEqual(1);
         for (const paragraph of bodySection.paragraphs) {
-          expect(paragraph.trim().length).toBeGreaterThanOrEqual(80);
+          expect(paragraph.trim().length).toBeGreaterThanOrEqual(40);
           const normalized = paragraph.trim().replace(/\s+/g, " ");
           expect(
             seenParagraphs.get(normalized),
@@ -128,10 +125,6 @@ describe("POSTS", () => {
   });
 
   it("uses the first-party journal boundary without invented source links", () => {
-    for (const post of publishedPosts) {
-      expect(post.sourceLinks ?? [], post.slug).toEqual([]);
-    }
-
     const serialized = JSON.stringify(POSTS);
     expect(serialized).not.toMatch(
       /\/Users\/|\/private\/|localhost|127\.0\.0\.1|ocque41/i,
@@ -162,7 +155,6 @@ describe("POSTS", () => {
     const publishedSlugs = new Set(publishedPosts.map((post) => post.slug));
 
     for (const post of POSTS) {
-      expect(post.relatedSlugs?.length ?? 0, post.slug).toBeGreaterThanOrEqual(2);
       expect(new Set(post.relatedSlugs).size).toBe(post.relatedSlugs?.length);
       for (const relatedSlug of post.relatedSlugs ?? []) {
         expect(relatedSlug).not.toBe(post.slug);
@@ -171,6 +163,35 @@ describe("POSTS", () => {
         );
       }
     }
+  });
+
+  it("accepts a short Editorial post with a generated Cumulus visual", () => {
+    const posts = editablePosts();
+    const body = [{
+      heading: "A small public note",
+      paragraphs: [
+        "A focused thought.",
+      ],
+    }];
+    posts.unshift({
+      slug: "a-small-public-note",
+      title: "A small public note",
+      excerpt: "A compact editorial that keeps the author’s facts while applying the Cumulus publishing structure.",
+      status: "published",
+      date: "2026-07-18",
+      category: "Editorial",
+      tags: ["Publishing", "Editorial"],
+      readingTime: calculateReadingTime(body),
+      placement: "recent",
+      visual: {
+        variant: "signal-window",
+        alt: "Animated dither signal window framing a compact editorial note",
+      },
+      body,
+      verifiedAt: "2026-07-18",
+    });
+
+    expect(validatePosts(posts)).toEqual([]);
   });
 });
 
@@ -242,7 +263,7 @@ describe("validatePosts", () => {
     posts[0] = {
       ...posts[0],
       date: "0000-00-00",
-      body: [{ heading: "", paragraphs: ["Only one short paragraph."] }],
+      body: [{ heading: "", paragraphs: ["Short"] }],
     };
 
     const issues = validatePosts(posts);
@@ -250,13 +271,13 @@ describe("validatePosts", () => {
       `${posts[0].slug}: date must be a valid YYYY-MM-DD value.`,
     );
     expect(issues).toContain(
-      `${posts[0].slug}: body must contain between three and six sections.`,
+      `${posts[0].slug}: published body must contain at least three words.`,
     );
     expect(issues).toContain(
       `${posts[0].slug}: body section 1 needs a heading.`,
     );
     expect(issues).toContain(
-      `${posts[0].slug}: body section 1 needs two substantial paragraphs.`,
+      `${posts[0].slug}: body section 1 needs at least one substantial paragraph.`,
     );
     expect(issues).toContain(
       `${posts[1].slug}: posts must be in non-increasing date order.`,

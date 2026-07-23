@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { searchPublishedPosts } from "@/content/posts";
+import { publishedPosts, searchPublishedPosts } from "@/content/posts";
 
 import { LogsPage } from "./LogsPage";
 
@@ -19,19 +19,24 @@ afterEach(() => {
 describe("LogsPage filters", () => {
   it("applies a category without jumping away from the controls or losing focus", async () => {
     render(<LogsPage />);
+    const expected = searchPublishedPosts("", "Requisia").length;
 
     const requisia = screen.getByRole("button", { name: "Requisia" });
     requisia.focus();
     fireEvent.click(requisia);
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/^8 entries$/));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        `${expected} entries`,
+      ),
+    );
     expect(window.location.search).toBe("?category=Requisia");
     expect(requisia).toHaveAttribute("aria-pressed", "true");
     expect(requisia).toHaveFocus();
     expect(window.scrollTo).not.toHaveBeenCalled();
 
     const rows = Array.from(document.querySelectorAll<HTMLElement>(".post-index-row"));
-    expect(rows).toHaveLength(8);
+    expect(rows).toHaveLength(expected);
     expect(rows.every((row) => row.textContent?.includes("Requisia"))).toBe(true);
   });
 
@@ -51,7 +56,11 @@ describe("LogsPage filters", () => {
     expect(window.location.search).toBe("?q=evidence&category=Requisia");
 
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/^20 entries$/));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        `${publishedPosts.length} entries`,
+      ),
+    );
     expect(window.location.pathname).toBe("/logs");
     expect(window.location.search).toBe("");
     expect(screen.getByRole("searchbox", { name: "Search logs" })).toHaveValue("");

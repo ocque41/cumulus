@@ -16,12 +16,16 @@ import {
 
 const PREFERENCES_ENDPOINT = "**/api/notifications/preferences";
 
-const PROJECT_COUNTS = new Map([
-  ["requisia", 8],
-  ["insuja", 7],
-  ["hyoka-hanesu", 3],
-  ["gy", 2],
-]);
+const PROJECT_COUNTS = new Map(
+  WORK_PROJECTS.map((project) => [
+    project.slug,
+    publishedPosts.filter((post) => post.project === project.slug).length,
+  ]),
+);
+const PROJECT_POST_COUNT = Array.from(PROJECT_COUNTS.values()).reduce(
+  (total, count) => total + count,
+  0,
+);
 
 async function openNotificationSettings(page: Page): Promise<Locator> {
   const trigger = page.getByRole("button", {
@@ -107,7 +111,7 @@ test.beforeEach(async ({ page }) => {
   await mockAnonymousNotificationSession(page);
 });
 
-test("the archive contains exactly the 20 canonical project journals", async ({
+test("the archive reflects the validated post catalog", async ({
   page,
 }) => {
   await seedNotificationPromptMarker(page);
@@ -116,8 +120,12 @@ test("the archive contains exactly the 20 canonical project journals", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: "Log index" }),
   ).toBeVisible();
-  await expect(page.getByRole("status")).toHaveText("20 entries");
-  await expect(page.locator(".post-index-row")).toHaveCount(20);
+  await expect(page.getByRole("status")).toHaveText(
+    `${publishedPosts.length} entries`,
+  );
+  await expect(page.locator(".post-index-row")).toHaveCount(
+    publishedPosts.length,
+  );
 
   for (const [project, expectedCount] of PROJECT_COUNTS) {
     await expect(
@@ -136,16 +144,19 @@ test("the archive contains exactly the 20 canonical project journals", async ({
   await expect(page.getByRole("status")).toHaveText(
     `${searchPublishedPosts("Requisia").length} entries matching “Requisia”`,
   );
-  await expect(page.locator(".post-index-row")).toHaveCount(8);
+  const requisiaCount = searchPublishedPosts("Requisia").length;
+  await expect(page.locator(".post-index-row")).toHaveCount(requisiaCount);
   await expect(
     page.locator(".post-index-row .post-meta > span:nth-of-type(2)").filter({
       hasText: /^requisia$/i,
     }),
-  ).toHaveCount(8);
+  ).toHaveCount(requisiaCount);
 
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).toHaveURL(/\/logs$/);
-  await expect(page.getByRole("status")).toHaveText("20 entries");
+  await expect(page.getByRole("status")).toHaveText(
+    `${publishedPosts.length} entries`,
+  );
   await expect(search).toHaveValue("");
 });
 
@@ -164,14 +175,14 @@ test("Public Work presents four internal project records without source links", 
   const projectJournalLinks = page.locator(
     '.work-project__notes a[href^="/logs/"]',
   );
-  await expect(projectJournalLinks).toHaveCount(20);
+  await expect(projectJournalLinks).toHaveCount(PROJECT_POST_COUNT);
   await expect(
     projectJournalLinks.locator(".work-project__note-plate.dither-artwork"),
-  ).toHaveCount(20);
+  ).toHaveCount(PROJECT_POST_COUNT);
   const projectJournalHrefs = await projectJournalLinks.evaluateAll((links) =>
     links.map((link) => link.getAttribute("href")),
   );
-  expect(new Set(projectJournalHrefs).size).toBe(20);
+  expect(new Set(projectJournalHrefs).size).toBe(PROJECT_POST_COUNT);
 
   for (const project of WORK_PROJECTS) {
     await expect(

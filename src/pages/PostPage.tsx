@@ -38,10 +38,17 @@ export function PostPage({ post }: { post: Post }) {
           <span>{post.category}</span>
         </div>
         <PostMeta post={post} />
-        <p className="article-evidence-label">
-          <strong>{FIRST_PARTY_JOURNAL_NOTICE.label}.</strong>{" "}
-          {FIRST_PARTY_JOURNAL_NOTICE.detail}
-        </p>
+        {post.category === "Editorial" ? (
+          <p className="article-evidence-label">
+            <strong>Author-supplied editorial.</strong>{" "}
+            Claims and links are limited to the submitted source and reviewed publication.
+          </p>
+        ) : (
+          <p className="article-evidence-label">
+            <strong>{FIRST_PARTY_JOURNAL_NOTICE.label}.</strong>{" "}
+            {FIRST_PARTY_JOURNAL_NOTICE.detail}
+          </p>
+        )}
         <h1>{post.title}</h1>
         <p className="article-hero__excerpt">{post.excerpt}</p>
         <ul aria-label="Topics" className="tag-list tag-list--large">
@@ -72,6 +79,11 @@ export function PostPage({ post }: { post: Post }) {
                 <a href={`#section-${index + 1}`}>{section.heading}</a>
               </li>
             ))}
+            {post.sourceLinks?.length ? (
+              <li>
+                <a href="#sources">Links and sources</a>
+              </li>
+            ) : null}
           </ol>
           <AppLink href="/logs">Back to every log</AppLink>
         </aside>
@@ -94,6 +106,22 @@ export function PostPage({ post }: { post: Post }) {
               />
             </section>
           ))}
+          {post.sourceLinks?.length ? (
+            <section className="source-backlinks" id="sources">
+              <p className="eyebrow">Author-supplied references</p>
+              <h2>Links and sources</h2>
+              <ol>
+                {post.sourceLinks.map((source, index) => (
+                  <li key={source.href}>
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <a href={source.href} rel="noreferrer" target="_blank">
+                      {source.label}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
         </div>
       </div>
 

@@ -30,6 +30,8 @@ The Segment and Topic IDs are private deployment configuration. Cumulus checks b
 
 `POST /api/notifications/publish` requires `NOTIFICATION_PUBLISH_SECRET`. It builds a deterministic Broadcast name and idempotency key from the immutable post slug, checks for an existing exact-content Broadcast, and refuses content conflicts. Resend Broadcasts supply the recipient-specific unsubscribe URL; the HTML presents it as a clear footer button and the plain-text part includes the same action. Both HTML and text include the truthful configured postal address.
 
+An external publisher must not call this endpoint until the reviewed commit is on `main`, Vercel reports a successful Production deployment for that exact commit, and the public `/logs/{slug}` route passes a smoke check. It must call dry-run mode first. A failed preview, merge, deployment, public-route check, or dry run blocks delivery. A later retry uses the same slug, so the endpoint's existing idempotency protection prevents a second broadcast.
+
 The authenticated Resend webhook accepts only bounced, complained, and suppressed events. It verifies the Svix signature over the raw body, normalizes unique recipients, and opts the matching Cumulus Topic out. Unsupported events are acknowledged and ignored; provider failures return a retryable error.
 
 ## Environment contract
