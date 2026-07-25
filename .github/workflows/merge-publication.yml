@@ -57,6 +57,7 @@ jobs:
             const repo = context.repo.repo;
             const pull_number = Number(process.env.PR_NUMBER);
             if (!Number.isInteger(pull_number) || pull_number < 1) {
+              core.setOutput("failure_code", "boundary_invalid");
               core.setFailed("Invalid pull request number.");
               return;
             }
@@ -68,6 +69,7 @@ jobs:
               || pr.head.ref !== process.env.BRANCH
               || pr.head.sha !== process.env.HEAD_SHA
             ) {
+              core.setOutput("failure_code", "stale");
               core.setFailed("STALE_PUBLICATION: pull request boundaries changed.");
               return;
             }
@@ -77,6 +79,7 @@ jobs:
               branch: "main",
             });
             if (main.commit.sha !== process.env.BASE_SHA) {
+              core.setOutput("failure_code", "stale");
               core.setFailed("STALE_PUBLICATION: main changed after preview preparation.");
               return;
             }
@@ -91,6 +94,7 @@ jobs:
               || files[0].filename !== "src/content/posts.json"
               || files[0].status === "removed"
             ) {
+              core.setOutput("failure_code", "boundary_invalid");
               core.setFailed("Publication pull request changed unsupported files.");
               return;
             }
@@ -104,6 +108,7 @@ jobs:
               check.name === "publisher-verify" && check.conclusion === "success"
             );
             if (!publisherCheck) {
+              core.setOutput("failure_code", "checks_incomplete");
               core.setFailed("publisher-verify has not succeeded for the exact commit.");
               return;
             }
@@ -117,6 +122,7 @@ jobs:
               status.state === "success" && /vercel/i.test(status.context)
             );
             if (!vercel) {
+              core.setOutput("failure_code", "preview_incomplete");
               core.setFailed("Vercel preview has not succeeded for the exact commit.");
               return;
             }
@@ -129,9 +135,68 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
           SLUG: ${{ inputs.slug }}
         run: |
-          gh api \
+          merge_response="$(gh api \
             --method PUT \
             "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/merge" \
             -f "commit_title=Publish log: ${SLUG}" \
             -f "merge_method=squash" \
-            -f "sha=${HEAD_SHA}"
+            -f "sha=${HEAD_SHA}")"
+          MERGE_RESPONSE="$merge_response" node --input-type=module -e '
+            import { writeFile } from "node:fs/promises";
+            const response = JSON.parse(process.env.MERGE_RESPONSE);
+            if (response.merged !== true || typeof response.sha !== "string") {
+              throw new Error("GitHub did not confirm the exact merge.");
+            }
+            const result = {
+              head_sha: process.env.HEAD_SHA,
+              merge_sha: response.sha,
+              pr_number: process.env.PR_NUMBER,
+              result: "merged",
+              slug: process.env.SLUG,
+            };
+            await writeFile(
+              "publisher-merge-result.json",
+              JSON.stringify(result, null, 2) + "\n",
+            );
+          '
+
+      - name: Record safe merge rejection
+        if: failure() && steps.verify.outputs.failure_code != ''
+        env:
+          FAILURE_CODE: ${{ steps.verify.outputs.failure_code }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          SLUG: ${{ inputs.slug }}
+        run: |
+          node --input-type=module -e '
+            import { writeFile } from "node:fs/promises";
+            const allowed = new Set([
+              "boundary_invalid",
+              "checks_incomplete",
+              "preview_incomplete",
+              "stale",
+            ]);
+            if (!allowed.has(process.env.FAILURE_CODE)) {
+              throw new Error("Unsupported merge rejection code.");
+            }
+            const result = {
+              failure_code: process.env.FAILURE_CODE,
+              head_sha: process.env.HEAD_SHA,
+              pr_number: process.env.PR_NUMBER,
+              result: "rejected",
+              slug: process.env.SLUG,
+            };
+            await writeFile(
+              "publisher-merge-result.json",
+              JSON.stringify(result, null, 2) + "\n",
+            );
+          '
+
+      - name: Upload safe merge result
+        if: always() && hashFiles('publisher-merge-result.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: publisher-merge-result
+          path: publisher-merge-result.json
+          retention-days: 30
