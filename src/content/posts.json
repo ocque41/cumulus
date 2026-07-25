@@ -1,5 +1,48 @@
 [
   {
+    "slug": "a-verified-remote-publishing-proof-for-cumulus",
+    "title": "A Verified Remote Publishing Proof for Cumulus",
+    "excerpt": "This synthetic publication records a complete, repository-scoped release through the repaired Cumulus remote publishing system.",
+    "status": "published",
+    "date": "2026-07-25",
+    "category": "Editorial",
+    "tags": [
+      "Cumulus",
+      "Publishing",
+      "Verification",
+      "GitHub",
+      "Vercel"
+    ],
+    "placement": "recent",
+    "visual": {
+      "alt": "Abstract Cumulus dither illustration for A Verified Remote Publishing Proof for Cumulus",
+      "variant": "archive-lines"
+    },
+    "body": [
+      {
+        "heading": "Why this proof exists",
+        "paragraphs": [
+          "This is a deliberate synthetic acceptance record for the Cumulus publisher. It confirms that the private writing surface can prepare one exact content change without a local checkout and can keep that change inside the public post catalog."
+        ]
+      },
+      {
+        "heading": "What the release verifies",
+        "paragraphs": [
+          "The release must create a dedicated GitHub branch and pull request, pass the complete repository checks, match the Vercel preview to the reviewed commit, merge only that commit, and verify the matching production deployment. The final public page, homepage top position, archive, Editorial area, sitemap, and deployment manifest must all agree."
+        ]
+      },
+      {
+        "heading": "Safety boundary",
+        "paragraphs": [
+          "Subscriber email remains disabled for this proof. No notification publication endpoint is called, and the successful article remains as the acceptance artifact for the repaired system."
+        ]
+      }
+    ],
+    "sourceLinks": [],
+    "relatedSlugs": [],
+    "verifiedAt": "2026-07-25"
+  },
+  {
     "title": "Organization-Scoped Registers Without Spreadsheet Amnesia",
     "slug": "requisia-organization-scoped-registers",
     "excerpt": "Requisia treats the familiar workbook as an exchange surface around an organization-scoped register, preserving identity, field meaning, and revision history when the table changes shape.",
