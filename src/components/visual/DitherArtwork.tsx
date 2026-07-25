@@ -252,7 +252,7 @@ function cancelRuntimeSchedule() {
 }
 
 function paintEntry(entry: RuntimeEntry, seconds: number) {
-  let painted = false;
+  let painted: boolean;
   try {
     painted = entry.draw(seconds);
   } catch {

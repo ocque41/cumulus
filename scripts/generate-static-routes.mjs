@@ -133,6 +133,16 @@ const publicRoutes = [
   {
     canonicalPath: "/",
     description: "Cumulus is a public laboratory for evidence-backed field notes on systems, interfaces, operations, and software design.",
+    structuredData: {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      itemListElement: publishedPosts.slice(0, 5).map((post, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: post.title,
+        url: `${ORIGIN}/logs/${post.slug}`,
+      })),
+    },
     title: "Cumulus lab — Field notes from the build",
   },
   ...collectionRoutes({

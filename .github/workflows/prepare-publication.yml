@@ -1,10 +1,14 @@
 name: Prepare Cumulus publication
 
-run-name: Prepare publication · ${{ github.run_id }}
+run-name: Prepare publication · ${{ inputs.correlation_id }}
 
 on:
   workflow_dispatch:
     inputs:
+      correlation_id:
+        description: Safe publisher correlation identifier
+        required: true
+        type: string
       payload:
         description: Base64-encoded versioned publication payload
         required: true
@@ -39,6 +43,12 @@ jobs:
       - name: Validate the publication contract
         id: contract
         run: node scripts/publisher-contract.mjs
+
+      - name: Confirm the dispatch correlation
+        env:
+          EXPECTED_CORRELATION_ID: ${{ inputs.correlation_id }}
+          VALIDATED_CORRELATION_ID: ${{ steps.contract.outputs.correlation_id }}
+        run: test "$VALIDATED_CORRELATION_ID" = "$EXPECTED_CORRELATION_ID"
 
       - name: Create or reuse the deterministic content branch
         id: branch
